@@ -1,0 +1,2673 @@
+import { useState, useEffect } from 'react'
+import io from 'socket.io-client'
+import { 
+  MessageSquare, 
+  Wifi, 
+  WifiOff, 
+  Play, 
+  Square, 
+  RefreshCw,
+  Clock,
+  QrCode,
+  CheckCircle,
+  Bot,
+  List,
+  Type,
+  Timer,
+  Menu,
+  Settings,
+  BarChart3,
+  Users,
+  MessageCircle,
+  Smartphone,
+  Plus,
+  Edit3,
+  Trash2,
+  X,
+  ToggleLeft,
+  ToggleRight,
+  Zap,
+  Tag,
+  MessageSquareText,
+  Sparkles,
+  Check,
+  UserCheck,
+  PlayCircle,
+  Eye,
+  EyeOff,
+  MousePointer,
+  Move,
+  Save,
+  Download,
+  Upload,
+  Maximize2,
+  Minimize2,
+  Route,
+  Diamond
+} from 'lucide-react'
+import LandingPage from './components/LandingPage'
+import Login from './components/Login'
+import Register from './components/Register'
+import './App.css'
+import './styles/LandingPage.css'
+import './styles/Auth.css'
+
+interface ConnectionStatus {
+  connected: boolean
+  message: string
+}
+
+
+
+interface ChatMessage {
+  id: string
+  from: string
+  to: string
+  body: string
+  timestamp: Date
+  isFromBot: boolean
+  isFromHuman: boolean
+}
+
+interface HumanChat {
+  id: string
+  contactNumber: string
+  contactName: string
+  status: 'pending' | 'active' | 'resolved'
+  messages: ChatMessage[]
+  assignedOperator?: string
+  createdAt: Date
+  lastActivity: Date
+  transferReason: string
+}
+
+
+
+
+
+interface AutoMessage {
+  id: string
+  trigger: string[]
+  response: string
+  active: boolean
+}
+
+interface MessageProject {
+  id: string
+  name: string
+  description: string
+  messages: AutoMessage[]
+  createdAt: string
+  isActive: boolean
+  isDefault?: boolean // Novo campo para marcar projeto como padrão
+}
+
+interface FlowNode {
+  id: string
+  type: 'start' | 'message' | 'condition' | 'options' | 'human' | 'end'
+  position: { x: number; y: number }
+  data: {
+    title: string
+    description?: string
+    triggers?: string[]
+    response?: string
+    conditions?: { field: string; operator: string; value: string }[]
+    options?: { id: string; label: string; value: string }[]
+    active?: boolean
+  }
+  connections: string[] // IDs of connected nodes
+}
+
+interface FlowConnection {
+  id: string
+  source: string
+  target: string
+  sourceHandle?: string
+  targetHandle?: string
+}
+
+interface FlowState {
+  nodes: FlowNode[]
+  connections: FlowConnection[]
+  selectedNode: string | null
+  draggedNode: string | null
+  isDragging: boolean
+  zoom: number
+  panOffset: { x: number; y: number }
+}
+
+type PageType = 'landing' | 'login' | 'register' | 'dashboard'
+
+function App() {
+  const [currentPage, setCurrentPage] = useState<PageType>(() => {
+    // Verificar se o usuário já estava logado
+    const savedSession = localStorage.getItem('userSession')
+    return savedSession ? 'dashboard' : 'landing'
+  })
+  const [socket, setSocket] = useState<any | null>(null)
+  const [status, setStatus] = useState<ConnectionStatus>({ connected: false, message: 'Desconectado' })
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [messageCount, setMessageCount] = useState(0)
+  const [uptime, setUptime] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showQRPopup, setShowQRPopup] = useState(false)
+  const [connectionStep, setConnectionStep] = useState<'idle' | 'connecting' | 'qr' | 'connected'>('idle')
+  const [activeMenu, setActiveMenu] = useState('instance')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  // Hook para detectar mudanças no tamanho da tela
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768
+      setIsMobile(mobile)
+      if (!mobile) {
+        setMobileMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Função para toggle do menu móvel
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen)
+  }
+
+  // Função para fechar menu móvel
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false)
+  }
+
+  // Função melhorada para toggle do sidebar
+  const toggleSidebar = () => {
+    if (isMobile) {
+      toggleMobileMenu()
+    } else {
+      setSidebarCollapsed(!sidebarCollapsed)
+    }
+  }
+
+  // States for Message Projects
+  const [messageProjects, setMessageProjects] = useState<MessageProject[]>([])
+  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [showProjectForm, setShowProjectForm] = useState(false)
+  const [newProject, setNewProject] = useState({ name: '', description: '' })
+  const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null)
+
+  // States for Human Chat System
+  const [humanChats, setHumanChats] = useState<HumanChat[]>([])
+  const [selectedChat, setSelectedChat] = useState<string | null>(null)
+  const [newChatMessage, setNewChatMessage] = useState('')
+  const [operatorName, setOperatorName] = useState(() => {
+    return localStorage.getItem('operatorName') || 'Operador'
+  })
+
+  // Legacy state - will be migrated to projects
+  const [autoMessages, setAutoMessages] = useState<AutoMessage[]>([
+    {
+      id: '1',
+      trigger: ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite'],
+      response: 'Olá! {name} Sou o assistente virtual da empresa tal. Como posso ajudá-lo hoje? Por favor, digite uma das opções abaixo:\n\n1 - Como funciona\n2 - Valores dos planos\n3 - Benefícios\n4 - Como aderir\n5 - Outras perguntas',
+      active: true
+    },
+    {
+      id: '2',
+      trigger: ['1'],
+      response: 'Nosso serviço oferece consultas médicas 24 horas por dia, 7 dias por semana, diretamente pelo WhatsApp.\n\nNão há carência, o que significa que você pode começar a usar nossos serviços imediatamente após a adesão.\n\nOferecemos atendimento médico ilimitado, receitas\n\nAlém disso, temos uma ampla gama de benefícios, incluindo acesso a cursos gratuitos\n\nLink para cadastro: https://site.com',
+      active: true
+    },
+    {
+      id: '3',
+      trigger: ['2'],
+      response: '*Plano Individual:* R$22,50 por mês.\n\n*Plano Família:* R$39,90 por mês, inclui você mais 3 dependentes.\n\n*Plano TOP Individual:* R$42,50 por mês, com benefícios adicionais como\n\n*Plano TOP Família:* R$79,90 por mês, inclui você mais 3 dependentes\n\nLink para cadastro: https://site.com',
+      active: true
+    },
+    {
+      id: '4',
+      trigger: ['3'],
+      response: 'Sorteio de em prêmios todo ano.\n\nAtendimento médico ilimitado 24h por dia.\n\nReceitas de medicamentos\n\nLink para cadastro: https://site.com',
+      active: true
+    },
+    {
+      id: '5',
+      trigger: ['4'],
+      response: 'Você pode aderir aos nossos planos diretamente pelo nosso site ou pelo WhatsApp.\n\nApós a adesão, você terá acesso imediato\n\nLink para cadastro: https://site.com',
+      active: true
+    },
+    {
+      id: '6',
+      trigger: ['5'],
+      response: 'Se você tiver outras dúvidas ou precisar de mais informações, por favor, fale aqui nesse whatsapp ou visite nosso site: https://site.com',
+      active: true
+    }
+  ])
+  const [editingMessage, setEditingMessage] = useState<AutoMessage | null>(null)
+  const [showAddMessage, setShowAddMessage] = useState(false)
+  const [showFlowView, setShowFlowView] = useState(false)
+  const [newAutoMessage, setNewAutoMessage] = useState<Partial<AutoMessage>>({
+    trigger: [],
+    response: '',
+    active: true
+  })
+
+  // Advanced Flow Editor State
+  const [flowState, setFlowState] = useState<FlowState>({
+    nodes: [],
+    connections: [],
+    selectedNode: null,
+    draggedNode: null,
+    isDragging: false,
+    zoom: 1,
+    panOffset: { x: 0, y: 0 }
+  })
+  const [showNodeEditor, setShowNodeEditor] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [activeFlowTool, setActiveFlowTool] = useState<'select' | 'connect' | 'pan'>('select')
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean
+    draggedNodeId: string | null
+    dragOffset: { x: number; y: number }
+    startPosition: { x: number; y: number }
+  }>({
+    isDragging: false,
+    draggedNodeId: null,
+    dragOffset: { x: 0, y: 0 },
+    startPosition: { x: 0, y: 0 }
+  })
+
+  // Load messages from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('autoMessages')
+    if (saved) {
+      setAutoMessages(JSON.parse(saved))
+    }
+
+    // Load projects and default project
+    const savedProjects = localStorage.getItem('messageProjects')
+    if (savedProjects) {
+      setMessageProjects(JSON.parse(savedProjects))
+    }
+
+    const savedDefaultProject = localStorage.getItem('defaultProjectId')
+    if (savedDefaultProject) {
+      setDefaultProjectId(savedDefaultProject)
+    }
+  }, [])
+
+  // Save messages to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('autoMessages', JSON.stringify(autoMessages))
+    // Send updated messages to server
+    if (socket) {
+      socket.emit('update_auto_messages', autoMessages)
+    }
+  }, [autoMessages, socket])
+
+  // Save projects to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('messageProjects', JSON.stringify(messageProjects))
+    // Send updated projects to server
+    if (socket) {
+      socket.emit('update_message_projects', messageProjects)
+    }
+  }, [messageProjects, socket])
+
+  // Send default project to server when socket connects
+  useEffect(() => {
+    if (socket && defaultProjectId) {
+      socket.emit('set_default_project', defaultProjectId)
+      console.log('🌟 Projeto padrão enviado para servidor:', defaultProjectId)
+    }
+  }, [socket, defaultProjectId])
+
+  // Auto-scroll para a última mensagem quando novas mensagens chegam
+  const scrollToBottom = () => {
+    const chatMessagesElement = document.querySelector('.chat-messages')
+    if (chatMessagesElement) {
+      setTimeout(() => {
+        chatMessagesElement.scrollTo({
+          top: chatMessagesElement.scrollHeight,
+          behavior: 'smooth'
+        })
+      }, 50)
+    }
+  }
+
+  useEffect(() => {
+    if (selectedChat && humanChats.length > 0) {
+      scrollToBottom()
+    }
+  }, [humanChats, selectedChat])
+
+  // Scroll quando uma nova mensagem é enviada
+  useEffect(() => {
+    if (selectedChat) {
+      const currentChat = humanChats.find(chat => chat.id === selectedChat)
+      if (currentChat && currentChat.messages.length > 0) {
+        scrollToBottom()
+      }
+    }
+  }, [humanChats.find(chat => chat.id === selectedChat)?.messages?.length])
+
+  // Auto-focus no campo de mensagem quando uma conversa é selecionada
+  useEffect(() => {
+    if (selectedChat) {
+      const textareaElement = document.querySelector('.chat-input textarea') as HTMLTextAreaElement
+      if (textareaElement) {
+        setTimeout(() => {
+          textareaElement.focus()
+        }, 200)
+      }
+    }
+  }, [selectedChat])
+
+  useEffect(() => {
+    // Conectar ao socket
+    const newSocket = io()
+    setSocket(newSocket)
+
+    // Event listeners
+    newSocket.on('status', (data: ConnectionStatus) => {
+      setStatus(data)
+      setIsLoading(false)
+      
+      if (data.connected) {
+        setConnectionStep('connected')
+        setShowQRPopup(false)
+      } else {
+        if (connectionStep === 'connected') {
+          setConnectionStep('idle')
+        }
+      }
+    })
+
+    newSocket.on('qr', (qrData: string | null) => {
+      setQrCode(qrData)
+      if (qrData) {
+        setConnectionStep('qr')
+        setShowQRPopup(true)
+        setIsLoading(false)
+      }
+    })
+
+    newSocket.on('message_received', () => {
+      setMessageCount(prev => prev + 1)
+    })
+
+    // Event listeners para chat humano
+    newSocket.on('human_chat_requested', (data: {
+      contactNumber: string
+      contactName: string
+      transferReason: string
+      initialMessages: ChatMessage[]
+    }) => {
+      const newChat: HumanChat = {
+        id: Date.now().toString(),
+        contactNumber: data.contactNumber,
+        contactName: data.contactName,
+        status: 'pending',
+        messages: data.initialMessages,
+        createdAt: new Date(),
+        lastActivity: new Date(),
+        transferReason: data.transferReason
+      }
+      
+      setHumanChats(prev => [...prev, newChat])
+      
+      // Notificação sonora ou visual
+      console.log('🔔 Nova solicitação de atendimento humano:', data.contactName)
+    })
+
+    newSocket.on('customer_message', (data: {
+      from: string
+      body: string
+      timestamp: Date
+    }) => {
+      // Adicionar mensagem do cliente ao chat existente
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        from: data.from,
+        to: 'operator',
+        body: data.body,
+        timestamp: new Date(data.timestamp),
+        isFromBot: false,
+        isFromHuman: false
+      }
+      
+      setHumanChats(chats => 
+        chats.map(chat => 
+          chat.contactNumber === data.from
+            ? { 
+                ...chat, 
+                messages: [...chat.messages, newMessage],
+                lastActivity: new Date()
+              }
+            : chat
+        )
+      )
+    })
+
+    return () => {
+      newSocket.close()
+    }
+  }, [])
+
+  useEffect(() => {
+    // Atualizar uptime a cada segundo
+    const interval = setInterval(() => {
+      if (status.connected) {
+        setUptime(prev => prev + 1000)
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [status.connected])
+
+  const startInstance = () => {
+    setIsLoading(true)
+    setConnectionStep('connecting')
+    setMessageCount(0)
+    setUptime(0)
+    setQrCode(null)
+    socket?.emit('start_instance')
+  }
+
+  const stopInstance = () => {
+    setIsLoading(true)
+    setConnectionStep('idle')
+    setShowQRPopup(false)
+    setQrCode(null)
+    socket?.emit('stop_instance')
+  }
+
+  const refreshStatus = () => {
+    window.location.reload()
+  }
+
+  const formatUptime = (ms: number): string => {
+    const seconds = Math.floor(ms / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    return `${hours.toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
+  }
+
+  // Auto Messages Management Functions
+  const addAutoMessage = () => {
+    if (newAutoMessage.trigger && newAutoMessage.response) {
+      const message: AutoMessage = {
+        id: Date.now().toString(),
+        trigger: Array.isArray(newAutoMessage.trigger) ? newAutoMessage.trigger : [newAutoMessage.trigger],
+        response: newAutoMessage.response,
+        active: newAutoMessage.active || true
+      }
+      const currentMessages = getCurrentMessages()
+      updateCurrentMessages([...currentMessages, message])
+      setNewAutoMessage({ trigger: [], response: '', active: true })
+      setShowAddMessage(false)
+    }
+  }
+
+  const updateAutoMessage = (updatedMessage: AutoMessage) => {
+    const currentMessages = getCurrentMessages()
+    updateCurrentMessages(currentMessages.map(msg => 
+      msg.id === updatedMessage.id ? updatedMessage : msg
+    ))
+    setEditingMessage(null)
+  }
+
+  const deleteAutoMessage = (id: string) => {
+    const currentMessages = getCurrentMessages()
+    updateCurrentMessages(currentMessages.filter(msg => msg.id !== id))
+  }
+
+  const toggleMessageActive = (id: string) => {
+    const currentMessages = getCurrentMessages()
+    updateCurrentMessages(currentMessages.map(msg => 
+      msg.id === id ? { ...msg, active: !msg.active } : msg
+    ))
+  }
+
+  const addHumanIntervention = () => {
+    const humanMessage: AutoMessage = {
+      id: 'human-' + Date.now().toString(),
+      trigger: ['falar com humano', 'atendente', 'suporte humano', 'pessoa real', 'operador'],
+      response: '🙋‍♀️ Entendi que você gostaria de falar com um atendente humano.\n\nVou transferir você para nossa equipe de suporte. Em alguns instantes um de nossos especialistas entrará em contato.\n\n⏰ Horário de atendimento: Segunda a Sexta, 8h às 18h\n\nObrigado pela paciência! 😊',
+      active: true
+    }
+    const currentMessages = getCurrentMessages()
+    updateCurrentMessages([...currentMessages, humanMessage])
+  }
+
+  // Project Management Functions
+  const createProject = () => {
+    if (newProject.name.trim() && newProject.description.trim()) {
+      const project: MessageProject = {
+        id: Date.now().toString(),
+        name: newProject.name.trim(),
+        description: newProject.description.trim(),
+        messages: [],
+        createdAt: new Date().toISOString(),
+        isActive: true
+      }
+      setMessageProjects([...messageProjects, project])
+      setNewProject({ name: '', description: '' })
+      setShowProjectForm(false)
+    }
+  }
+
+  const deleteProject = (projectId: string) => {
+    setMessageProjects(messageProjects.filter(p => p.id !== projectId))
+    if (selectedProject === projectId) {
+      setSelectedProject(null)
+    }
+  }
+
+  const toggleProjectActive = (projectId: string) => {
+    setMessageProjects(messageProjects.map(p => 
+      p.id === projectId ? { ...p, isActive: !p.isActive } : p
+    ))
+  }
+
+  const setProjectAsDefault = (projectId: string | null) => {
+    setDefaultProjectId(projectId)
+    setMessageProjects(messageProjects.map(p => 
+      ({ ...p, isDefault: p.id === projectId })
+    ))
+    localStorage.setItem('defaultProjectId', projectId || '')
+    
+    // Enviar para o servidor
+    if (socket) {
+      socket.emit('set_default_project', projectId)
+    }
+  }
+
+  // Criar projeto específico para vendas de passagem de ônibus (OTIMIZADO)
+  const createBusTicketProject = () => {
+    const busTicketMessages: AutoMessage[] = [
+      {
+        id: 'bus-welcome',
+        trigger: ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite', 'bom dia', 'boa tarde', 'boa noite'],
+        response: `🚌 Olá! {name} Bem-vindo à *Viação Palmas*! 
+
+Como posso ajudá-lo hoje?
+
+*1* - 🎫 Comprar Passagem
+*2* - 🕐 Ver Horários  
+*3* - 👨‍💼 Falar com Operador
+
+Digite o número da opção desejada! 😊`,
+        active: true
+      },
+      {
+        id: 'bus-buy-ticket',
+        trigger: ['1', 'comprar', 'passagem', 'bilhete'],
+        response: `🎫 *COMPRAR PASSAGEM*
+
+Nossa origem é sempre: *Palmas - TO* 🏙️
+
+Para qual cidade você gostaria de viajar?
+
+*Cidades disponíveis:*
+• São Luís - MA
+• Imperatriz - MA  
+• Brasília - DF
+• Goiânia - GO
+• Araguaína - TO
+• Gurupi - TO
+• Porto Nacional - TO
+• Paraíso do Tocantins - TO
+• Colinas do Tocantins - TO
+• Barreiras - BA
+• Luís Eduardo Magalhães - BA
+• Teresina - PI
+• Parnaíba - PI
+
+Digite o nome da cidade de destino! ✈️`,
+        active: true
+      },
+      {
+        id: 'bus-schedules',
+        trigger: ['2', 'horários', 'horario', 'hora'],
+        response: `🕐 *HORÁRIOS DE SAÍDA*
+
+*Saídas de Palmas - TO:*
+
+🌅 *Manhã*
+• 06:00 - Destinos: Brasília, Goiânia
+• 07:30 - Destinos: São Luís, Imperatriz  
+• 08:00 - Destinos: Araguaína, Gurupi
+
+🌞 *Tarde*  
+• 14:00 - Destinos: Teresina, Parnaíba
+• 15:30 - Destinos: Barreiras, L.E. Magalhães
+• 16:00 - Destinos: Porto Nacional, Paraíso
+
+🌙 *Noite*
+• 20:00 - Destinos: Brasília, Goiânia
+• 21:30 - Destinos: São Luís, Imperatriz
+• 22:00 - Destinos: Colinas do Tocantins
+
+Para comprar sua passagem, digite *1*! 🎫`,
+        active: true
+      },
+      {
+        id: 'bus-operator',
+        trigger: ['3', 'operador', 'atendente', 'humano', 'pessoa'],
+        response: `👨‍💼 *FALAR COM OPERADOR*
+
+🙋‍♀️ Entendi que você gostaria de falar com um de nossos operadores!
+
+Vou transferir você para nossa equipe de atendimento especializada em vendas de passagens.
+
+⏰ *Horário de Atendimento:*
+Segunda a Sexta: 6h às 22h
+Sábado: 6h às 18h  
+Domingo: 8h às 20h
+
+Em alguns instantes um operador entrará em contato! 
+
+Obrigado pela preferência! 🚌✨`,
+        active: true
+      },
+      {
+        id: 'bus-city-available',
+        trigger: ['CIDADE_DISPONIVEL'], // Trigger especial - será ativado programaticamente
+        response: `✅ *Excelente escolha! Temos passagens para {CIDADE_NOME}!*
+
+🎫 *Informações da Viagem:*
+📍 Origem: Palmas - TO
+📍 Destino: {CIDADE_NOME}
+🕐 Horários disponíveis: Consulte digitando *2*
+
+Para finalizar sua compra, preciso de algumas informações:
+
+👤 *Nome completo*
+📱 *Telefone para contato*  
+📅 *Data da viagem desejada*
+🆔 *CPF*
+
+Ou se preferir, fale com nosso operador digitando *3*! 
+
+Vamos prosseguir? 😊🚌`,
+        active: true
+      },
+      {
+        id: 'bus-city-not-available',
+        trigger: ['CIDADE_NAO_DISPONIVEL'], // Trigger especial - será ativado programaticamente
+        response: `❌ *Infelizmente não temos passagens para {CIDADE_NOME}*
+
+Mas não se preocupe! Você pode adquirir passagens para essa cidade através de outras viações parceiras:
+
+🚌 *Viações Recomendadas:*
+• Expresso Guanabara
+• Viação Útil  
+• Real Expresso
+• Eucatur
+
+Ou consulte nossos destinos disponíveis digitando *1*! 
+
+*Destinos que atendemos:*
+São Luís, Imperatriz, Brasília, Goiânia, Araguaína, Gurupi, Porto Nacional, Paraíso do Tocantins, Colinas do Tocantins, Barreiras, Luís Eduardo Magalhães, Teresina e Parnaíba! 
+
+Posso ajudar com algo mais? 😊`,
+        active: true
+      }
+    ]
+
+    const project: MessageProject = {
+      id: `bus-ticket-${Date.now()}`,
+      name: 'Vendas de Passagem de Ônibus',
+      description: 'Fluxo otimizado para vendas de passagens com sistema inteligente de verificação de cidades (6 mensagens ao invés de 39)',
+      messages: busTicketMessages,
+      createdAt: new Date().toISOString(),
+      isActive: true,
+      isDefault: false
+    }
+
+    setMessageProjects([...messageProjects, project])
+    setSelectedProject(project.id)
+    return project
+  }
+
+  const getCurrentMessages = (): AutoMessage[] => {
+    if (!selectedProject) return autoMessages
+    const project = messageProjects.find(p => p.id === selectedProject)
+    return project ? project.messages : []
+  }
+
+  const updateCurrentMessages = (messages: AutoMessage[]) => {
+    if (!selectedProject) {
+      setAutoMessages(messages)
+    } else {
+      setMessageProjects(messageProjects.map(p => 
+        p.id === selectedProject ? { ...p, messages } : p
+      ))
+    }
+  }
+
+  // Convert AutoMessages to FlowNodes
+  const convertMessagesToFlow = (messages: AutoMessage[]): { nodes: FlowNode[], connections: FlowConnection[] } => {
+    const nodes: FlowNode[] = []
+    const connections: FlowConnection[] = []
+
+    // Start node
+    const startNode: FlowNode = {
+      id: 'start-1',
+      type: 'start',
+      position: { x: 50, y: 50 },
+      data: { title: 'Início', description: 'Usuário inicia conversa' },
+      connections: []
+    }
+    nodes.push(startNode)
+
+    // Find welcome message (with oi, olá, menu triggers)
+    const welcomeMsg = messages.find(msg => 
+      msg.trigger.some(t => ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite'].includes(t.toLowerCase()))
+    )
+
+    if (welcomeMsg) {
+      const welcomeNode: FlowNode = {
+        id: `message-${welcomeMsg.id}`,
+        type: 'message',
+        position: { x: 50, y: 150 },
+        data: { 
+          title: 'Boas-vindas', 
+          triggers: welcomeMsg.trigger,
+          response: welcomeMsg.response,
+          active: welcomeMsg.active
+        },
+        connections: []
+      }
+      nodes.push(welcomeNode)
+      
+      // Connect start to welcome
+      connections.push({
+        id: `${startNode.id}-${welcomeNode.id}`,
+        source: startNode.id,
+        target: welcomeNode.id
+      })
+      startNode.connections.push(welcomeNode.id)
+    }
+
+    // Find menu options (1, 2, 3, 4, 5)
+    const menuOptions = messages.filter(msg => 
+      msg.trigger.some(t => ['1', '2', '3', '4', '5'].includes(t))
+    ).sort((a, b) => {
+      const aNum = parseInt(a.trigger.find(t => ['1', '2', '3', '4', '5'].includes(t)) || '0')
+      const bNum = parseInt(b.trigger.find(t => ['1', '2', '3', '4', '5'].includes(t)) || '0')
+      return aNum - bNum
+    })
+
+    menuOptions.forEach((option, index) => {
+      const optionNumber = option.trigger.find(t => ['1', '2', '3', '4', '5'].includes(t))
+      const optionNode: FlowNode = {
+        id: `option-${option.id}`,
+        type: 'message',
+        position: { x: 300 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 120 },
+        data: { 
+          title: `Opção ${optionNumber}`, 
+          triggers: option.trigger,
+          response: option.response,
+          active: option.active
+        },
+        connections: []
+      }
+      nodes.push(optionNode)
+
+      // Connect welcome to options
+      if (welcomeMsg) {
+        const welcomeNodeId = `message-${welcomeMsg.id}`
+        connections.push({
+          id: `${welcomeNodeId}-${optionNode.id}`,
+          source: welcomeNodeId,
+          target: optionNode.id
+        })
+        const welcomeFlowNode = nodes.find(n => n.id === welcomeNodeId)
+        if (welcomeFlowNode) {
+          welcomeFlowNode.connections.push(optionNode.id)
+        }
+      }
+    })
+
+    // Find human intervention
+    const humanMsg = messages.find(msg => 
+      msg.id.startsWith('human-') || 
+      msg.trigger.some(t => ['falar com humano', 'atendente', 'suporte'].includes(t.toLowerCase()))
+    )
+
+    if (humanMsg) {
+      const humanNode: FlowNode = {
+        id: `human-${humanMsg.id}`,
+        type: 'human',
+        position: { x: 50, y: 350 },
+        data: { 
+          title: 'Atendimento Humano', 
+          triggers: humanMsg.trigger,
+          response: humanMsg.response,
+          active: humanMsg.active
+        },
+        connections: []
+      }
+      nodes.push(humanNode)
+    }
+
+    // Add end node
+    const endNode: FlowNode = {
+      id: 'end-1',
+      type: 'end',
+      position: { x: 650, y: 250 },
+      data: { title: 'Fim', description: 'Conversa finalizada' },
+      connections: []
+    }
+    nodes.push(endNode)
+
+    // Connect options to end
+    menuOptions.forEach(option => {
+      const optionNodeId = `option-${option.id}`
+      connections.push({
+        id: `${optionNodeId}-${endNode.id}`,
+        source: optionNodeId,
+        target: endNode.id
+      })
+      const optionFlowNode = nodes.find(n => n.id === optionNodeId)
+      if (optionFlowNode) {
+        optionFlowNode.connections.push(endNode.id)
+      }
+    })
+
+    return { nodes, connections }
+  }
+
+  // Update flow when messages change or flow view is opened
+  useEffect(() => {
+    const currentMessages = getCurrentMessages()
+    if (showFlowView && currentMessages.length > 0) {
+      const { nodes, connections } = convertMessagesToFlow(currentMessages)
+      setFlowState(prev => ({
+        ...prev,
+        nodes,
+        connections
+      }))
+    }
+  }, [showFlowView, autoMessages, messageProjects, selectedProject])
+
+  // Advanced Flow Functions
+  const addFlowNode = (type: FlowNode['type'], position: { x: number; y: number }) => {
+    const newNode: FlowNode = {
+      id: `${type}-${Date.now()}`,
+      type,
+      position,
+      data: getDefaultNodeData(type),
+      connections: []
+    }
+    
+    setFlowState(prev => ({
+      ...prev,
+      nodes: [...prev.nodes, newNode],
+      selectedNode: newNode.id
+    }))
+    setShowNodeEditor(true)
+  }
+
+  const getDefaultNodeData = (type: FlowNode['type']) => {
+    switch (type) {
+      case 'start':
+        return { title: 'Início', description: 'Conversa iniciada' }
+      case 'message':
+        return { title: 'Nova Mensagem', triggers: [''], response: '', active: true }
+      case 'condition':
+        return { title: 'Condição', conditions: [{ field: '', operator: 'contains', value: '' }] }
+      case 'options':
+        return { title: 'Opções', options: [{ id: '1', label: 'Opção 1', value: '1' }] }
+      case 'human':
+        return { title: 'Atendimento Humano', description: 'Transferir para humano' }
+      case 'end':
+        return { title: 'Fim', description: 'Conversa finalizada' }
+      default:
+        return { title: 'Nó', description: '' }
+    }
+  }
+
+  const deleteFlowNode = (nodeId: string) => {
+    setFlowState(prev => ({
+      ...prev,
+      nodes: prev.nodes.filter(node => node.id !== nodeId),
+      connections: prev.connections.filter(conn => 
+        conn.source !== nodeId && conn.target !== nodeId
+      ),
+      selectedNode: prev.selectedNode === nodeId ? null : prev.selectedNode
+    }))
+  }
+
+  // Drag and Drop handlers
+  const handleNodeMouseDown = (nodeId: string, e: React.MouseEvent) => {
+    if (activeFlowTool !== 'select') return
+    
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const node = flowState.nodes.find(n => n.id === nodeId)
+    if (!node) return
+    
+    const rect = (e.target as HTMLElement).closest('.flow-node-compact')?.getBoundingClientRect()
+    if (!rect) return
+    
+    const offsetX = e.clientX - rect.left
+    const offsetY = e.clientY - rect.top
+    
+    setDragState({
+      isDragging: true,
+      draggedNodeId: nodeId,
+      dragOffset: { x: offsetX, y: offsetY },
+      startPosition: { x: node.position.x, y: node.position.y }
+    })
+    
+    setFlowState(prev => ({ ...prev, selectedNode: nodeId }))
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragState.isDragging || !dragState.draggedNodeId) return
+    
+    const canvas = (e.target as HTMLElement).closest('.flow-canvas')
+    if (!canvas) return
+    
+    const canvasRect = canvas.getBoundingClientRect()
+    const newX = e.clientX - canvasRect.left - dragState.dragOffset.x
+    const newY = e.clientY - canvasRect.top - dragState.dragOffset.y
+    
+    // Constrain to canvas bounds
+    const constrainedX = Math.max(0, Math.min(newX, canvasRect.width - 150))
+    const constrainedY = Math.max(0, Math.min(newY, canvasRect.height - 100))
+    
+    setFlowState(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(node =>
+        node.id === dragState.draggedNodeId
+          ? { ...node, position: { x: constrainedX, y: constrainedY } }
+          : node
+      )
+    }))
+  }
+
+  const handleMouseUp = () => {
+    setDragState({
+      isDragging: false,
+      draggedNodeId: null,
+      dragOffset: { x: 0, y: 0 },
+      startPosition: { x: 0, y: 0 }
+    })
+  }
+
+  const getNodeIcon = (type: FlowNode['type']) => {
+    switch (type) {
+      case 'start': return PlayCircle
+      case 'message': return MessageCircle
+      case 'condition': return Diamond
+      case 'options': return List
+      case 'human': return UserCheck
+      case 'end': return CheckCircle
+      default: return MessageCircle
+    }
+  }
+
+  const getNodeColor = (type: FlowNode['type']) => {
+    switch (type) {
+      case 'start': return '#48bb78'
+      case 'message': return '#4299e1'
+      case 'condition': return '#ed8936'
+      case 'options': return '#9f7aea'
+      case 'human': return '#e53e3e'
+      case 'end': return '#38b2ac'
+      default: return '#a0aec0'
+    }
+  }
+
+  const menuItems = [
+    { id: 'instance', label: 'Instância Bot', icon: Bot, active: true },
+    { id: 'messages', label: 'Mensagens', icon: MessageCircle },
+    { id: 'chat', label: 'Chat Humano', icon: MessageSquareText },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'contacts', label: 'Contatos', icon: Users },
+    { id: 'devices', label: 'Dispositivos', icon: Smartphone },
+    { id: 'settings', label: 'Configurações', icon: Settings }
+  ]
+
+  const renderContent = () => {
+    switch (activeMenu) {
+      case 'instance':
+  return (
+    <>
+            {/* Dashboard Cards */}
+            <div className="dashboard-cards">
+              <div className="card">
+                <div className="card-icon">
+                  {status.connected ? <Wifi className="icon-success" /> : <WifiOff className="icon-error" />}
+      </div>
+                <div className="card-content">
+                  <h3>Status da Conexão</h3>
+                  <p>{status.message}</p>
+                </div>
+              </div>
+
+      <div className="card">
+                <div className="card-icon">
+                  <MessageSquare className="icon-primary" />
+                </div>
+                <div className="card-content">
+                  <h3>Mensagens Hoje</h3>
+                  <p>{messageCount}</p>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-icon">
+                  <Clock className="icon-secondary" />
+                </div>
+                <div className="card-content">
+                  <h3>Tempo Online</h3>
+                  <p>{formatUptime(uptime)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Panel */}
+            <div className="main-panel">
+              {connectionStep === 'connecting' && (
+                <div className="connecting-section">
+                  <div className="loading-animation">
+                    <div className="spinner-large"></div>
+                  </div>
+                  <h2>Aguarde...</h2>
+                  <p>Inicializando conexão com WhatsApp</p>
+                  <div className="progress-steps">
+                    <div className="step active">
+                      <div className="step-number">1</div>
+                      <span>Iniciando cliente</span>
+                    </div>
+                    <div className="step">
+                      <div className="step-number">2</div>
+                      <span>Gerando QR Code</span>
+                    </div>
+                    <div className="step">
+                      <div className="step-number">3</div>
+                      <span>Conectando</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {connectionStep === 'idle' && (
+                <div className="placeholder-section">
+                  <QrCode size={64} className="placeholder-icon" />
+                  <h2>Pronto para Conectar</h2>
+                  <p>Clique em "Iniciar Instância" para gerar o QR Code do WhatsApp</p>
+                </div>
+              )}
+
+              {connectionStep === 'connected' && status.connected && (
+                <div className="connected-section">
+                  <div className="success-message">
+                    <CheckCircle size={64} className="success-icon" />
+                    <h2>WhatsApp Conectado!</h2>
+                    <p>Seu chatbot está ativo e funcionando perfeitamente.</p>
+                  </div>
+
+                  <div className="chatbot-info">
+                    <div className="info-header">
+                      <Bot size={24} />
+                      <h3>Funcionalidades do Chatbot</h3>
+                    </div>
+                    <div className="features-grid">
+                      <div className="feature">
+                        <MessageSquare size={20} />
+                        <div>
+                          <h4>Respostas Automáticas</h4>
+                          <p>Responde automaticamente a palavras-chave como "oi", "menu", "dia"</p>
+                        </div>
+                      </div>
+                      <div className="feature">
+                        <List size={20} />
+                        <div>
+                          <h4>Menu Interativo</h4>
+                          <p>Sistema de menu com 5 opções principais de atendimento</p>
+                        </div>
+                      </div>
+                      <div className="feature">
+                        <Type size={20} />
+                        <div>
+                          <h4>Simulação de Digitação</h4>
+                          <p>Simula comportamento humano com indicadores de digitação</p>
+                        </div>
+                      </div>
+                      <div className="feature">
+                        <Timer size={20} />
+                        <div>
+                          <h4>Delays Naturais</h4>
+                          <p>Delays entre mensagens para conversação mais natural</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons - Only show when not connecting */}
+              {connectionStep !== 'connecting' && (
+                <div className="action-buttons">
+                <button 
+                  className="btn btn-primary" 
+                  onClick={startInstance}
+                  disabled={isLoading || status.connected}
+                >
+                  <Play size={16} />
+                  {isLoading ? 'Iniciando...' : 'Iniciar Instância'}
+        </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={stopInstance}
+                  disabled={isLoading || !status.connected}
+                >
+                  <Square size={16} />
+                  Parar Instância
+                </button>
+                <button className="btn btn-info" onClick={refreshStatus}>
+                  <RefreshCw size={16} />
+                  Atualizar Status
+                </button>
+                </div>
+              )}
+            </div>
+          </>
+        )
+      case 'messages':
+        return (
+          <div className="messages-container">
+            {!selectedProject ? (
+              // Projects List View
+              <div className="projects-view">
+                <div className="projects-header">
+                  <div className="title-section">
+                    <div className="title-with-icon">
+                      <div className="title-icon">
+                        <MessageSquareText size={24} />
+                      </div>
+                      <div>
+                        <h2>Projetos de Mensagens</h2>
+                        <p>Organize suas mensagens automáticas em projetos</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="header-actions">
+                    <button 
+                      className="btn-modern btn-success"
+                      onClick={createBusTicketProject}
+                      title="Criar projeto pré-configurado para vendas de passagens de ônibus"
+                    >
+                      <Route size={16} />
+                      🚌 Passagens de Ônibus
+                    </button>
+                    <button 
+                      className="btn-modern btn-primary"
+                      onClick={() => setShowProjectForm(true)}
+                    >
+                      <Plus size={16} />
+                      Novo Projeto
+                    </button>
+                  </div>
+                </div>
+
+                {/* Project Form */}
+                {showProjectForm && (
+                  <div className="project-form-modern">
+                    <div className="form-header">
+                      <h3>Criar Novo Projeto</h3>
+                      <button 
+                        className="btn-close"
+                        onClick={() => setShowProjectForm(false)}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="form-body">
+                      <div className="form-group">
+                        <label>Nome do Projeto</label>
+                        <input
+                          type="text"
+                          value={newProject.name}
+                          onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                          placeholder="Ex: Atendimento Comercial, Suporte Técnico..."
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Descrição</label>
+                        <textarea
+                          value={newProject.description}
+                          onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                          placeholder="Descreva o objetivo deste projeto de mensagens..."
+                          rows={3}
+                        />
+                      </div>
+                      <div className="form-actions">
+                        <button 
+                          className="btn-modern btn-secondary"
+                          onClick={() => setShowProjectForm(false)}
+                        >
+                          Cancelar
+                        </button>
+                        <button 
+                          className="btn-modern btn-primary"
+                          onClick={createProject}
+                        >
+                          Criar Projeto
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Projects Grid */}
+                <div className="projects-grid">
+                  {/* Default Project Card */}
+                  <div 
+                    className="project-card default-project"
+                    onClick={() => setSelectedProject(null)}
+                  >
+                    <div className="project-header">
+                      <div className="project-icon">
+                        <Bot size={24} />
+                      </div>
+                      <div className="project-actions">
+                        <span className="project-badge">Padrão</span>
+                        {!defaultProjectId && (
+                          <button
+                            className="action-btn set-default-btn"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setProjectAsDefault(null)
+                            }}
+                            title="Manter como padrão"
+                          >
+                            <Check size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="project-content">
+                      <h3>Mensagens Padrão</h3>
+                      <p>Sistema original de mensagens automáticas</p>
+                      <div className="project-stats">
+                        <div className="stat">
+                          <MessageCircle size={16} />
+                          <span>{autoMessages.length} mensagens</span>
+                        </div>
+                        <div className="stat">
+                          <Zap size={16} />
+                          <span>{autoMessages.filter(msg => msg.active).length} ativas</span>
+                        </div>
+                      </div>
+                      <div className="project-date">
+                        Sistema original
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Custom Projects */}
+                  {messageProjects.map((project) => (
+                    <div 
+                      key={project.id}
+                      className={`project-card ${!project.isActive ? 'inactive' : ''}`}
+                      data-type={project.name.includes('Passagem') ? 'bus-ticket' : ''}
+                      onClick={() => setSelectedProject(project.id)}
+                    >
+                      <div className="project-header">
+                        <div className="project-icon">
+                          <MessageSquareText size={24} />
+                        </div>
+                        <div className="project-actions">
+                          {project.isDefault && <span className="project-badge default">Padrão</span>}
+                          <button
+                            className="action-btn set-default-btn"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setProjectAsDefault(project.isDefault ? null : project.id)
+                            }}
+                            title={project.isDefault ? 'Remover como padrão' : 'Definir como padrão'}
+                          >
+                            {project.isDefault ? <X size={16} /> : <Check size={16} />}
+                          </button>
+                          <button
+                            className="action-btn"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleProjectActive(project.id)
+                            }}
+                            title={project.isActive ? 'Desativar projeto' : 'Ativar projeto'}
+                          >
+                            {project.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                          </button>
+                          <button
+                            className="action-btn delete"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm('Tem certeza que deseja excluir este projeto?')) {
+                                deleteProject(project.id)
+                              }
+                            }}
+                            title="Excluir projeto"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="project-content">
+                        <h3>{project.name}</h3>
+                        <p>{project.description}</p>
+                        <div className="project-stats">
+                          <div className="stat">
+                            <MessageCircle size={16} />
+                            <span>{project.messages.length} mensagens</span>
+                          </div>
+                          <div className="stat">
+                            <Zap size={16} />
+                            <span>{project.messages.filter(msg => msg.active).length} ativas</span>
+                          </div>
+                        </div>
+                        <div className="project-date">
+                          Criado em {new Date(project.createdAt).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Empty State */}
+                  {messageProjects.length === 0 && (
+                    <div className="empty-projects">
+                      <div className="empty-icon">
+                        <MessageSquareText size={48} />
+                      </div>
+                      <h3>Nenhum projeto criado</h3>
+                      <p>Crie seu primeiro projeto para organizar suas mensagens automáticas</p>
+                      <button 
+                        className="btn-modern btn-primary"
+                        onClick={() => setShowProjectForm(true)}
+                      >
+                        <Plus size={16} />
+                        Criar Primeiro Projeto
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              // Messages View for Selected Project
+              <div>
+                <div className="messages-header-modern">
+                  <div className="messages-title-section">
+                    <button 
+                      className="btn-back"
+                      onClick={() => setSelectedProject(null)}
+                    >
+                      ← Voltar aos Projetos
+                    </button>
+                    <div className="title-with-icon">
+                      <div className="title-icon">
+                        <MessageSquareText size={24} />
+                      </div>
+                      <div>
+                        <h2>{selectedProject ? messageProjects.find(p => p.id === selectedProject)?.name : 'Mensagens Padrão'}</h2>
+                        <p>Configure as respostas inteligentes do seu chatbot</p>
+                      </div>
+                </div>
+                <div className="messages-stats">
+                  <div className="stat-item">
+                    <Zap size={16} />
+                    <span>{getCurrentMessages().filter(msg => msg.active).length} Ativas</span>
+                  </div>
+                  <div className="stat-item">
+                    <MessageCircle size={16} />
+                    <span>{getCurrentMessages().length} Total</span>
+                  </div>
+                </div>
+              </div>
+              <div className="header-actions">
+                <button 
+                  className="btn-modern btn-secondary"
+                  onClick={() => setShowFlowView(!showFlowView)}
+                >
+                  {showFlowView ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showFlowView ? 'Ocultar Fluxo' : 'Ver Fluxo'}
+                </button>
+                <button 
+                  className="btn-modern btn-info"
+                  onClick={addHumanIntervention}
+                >
+                  <UserCheck size={16} />
+                  + Intervenção Humana
+                </button>
+                <button 
+                  className="btn-modern btn-primary"
+                  onClick={() => setShowAddMessage(true)}
+                >
+                  <Sparkles size={18} />
+                  Criar Mensagem
+                </button>
+              </div>
+            </div>
+
+            {/* Advanced Flow Editor */}
+            {showFlowView && (
+              <div className={`flow-editor-container ${isFullscreen ? 'fullscreen' : ''}`}>
+                {/* Flow Toolbar */}
+                <div className="flow-toolbar">
+                  <div className="toolbar-left">
+                    <div className="toolbar-section">
+                      <Route size={18} />
+                      <span>Editor Visual de Fluxo</span>
+                    </div>
+                    
+                    <div className="toolbar-tools">
+                      <button 
+                        className={`tool-btn ${activeFlowTool === 'select' ? 'active' : ''}`}
+                        onClick={() => setActiveFlowTool('select')}
+                      >
+                        <MousePointer size={16} />
+                      </button>
+                      <button 
+                        className={`tool-btn ${activeFlowTool === 'connect' ? 'active' : ''}`}
+                        onClick={() => setActiveFlowTool('connect')}
+                      >
+                        <Route size={16} />
+                      </button>
+                      <button 
+                        className={`tool-btn ${activeFlowTool === 'pan' ? 'active' : ''}`}
+                        onClick={() => setActiveFlowTool('pan')}
+                      >
+                        <Move size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                                     <div className="toolbar-center">
+                     <div className="flow-info">
+                       <span>{flowState.nodes.length} nós</span>
+                       <span>•</span>
+                       <span>{flowState.connections.length} conexões</span>
+                     </div>
+                   </div>
+
+                  <div className="toolbar-right">
+                    <button className="toolbar-btn" title="Salvar">
+                      <Save size={16} />
+                    </button>
+                    <button className="toolbar-btn" title="Exportar">
+                      <Download size={16} />
+                    </button>
+                    <button className="toolbar-btn" title="Importar">
+                      <Upload size={16} />
+                    </button>
+                    <button 
+                      className="toolbar-btn" 
+                      title={isFullscreen ? 'Sair do fullscreen' : 'Fullscreen'}
+                      onClick={() => setIsFullscreen(!isFullscreen)}
+                    >
+                      {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                                 {/* Flow Main Area */}
+                 <div className="flow-main-area">
+                   {/* Flow Canvas */}
+                   <div className="flow-canvas-compact">
+                     <div 
+                       className="flow-canvas"
+                       onMouseMove={handleMouseMove}
+                       onMouseUp={handleMouseUp}
+                       onMouseLeave={handleMouseUp}
+                     >
+                       {/* Background Grid */}
+                       <div className="flow-grid"></div>
+                       
+                       {/* Connections */}
+                       <svg className="flow-connections">
+                         {flowState.connections.map(connection => {
+                           const sourceNode = flowState.nodes.find(n => n.id === connection.source)
+                           const targetNode = flowState.nodes.find(n => n.id === connection.target)
+                           
+                           if (!sourceNode || !targetNode) return null
+                           
+                           const x1 = sourceNode.position.x + 75
+                           const y1 = sourceNode.position.y + 40
+                           const x2 = targetNode.position.x + 75
+                           const y2 = targetNode.position.y
+                           
+                           // Curved connection
+                           const midY = y1 + (y2 - y1) / 2
+                           
+                           return (
+                             <path
+                               key={connection.id}
+                               d={`M ${x1} ${y1} C ${x1} ${midY} ${x2} ${midY} ${x2} ${y2}`}
+                               stroke="#cbd5e0"
+                               strokeWidth="2"
+                               fill="none"
+                               markerEnd="url(#arrowhead)"
+                             />
+                           )
+                         })}
+                         
+                         <defs>
+                           <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                             refX="9" refY="3.5" orient="auto">
+                             <polygon points="0 0, 10 3.5, 0 7" fill="#cbd5e0" />
+                           </marker>
+                         </defs>
+                       </svg>
+
+                       {/* Flow Nodes */}
+                       {flowState.nodes.map(node => {
+                         const IconComponent = getNodeIcon(node.type)
+                         const nodeColor = getNodeColor(node.type)
+                         
+                         return (
+                           <div
+                             key={node.id}
+                             className={`flow-node-compact ${node.type}-node ${flowState.selectedNode === node.id ? 'selected' : ''} ${dragState.draggedNodeId === node.id ? 'dragging' : ''}`}
+                             style={{
+                               left: node.position.x,
+                               top: node.position.y,
+                               borderColor: nodeColor,
+                               cursor: activeFlowTool === 'select' ? (dragState.draggedNodeId === node.id ? 'grabbing' : 'grab') : 'default',
+                               zIndex: dragState.draggedNodeId === node.id ? 1000 : 2
+                             }}
+                             onClick={() => setFlowState(prev => ({ ...prev, selectedNode: node.id }))}
+                             onDoubleClick={() => {
+                               setFlowState(prev => ({ ...prev, selectedNode: node.id }))
+                               setShowNodeEditor(true)
+                             }}
+                             onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
+                           >
+                             <div className="node-header-compact" style={{ backgroundColor: nodeColor }}>
+                               <IconComponent size={14} color="white" />
+                               <span>{node.data.title}</span>
+                               <button 
+                                 className="node-delete-compact"
+                                 onClick={(e) => {
+                                   e.stopPropagation()
+                                   deleteFlowNode(node.id)
+                                 }}
+                               >
+                                 <X size={10} />
+                               </button>
+                             </div>
+                             
+                             {(node.data.description || node.data.triggers || node.data.response) && (
+                               <div className="node-body-compact">
+                                 {node.data.description && (
+                                   <p className="node-description-compact">{node.data.description}</p>
+                                 )}
+                                 
+                                 {node.data.triggers && (
+                                   <div className="node-triggers-compact">
+                                     {node.data.triggers.slice(0, 2).map((trigger, idx) => (
+                                       <span key={idx} className="trigger-tag-compact">{trigger}</span>
+                                     ))}
+                                   </div>
+                                 )}
+                                 
+                                 {node.data.response && (
+                                   <p className="node-preview-compact">{node.data.response.substring(0, 30)}...</p>
+                                 )}
+                               </div>
+                             )}
+                             
+                             {/* Connection Points */}
+                             <div className="connection-point-compact input" title="Entrada"></div>
+                             <div className="connection-point-compact output" title="Saída"></div>
+                           </div>
+                         )
+                       })}
+                     </div>
+                   </div>
+
+                   {/* Right Sidebar - Node Palette */}
+                   <div className="flow-sidebar">
+                     <div className="sidebar-header">
+                       <h3>Adicionar Nós</h3>
+                       <p>Arraste para o canvas</p>
+                     </div>
+                     
+                     <div className="sidebar-content">
+                       <div className="node-palette-vertical">
+                         <button 
+                           className="node-btn" 
+                           onClick={() => addFlowNode('message', { x: 150, y: 100 })}
+                         >
+                           <MessageCircle size={16} />
+                           <div className="node-btn-info">
+                             <span>Mensagem</span>
+                             <small>Resposta automática</small>
+                           </div>
+                         </button>
+                         
+                         <button 
+                           className="node-btn" 
+                           onClick={() => addFlowNode('condition', { x: 150, y: 200 })}
+                         >
+                           <Diamond size={16} />
+                           <div className="node-btn-info">
+                             <span>Condição</span>
+                             <small>Lógica condicional</small>
+                           </div>
+                         </button>
+                         
+                         <button 
+                           className="node-btn" 
+                           onClick={() => addFlowNode('options', { x: 150, y: 300 })}
+                         >
+                           <List size={16} />
+                           <div className="node-btn-info">
+                             <span>Opções</span>
+                             <small>Menu de escolhas</small>
+                           </div>
+                         </button>
+                         
+                         <button 
+                           className="node-btn" 
+                           onClick={() => addFlowNode('human', { x: 150, y: 400 })}
+                         >
+                           <UserCheck size={16} />
+                           <div className="node-btn-info">
+                             <span>Atendimento</span>
+                             <small>Transferir para humano</small>
+                           </div>
+                         </button>
+                         
+                         <button 
+                           className="node-btn" 
+                           onClick={() => addFlowNode('end', { x: 150, y: 500 })}
+                         >
+                           <CheckCircle size={16} />
+                           <div className="node-btn-info">
+                             <span>Finalizar</span>
+                             <small>Fim da conversa</small>
+                           </div>
+                         </button>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+
+                {/* Node Properties Panel */}
+                {showNodeEditor && flowState.selectedNode && (() => {
+                  const selectedNode = flowState.nodes.find(n => n.id === flowState.selectedNode)
+                  if (!selectedNode) return null
+                  
+                  return (
+                    <div className="node-editor-panel">
+                      <div className="panel-header">
+                        <h3>Propriedades do Nó</h3>
+                        <button onClick={() => setShowNodeEditor(false)}>
+                          <X size={16} />
+                        </button>
+                      </div>
+                      
+                      <div className="panel-content">
+                        <div className="node-property-form">
+                          <div className="property-section">
+                            <label className="property-label">
+                              <Type size={16} />
+                              Título do Nó
+                            </label>
+                            <input
+                              type="text"
+                              className="property-input"
+                              value={selectedNode.data.title}
+                              onChange={(e) => {
+                                setFlowState(prev => ({
+                                  ...prev,
+                                  nodes: prev.nodes.map(node =>
+                                    node.id === selectedNode.id
+                                      ? { ...node, data: { ...node.data, title: e.target.value } }
+                                      : node
+                                  )
+                                }))
+                              }}
+                              placeholder="Digite o título do nó"
+                            />
+                          </div>
+
+                          {selectedNode.data.description !== undefined && (
+                            <div className="property-section">
+                              <label className="property-label">
+                                <MessageSquare size={16} />
+                                Descrição
+                              </label>
+                              <textarea
+                                className="property-textarea"
+                                value={selectedNode.data.description || ''}
+                                onChange={(e) => {
+                                  setFlowState(prev => ({
+                                    ...prev,
+                                    nodes: prev.nodes.map(node =>
+                                      node.id === selectedNode.id
+                                        ? { ...node, data: { ...node.data, description: e.target.value } }
+                                        : node
+                                    )
+                                  }))
+                                }}
+                                placeholder="Digite a descrição do nó"
+                                rows={3}
+                              />
+                            </div>
+                          )}
+
+                          {selectedNode.data.triggers && (
+                            <div className="property-section">
+                              <label className="property-label">
+                                <Tag size={16} />
+                                Palavras-chave (Gatilhos)
+                              </label>
+                              <input
+                                type="text"
+                                className="property-input"
+                                value={selectedNode.data.triggers.join(', ')}
+                                onChange={(e) => {
+                                  const triggers = e.target.value.split(',').map(t => t.trim()).filter(t => t)
+                                  setFlowState(prev => ({
+                                    ...prev,
+                                    nodes: prev.nodes.map(node =>
+                                      node.id === selectedNode.id
+                                        ? { ...node, data: { ...node.data, triggers } }
+                                        : node
+                                    )
+                                  }))
+                                }}
+                                placeholder="Ex: oi, olá, menu (separadas por vírgula)"
+                              />
+                              <small className="property-help">Digite as palavras que ativarão esta resposta</small>
+                            </div>
+                          )}
+
+                          {selectedNode.data.response !== undefined && (
+                            <div className="property-section">
+                              <label className="property-label">
+                                <MessageCircle size={16} />
+                                Resposta Automática
+                              </label>
+                              <textarea
+                                className="property-textarea"
+                                value={selectedNode.data.response || ''}
+                                onChange={(e) => {
+                                  setFlowState(prev => ({
+                                    ...prev,
+                                    nodes: prev.nodes.map(node =>
+                                      node.id === selectedNode.id
+                                        ? { ...node, data: { ...node.data, response: e.target.value } }
+                                        : node
+                                    )
+                                  }))
+                                }}
+                                placeholder="Digite a resposta que será enviada automaticamente..."
+                                rows={6}
+                              />
+                              <small className="property-help">
+                                💡 Dica: Use <code>{'{name}'}</code> para incluir o nome do contato
+                              </small>
+                            </div>
+                          )}
+
+                          {selectedNode.data.active !== undefined && (
+                            <div className="property-section">
+                              <label className="property-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedNode.data.active}
+                                  onChange={(e) => {
+                                    setFlowState(prev => ({
+                                      ...prev,
+                                      nodes: prev.nodes.map(node =>
+                                        node.id === selectedNode.id
+                                          ? { ...node, data: { ...node.data, active: e.target.checked } }
+                                          : node
+                                      )
+                                    }))
+                                  }}
+                                />
+                                <Zap size={16} />
+                                Mensagem Ativa
+                              </label>
+                              <small className="property-help">Desmarque para desativar esta mensagem temporariamente</small>
+                            </div>
+                          )}
+
+                          <div className="property-actions">
+                            <button 
+                              className="btn-modern btn-secondary"
+                              onClick={() => setShowNodeEditor(false)}
+                            >
+                              <X size={16} />
+                              Fechar
+                            </button>
+                            <button 
+                              className="btn-modern btn-primary"
+                              onClick={() => {
+                                // Salvar alterações no projeto atual
+                                if (selectedProject && selectedNode.data.triggers && selectedNode.data.response) {
+                                  const nodeMessage: AutoMessage = {
+                                    id: selectedNode.id.replace('message-', ''),
+                                    trigger: selectedNode.data.triggers,
+                                    response: selectedNode.data.response,
+                                    active: selectedNode.data.active || true
+                                  }
+                                  
+                                  const currentMessages = getCurrentMessages()
+                                  const updatedMessages = currentMessages.map(msg => 
+                                    msg.id === nodeMessage.id ? nodeMessage : msg
+                                  )
+                                  
+                                  updateCurrentMessages(updatedMessages)
+                                }
+                                setShowNodeEditor(false)
+                              }}
+                            >
+                              <Save size={16} />
+                              Salvar Alterações
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+            {/* Add New Message Form */}
+            {showAddMessage && (
+              <div className="message-form-modern">
+                <div className="form-header-modern">
+                  <div className="form-title-section">
+                    <div className="form-icon">
+                      <Plus size={20} />
+                    </div>
+      <div>
+                      <h3>Criar Nova Mensagem</h3>
+                      <p>Configure uma resposta automática inteligente</p>
+                    </div>
+                  </div>
+                  <button 
+                    className="btn-close"
+                    onClick={() => setShowAddMessage(false)}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                
+                <div className="form-content-modern">
+                  <div className="form-section">
+                    <div className="form-group-modern">
+                      <label className="label-modern">
+                        <Tag size={16} />
+                        Palavras-chave (gatilhos)
+                      </label>
+                      <input
+                        className="input-modern"
+                        type="text"
+                        placeholder="Ex: oi, olá, bom dia, menu (separadas por vírgula)"
+                        value={Array.isArray(newAutoMessage.trigger) ? newAutoMessage.trigger.join(', ') : ''}
+                        onChange={(e) => setNewAutoMessage({
+                          ...newAutoMessage,
+                          trigger: e.target.value.split(',').map(t => t.trim()).filter(t => t)
+                        })}
+                      />
+                      <small className="help-text">Digite as palavras que ativarão esta resposta</small>
+                    </div>
+
+                    <div className="form-group-modern">
+                      <label className="label-modern">
+                        <MessageSquare size={16} />
+                        Resposta automática
+                      </label>
+                      <textarea
+                        className="textarea-modern"
+                        placeholder="Digite a resposta que será enviada automaticamente..."
+                        value={newAutoMessage.response || ''}
+                        onChange={(e) => setNewAutoMessage({
+                          ...newAutoMessage,
+                          response: e.target.value
+                        })}
+                        rows={5}
+                      />
+                      <small className="help-text">
+                        💡 Dica: Use <code>{'{name}'}</code> para incluir o nome do contato
+                      </small>
+                    </div>
+                  </div>
+
+                  <div className="form-actions-modern">
+                    <button 
+                      className="btn-modern btn-secondary"
+                      onClick={() => setShowAddMessage(false)}
+                    >
+                      <X size={16} />
+                      Cancelar
+                    </button>
+                    <button 
+                      className="btn-modern btn-primary"
+                      onClick={addAutoMessage}
+                    >
+                      <Check size={16} />
+                      Criar Mensagem
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Messages List */}
+            <div className="messages-list-modern">
+              {getCurrentMessages().map((message) => (
+                <div key={message.id} className={`message-card-modern ${!message.active ? 'inactive' : ''}`}>
+                  {editingMessage?.id === message.id ? (
+                    // Edit Form
+                    <div className="message-edit-modern">
+                      <div className="edit-header">
+                        <Edit3 size={18} />
+                        <span>Editando Mensagem</span>
+                      </div>
+                      
+                      <div className="edit-content">
+                        <div className="form-group-modern">
+                          <label className="label-modern">
+                            <Tag size={14} />
+                            Palavras-chave
+                          </label>
+                          <input
+                            className="input-modern"
+                            type="text"
+                            value={editingMessage.trigger.join(', ')}
+                            onChange={(e) => setEditingMessage({
+                              ...editingMessage,
+                              trigger: e.target.value.split(',').map(t => t.trim()).filter(t => t)
+                            })}
+                          />
+                        </div>
+                        
+                        <div className="form-group-modern">
+                          <label className="label-modern">
+                            <MessageSquare size={14} />
+                            Resposta
+                          </label>
+                          <textarea
+                            className="textarea-modern"
+                            value={editingMessage.response}
+                            onChange={(e) => setEditingMessage({
+                              ...editingMessage,
+                              response: e.target.value
+                            })}
+                            rows={4}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="edit-actions">
+                        <button 
+                          className="btn-modern btn-secondary"
+                          onClick={() => setEditingMessage(null)}
+                        >
+                          <X size={14} />
+                          Cancelar
+                        </button>
+                        <button 
+                          className="btn-modern btn-primary"
+                          onClick={() => updateAutoMessage(editingMessage)}
+                        >
+                          <Check size={14} />
+                          Salvar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Display Mode
+                    <>
+                      <div className="message-header-card">
+                        <div className="message-status">
+                          {message.active ? (
+                            <div className="status-active">
+                              <Zap size={14} />
+                              <span>Ativa</span>
+                            </div>
+                          ) : (
+                            <div className="status-inactive">
+                              <X size={14} />
+                              <span>Inativa</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="message-actions-modern">
+                          <button
+                            className="action-btn toggle-btn"
+                            onClick={() => toggleMessageActive(message.id)}
+                            title={message.active ? 'Desativar' : 'Ativar'}
+                          >
+                            {message.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                          </button>
+                          
+                          <button
+                            className="action-btn edit-btn"
+                            onClick={() => setEditingMessage(message)}
+                            title="Editar"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          
+                          <button
+                            className="action-btn delete-btn"
+                            onClick={() => deleteAutoMessage(message.id)}
+                            title="Excluir"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="message-content-modern">
+                        <div className="triggers-section">
+                          <div className="section-label">
+                            <Tag size={14} />
+                            <span>Gatilhos</span>
+                          </div>
+                          <div className="triggers-container">
+                            {message.trigger.map((trigger, index) => (
+                              <span key={index} className="trigger-chip">
+                                {trigger}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="response-section">
+                          <div className="section-label">
+                            <MessageSquare size={14} />
+                            <span>Resposta</span>
+                          </div>
+                          <div className="response-preview">
+                            {message.response}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+
+              {getCurrentMessages().length === 0 && (
+                <div className="empty-state-modern">
+                  <div className="empty-icon-container">
+                    <MessageSquareText size={64} />
+                  </div>
+                  <div className="empty-content">
+                    <h3>Nenhuma mensagem criada ainda</h3>
+                    <p>Comece criando sua primeira resposta automática inteligente para o chatbot</p>
+                    <button 
+                      className="btn-modern btn-primary"
+                      onClick={() => setShowAddMessage(true)}
+                    >
+                      <Sparkles size={16} />
+                      Criar Primeira Mensagem
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+              </div>
+            )}
+          </div>
+        )
+      case 'chat':
+        return (
+          <div className="human-chat-container">
+            <div className="chat-layout">
+              {/* Chat List Sidebar */}
+              <div className="chat-sidebar">
+                <div className="chat-header">
+                  <div className="header-info">
+                    <MessageSquareText size={24} />
+                    <div>
+                      <h3>Chat Humano</h3>
+                      <p>Conversas transferidas do bot</p>
+                    </div>
+                  </div>
+                  <div className="chat-stats">
+                    <div className="stat-badge pending">
+                      {humanChats.filter(chat => chat.status === 'pending').length} Pendentes
+                    </div>
+                    <div className="stat-badge active">
+                      {humanChats.filter(chat => chat.status === 'active').length} Ativas
+                    </div>
+                  </div>
+                </div>
+
+                <div className="operator-info">
+                  <div className="operator-card">
+                    <UserCheck size={20} />
+                    <div>
+                      <strong>{operatorName}</strong>
+                      <small>Operador Online</small>
+                    </div>
+                    <button 
+                      className="btn-edit-name"
+                      onClick={() => {
+                        const newName = prompt('Digite seu nome:', operatorName)
+                        if (newName && newName.trim()) {
+                          setOperatorName(newName.trim())
+                          localStorage.setItem('operatorName', newName.trim())
+                        }
+                      }}
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="chat-list">
+                  {humanChats.length === 0 ? (
+                    <div className="empty-chats">
+                      <MessageCircle size={48} />
+                      <h4>Nenhuma conversa</h4>
+                      <p>Quando alguém solicitar atendimento humano, aparecerá aqui</p>
+                    </div>
+                  ) : (
+                    humanChats.map(chat => (
+                      <div
+                        key={chat.id}
+                        className={`chat-item ${selectedChat === chat.id ? 'selected' : ''} ${chat.status}`}
+                        onClick={() => setSelectedChat(chat.id)}
+                      >
+                        <div className="chat-avatar">
+                          <Users size={20} />
+                        </div>
+                        <div className="chat-info">
+                          <div className="chat-name">{chat.contactName}</div>
+                          <div className="chat-number">{chat.contactNumber}</div>
+                          <div className="chat-preview">
+                            {chat.messages[chat.messages.length - 1]?.body.substring(0, 50)}...
+                          </div>
+                          <div className="chat-time">
+                            {new Date(chat.lastActivity).toLocaleTimeString('pt-BR', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </div>
+                        </div>
+                        <div className="chat-status">
+                          <div className={`status-dot ${chat.status}`}></div>
+                          {chat.status === 'pending' && <span className="status-text">Pendente</span>}
+                          {chat.status === 'active' && <span className="status-text">Ativa</span>}
+                          {chat.status === 'resolved' && <span className="status-text">Resolvida</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Chat Messages Area */}
+              <div className="chat-main">
+                {selectedChat ? (() => {
+                  const currentChat = humanChats.find(chat => chat.id === selectedChat)
+                  if (!currentChat) return null
+
+                  return (
+                    <>
+                      <div className="chat-main-header">
+                        <div className="contact-info">
+                          <div className="contact-avatar">
+                            <Users size={24} />
+                          </div>
+                          <div>
+                            <h4>{currentChat.contactName}</h4>
+                            <span>{currentChat.contactNumber}</span>
+                          </div>
+                        </div>
+                        <div className="chat-actions">
+                          <button 
+                            className="btn-resolve"
+                            onClick={() => {
+                              setHumanChats(chats => 
+                                chats.map(chat => 
+                                  chat.id === selectedChat 
+                                    ? { ...chat, status: 'resolved' as const }
+                                    : chat
+                                )
+                              )
+                              
+                              // Notificar o servidor para remover do modo humano
+                              if (socket) {
+                                socket.emit('resolve_human_chat', {
+                                  contactNumber: currentChat.contactNumber
+                                })
+                              }
+                            }}
+                            disabled={currentChat.status === 'resolved'}
+                          >
+                            <CheckCircle size={16} />
+                            {currentChat.status === 'resolved' ? 'Resolvido' : 'Resolver'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="chat-messages">
+                        {currentChat.messages.map(message => (
+                          <div
+                            key={message.id}
+                            className={`message ${message.isFromBot ? 'bot' : message.isFromHuman ? 'human' : 'customer'}`}
+                          >
+                            <div className="message-content">
+                              <div className="message-text">{message.body}</div>
+                              <div className="message-time">
+                                {new Date(message.timestamp).toLocaleTimeString('pt-BR')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="chat-input">
+                        <div className="input-container">
+                          <textarea
+                            value={newChatMessage}
+                            onChange={(e) => setNewChatMessage(e.target.value)}
+                            placeholder={`Responder para ${currentChat.contactName}...`}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                // Enviar mensagem
+                                if (newChatMessage.trim() && selectedChat) {
+                                  const message: ChatMessage = {
+                                    id: Date.now().toString(),
+                                    from: 'operator',
+                                    to: currentChat.contactNumber,
+                                    body: newChatMessage.trim(),
+                                    timestamp: new Date(),
+                                    isFromBot: false,
+                                    isFromHuman: true
+                                  }
+                                  
+                                  setHumanChats(chats => 
+                                    chats.map(chat => 
+                                      chat.id === selectedChat 
+                                        ? { 
+                                            ...chat, 
+                                            messages: [...chat.messages, message],
+                                            lastActivity: new Date(),
+                                            status: 'active' as const
+                                          }
+                                        : chat
+                                    )
+                                  )
+                                  
+                                  // Enviar via socket
+                                  if (socket) {
+                                    socket.emit('send_human_message', {
+                                      to: currentChat.contactNumber,
+                                      message: newChatMessage.trim(),
+                                      operator: operatorName
+                                    })
+                                  }
+                                  
+                                  setNewChatMessage('')
+                                  
+                                  // Scroll para baixo após enviar
+                                  setTimeout(() => scrollToBottom(), 100)
+                                }
+                              }
+                            }}
+                          />
+                          <button 
+                            className="btn-send"
+                            onClick={() => {
+                              if (newChatMessage.trim() && selectedChat) {
+                                const message: ChatMessage = {
+                                  id: Date.now().toString(),
+                                  from: 'operator',
+                                  to: currentChat.contactNumber,
+                                  body: newChatMessage.trim(),
+                                  timestamp: new Date(),
+                                  isFromBot: false,
+                                  isFromHuman: true
+                                }
+                                
+                                setHumanChats(chats => 
+                                  chats.map(chat => 
+                                    chat.id === selectedChat 
+                                      ? { 
+                                          ...chat, 
+                                          messages: [...chat.messages, message],
+                                          lastActivity: new Date(),
+                                          status: 'active' as const
+                                        }
+                                      : chat
+                                  )
+                                )
+                                
+                                // Enviar via socket
+                                if (socket) {
+                                  socket.emit('send_human_message', {
+                                    to: currentChat.contactNumber,
+                                    message: newChatMessage.trim(),
+                                    operator: operatorName
+                                  })
+                                }
+                                
+                                setNewChatMessage('')
+                                
+                                // Scroll para baixo após enviar
+                                setTimeout(() => scrollToBottom(), 100)
+                              }
+                            }}
+                            disabled={!newChatMessage.trim()}
+                          >
+                            <MessageCircle size={16} />
+                            Enviar
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )
+                })() : (
+                  <div className="no-chat-selected">
+                    <MessageSquareText size={64} />
+                    <h3>Selecione uma conversa</h3>
+                    <p>Escolha uma conversa na lista para começar a atender</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      case 'analytics':
+        return (
+          <div className="content-placeholder">
+            <BarChart3 size={64} className="placeholder-icon" />
+            <h2>Analytics</h2>
+            <p>Em breve: relatórios e estatísticas detalhadas</p>
+          </div>
+        )
+      case 'contacts':
+        return (
+          <div className="content-placeholder">
+            <Users size={64} className="placeholder-icon" />
+            <h2>Contatos</h2>
+            <p>Em breve: gerenciamento de contatos</p>
+          </div>
+        )
+      case 'devices':
+        return (
+          <div className="content-placeholder">
+            <Smartphone size={64} className="placeholder-icon" />
+            <h2>Dispositivos</h2>
+            <p>Em breve: gerenciamento de dispositivos conectados</p>
+          </div>
+        )
+      case 'settings':
+        return (
+          <div className="content-placeholder">
+            <Settings size={64} className="placeholder-icon" />
+            <h2>Configurações</h2>
+            <p>Em breve: configurações do sistema</p>
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
+  // Handle navigation between pages
+  const handleNavigate = (page: PageType) => {
+    setCurrentPage(page)
+    
+    // Salvar sessão quando entrar no dashboard
+    if (page === 'dashboard') {
+      localStorage.setItem('userSession', 'active')
+    }
+    
+    // Limpar sessão quando sair do dashboard
+    if (page === 'landing') {
+      localStorage.removeItem('userSession')
+    }
+  }
+
+  // Função para logout
+  const handleLogout = () => {
+    localStorage.removeItem('userSession')
+    setCurrentPage('landing')
+  }
+
+  // Render current page
+  if (currentPage === 'landing') {
+    return <LandingPage onNavigate={handleNavigate} />
+  }
+
+  if (currentPage === 'login') {
+    return <Login onNavigate={handleNavigate} />
+  }
+
+  if (currentPage === 'register') {
+    return <Register onNavigate={handleNavigate} />
+  }
+
+  // Dashboard (existing app content)
+  return (
+    <div className="app">
+      {/* Overlay para móvel */}
+      {isMobile && (
+        <div 
+          className={`sidebar-overlay ${mobileMenuOpen ? 'active' : ''}`}
+          onClick={closeMobileMenu}
+        />
+      )}
+
+      {/* Toggle móvel */}
+      {isMobile && (
+        <button 
+          className="mobile-menu-toggle"
+          onClick={toggleMobileMenu}
+        >
+          <Menu size={20} />
+        </button>
+      )}
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="sidebar-logo">
+            <MessageSquare className="sidebar-logo-icon" />
+            {(!sidebarCollapsed || isMobile) && <span className="sidebar-logo-text">WhatsApp Bot</span>}
+          </div>
+          <button 
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          >
+            <Menu size={20} />
+          </button>
+      </div>
+
+        <nav className="sidebar-nav">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.id}
+                className={`sidebar-nav-item ${activeMenu === item.id ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveMenu(item.id)
+                  if (isMobile) {
+                    closeMobileMenu()
+                  }
+                }}
+                title={sidebarCollapsed && !isMobile ? item.label : ''}
+              >
+                <Icon size={20} />
+                {(!sidebarCollapsed || isMobile) && <span>{item.label}</span>}
+        </button>
+            )
+          })}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className={`connection-status ${status.connected ? 'connected' : 'disconnected'}`}>
+            {status.connected ? <Wifi size={16} /> : <WifiOff size={16} />}
+            {(!sidebarCollapsed || isMobile) && (
+              <span className="connection-text">
+                {status.connected ? 'Conectado' : 'Desconectado'}
+              </span>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="main-container">
+        <header className="header">
+          <div className="header-content">
+            <div className="header-title">
+              <h1>{menuItems.find(item => item.id === activeMenu)?.label}</h1>
+            </div>
+            <div className="header-actions">
+              <div className={`connection-badge ${status.connected ? 'connected' : 'disconnected'}`}>
+                <div className="connection-icon">
+                  {status.connected ? <Wifi size={18} /> : <WifiOff size={18} />}
+                </div>
+                <div className="connection-info">
+                  <span className="connection-label">
+                    {status.connected ? 'Conectado' : 'Desconectado'}
+                  </span>
+                  <span className="connection-detail">
+                    {status.connected ? 'WhatsApp Online' : 'WhatsApp Offline'}
+                  </span>
+                </div>
+                <div className={`status-dot ${status.connected ? 'online' : 'offline'}`}></div>
+              </div>
+              <button 
+                className="btn-logout"
+                onClick={handleLogout}
+                title="Voltar ao início"
+              >
+                <RefreshCw size={16} />
+                Sair
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="main-content">
+          {renderContent()}
+        </main>
+      </div>
+
+      {/* QR Code Popup */}
+      {showQRPopup && qrCode && (
+        <div className="qr-popup-overlay">
+          <div className="qr-popup">
+            <div className="qr-popup-header">
+              <div className="qr-popup-title">
+                <QrCode size={28} />
+                <div>
+                  <h2>Conectar WhatsApp</h2>
+                  <p>Escaneie o QR Code para conectar</p>
+                </div>
+              </div>
+              <button 
+                className="qr-popup-close"
+                onClick={() => setShowQRPopup(false)}
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="qr-popup-content">
+              <div className="qr-code-container">
+                <img src={qrCode} alt="QR Code WhatsApp" className="qr-code-image" />
+                <div className="qr-loading-indicator">
+                  <div className="qr-spinner"></div>
+                  <p>Aguardando escaneamento...</p>
+                </div>
+              </div>
+
+              <div className="qr-instructions">
+                <h3>Como conectar:</h3>
+                <div className="instruction-list">
+                  <div className="instruction-item">
+                    <div className="instruction-number">1</div>
+                    <div className="instruction-text">
+                      <strong>Abra o WhatsApp</strong>
+                      <span>No seu celular</span>
+                    </div>
+                  </div>
+                  <div className="instruction-item">
+                    <div className="instruction-number">2</div>
+                    <div className="instruction-text">
+                      <strong>Toque no menu</strong>
+                      <span>Mais opções (⋮) → Aparelhos conectados</span>
+                    </div>
+                  </div>
+                  <div className="instruction-item">
+                    <div className="instruction-number">3</div>
+                    <div className="instruction-text">
+                      <strong>Conectar aparelho</strong>
+                      <span>Toque em "Conectar um aparelho"</span>
+                    </div>
+                  </div>
+                  <div className="instruction-item">
+                    <div className="instruction-number">4</div>
+                    <div className="instruction-text">
+                      <strong>Escaneie o código</strong>
+                      <span>Aponte a câmera para este QR Code</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="qr-popup-footer">
+              <div className="qr-status">
+                <div className="status-indicator connecting"></div>
+                <span>Aguardando conexão...</span>
+              </div>
+              <button 
+                className="btn-cancel"
+                onClick={() => {
+                  setShowQRPopup(false)
+                  stopInstance()
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {isLoading && connectionStep !== 'qr' && (
+        <div className="loading-overlay">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>
+              {connectionStep === 'connecting' ? 'Iniciando...' : 'Conectando...'}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default App
