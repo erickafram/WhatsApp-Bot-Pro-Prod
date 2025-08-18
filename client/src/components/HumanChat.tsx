@@ -73,6 +73,9 @@ function HumanChat({ socket }: HumanChatProps) {
   const [transferReason, setTransferReason] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [operators, setOperators] = useState<Operator[]>([])
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('sidebarCollapsed') === 'true'
+  })
 
   // Função para carregar operadores disponíveis
   const loadOperators = async () => {
@@ -381,6 +384,11 @@ function HumanChat({ socket }: HumanChatProps) {
     }
   }, [selectedChat])
 
+  // Salvar estado da sidebar no localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', isSidebarCollapsed.toString())
+  }, [isSidebarCollapsed])
+
   useEffect(() => {
     if (!socket) return
 
@@ -542,15 +550,24 @@ function HumanChat({ socket }: HumanChatProps) {
     <div className="human-chat-container">
       <div className="chat-layout">
         {/* Chat List Sidebar */}
-        <div className="chat-sidebar">
+        <div className={`chat-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
           {/* Header compacto com operador e ações */}
           <div className="chat-header-compact">
             <div className="operator-info-compact">
-              <UserCheck size={16} />
+              <UserCheck size={14} />
               <span className="operator-name">{operatorName}</span>
               <span className="operator-status">Online</span>
             </div>
             <div className="header-actions-compact">
+              <button 
+                className="btn-collapse-sidebar"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                title={isSidebarCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
+              >
+                {isSidebarCollapsed ? '→' : '←'}
+              </button>
+              {!isSidebarCollapsed && (
+                <>
               <button 
                 className="btn-edit-name-compact"
                 onClick={() => {
@@ -562,7 +579,7 @@ function HumanChat({ socket }: HumanChatProps) {
                 }}
                 title="Editar nome"
               >
-                <Edit3 size={12} />
+                    <Edit3 size={10} />
               </button>
               <button 
                 className="btn-clear-chats-compact"
@@ -578,6 +595,8 @@ function HumanChat({ socket }: HumanChatProps) {
               >
                 🗑️
               </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -587,40 +606,52 @@ function HumanChat({ socket }: HumanChatProps) {
               <button 
                 className={`filter-btn-compact ${statusFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setStatusFilter('all')}
+                data-icon="📋"
+                title="Todos"
               >
-                Todos ({humanChats.length})
+                {!isSidebarCollapsed && `Todos (${humanChats.length})`}
               </button>
               <button 
                 className={`filter-btn-compact ${statusFilter === 'pending' ? 'active' : ''}`}
                 onClick={() => setStatusFilter('pending')}
+                data-icon="🟡"
+                title="Pendentes"
               >
-                🟡 Pendentes ({statusCounts.pending})
+                {!isSidebarCollapsed && `🟡 Pendentes (${statusCounts.pending})`}
               </button>
               <button 
                 className={`filter-btn-compact ${statusFilter === 'active' ? 'active' : ''}`}
                 onClick={() => setStatusFilter('active')}
+                data-icon="🟢"
+                title="Ativas"
               >
-                🟢 Ativas ({statusCounts.active})
+                {!isSidebarCollapsed && `🟢 Ativas (${statusCounts.active})`}
               </button>
             </div>
             <div className="filter-row">
               <button 
                 className={`filter-btn-compact ${statusFilter === 'waiting_payment' ? 'active' : ''}`}
                 onClick={() => setStatusFilter('waiting_payment')}
+                data-icon="🟠"
+                title="Aguardando"
               >
-                🟠 Aguardando ({statusCounts.waiting_payment})
+                {!isSidebarCollapsed && `🟠 Aguardando (${statusCounts.waiting_payment})`}
               </button>
               <button 
                 className={`filter-btn-compact ${statusFilter === 'paid' ? 'active' : ''}`}
                 onClick={() => setStatusFilter('paid')}
+                data-icon="🔵"
+                title="Pagos"
               >
-                🔵 Pagos ({statusCounts.paid})
+                {!isSidebarCollapsed && `🔵 Pagos (${statusCounts.paid})`}
               </button>
               <button 
                 className={`filter-btn-compact ${statusFilter === 'finished' ? 'active' : ''}`}
                 onClick={() => setStatusFilter('finished')}
+                data-icon="🔴"
+                title="Encerrados"
               >
-                🔴 Encerrados ({statusCounts.finished})
+                {!isSidebarCollapsed && `🔴 Encerrados (${statusCounts.finished})`}
               </button>
             </div>
           </div>
@@ -640,7 +671,7 @@ function HumanChat({ socket }: HumanChatProps) {
                   onClick={() => setSelectedChat(chat.id)}
                 >
                   <div className="chat-avatar-compact">
-                    <Users size={16} />
+                    <Users size={14} />
                   </div>
                   <div className="chat-info-compact">
                     <div className="chat-header-row">
@@ -689,7 +720,7 @@ function HumanChat({ socket }: HumanChatProps) {
                 <div className="chat-main-header-compact">
                   <div className="contact-info-compact">
                     <div className="contact-avatar-compact">
-                      <Users size={18} />
+                      <Users size={16} />
                     </div>
                     <div className="contact-details-compact">
                       <span className="contact-name-compact">{currentChat.contactName}</span>
@@ -729,7 +760,7 @@ function HumanChat({ socket }: HumanChatProps) {
                         {currentChat.status === 'finished' && 'Encerrado'}
                         {currentChat.status === 'resolved' && 'Resolvido'}
                         
-                        <ChevronDown size={14} />
+                        <ChevronDown size={12} />
                       </button>
                       
                       {showStatusDropdown === selectedChat && (
@@ -774,7 +805,7 @@ function HumanChat({ socket }: HumanChatProps) {
                       disabled={currentChat.status === 'finished' || currentChat.status === 'resolved'}
                       title="Transferir conversa"
                     >
-                      <ArrowRightLeft size={14} />
+                      <ArrowRightLeft size={12} />
                     </button>
                   </div>
                 </div>
