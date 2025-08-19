@@ -42,6 +42,7 @@ export declare class WhatsAppInstanceModel {
     }>;
     static clearExpiredQRCodes(): Promise<number>;
     static hasActiveInstance(managerId: number): Promise<boolean>;
+    static countActiveInstances(managerId: number): Promise<number>;
     static countByManager(managerId: number): Promise<number>;
 }
 //# sourceMappingURL=WhatsAppInstance.d.ts.map

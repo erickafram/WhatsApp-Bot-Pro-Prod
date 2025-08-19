@@ -251,15 +251,30 @@ router.get('/human-chats/:chatId/messages', auth_1.authenticate, async (req, res
             hasPermission = chat.manager_id === req.user.id;
         }
         else if (req.user.role === 'operator') {
-            // Operador pode acessar se está atribuído ao chat ou se é uma conversa pendente do seu manager
-            hasPermission = (chat.manager_id === req.user.manager_id) &&
-                (chat.assigned_to === req.user.id || (chat.assigned_to === null && chat.status === 'pending'));
+            // Operador pode acessar se:
+            // 1. Está atribuído ao chat (assigned_to)
+            // 2. É uma conversa pendente do seu manager
+            // 3. Recebeu uma transferência (transfer_to)
+            // 4. Fez uma transferência (transfer_from)
+            const isAssigned = chat.assigned_to === req.user.id;
+            const isPendingForManager = (chat.assigned_to === null && chat.status === 'pending' && chat.manager_id === req.user.manager_id);
+            const isTransferTo = chat.transfer_to === req.user.id;
+            const isTransferFrom = chat.transfer_from === req.user.id;
+            const isSameManager = chat.manager_id === req.user.manager_id;
+            hasPermission = isSameManager && (isAssigned || isPendingForManager || isTransferTo || isTransferFrom);
             console.log(`🔍 Debug permissão operador:`);
             console.log(`  - chat.manager_id: ${chat.manager_id}`);
             console.log(`  - req.user.manager_id: ${req.user.manager_id}`);
             console.log(`  - chat.assigned_to: ${chat.assigned_to}`);
             console.log(`  - req.user.id: ${req.user.id}`);
             console.log(`  - chat.status: ${chat.status}`);
+            console.log(`  - chat.transfer_to: ${chat.transfer_to}`);
+            console.log(`  - chat.transfer_from: ${chat.transfer_from}`);
+            console.log(`  - isAssigned: ${isAssigned}`);
+            console.log(`  - isPendingForManager: ${isPendingForManager}`);
+            console.log(`  - isTransferTo: ${isTransferTo}`);
+            console.log(`  - isTransferFrom: ${isTransferFrom}`);
+            console.log(`  - isSameManager: ${isSameManager}`);
             console.log(`  - hasPermission: ${hasPermission}`);
         }
         if (!hasPermission) {
@@ -391,6 +406,32 @@ router.post('/human-chats/:id/transfer', auth_1.authenticate, async (req, res) =
         }
         // Realizar a transferência (agora cria transferência pendente)
         const updatedChat = await Message_1.HumanChatModel.transferToUser(chatId, req.user.id, toUserId, transferReason);
+        // Emitir eventos Socket.IO para atualizar dashboards
+        if (req.io && updatedChat) {
+            const io = req.io;
+            // Buscar informações do operador que está transferindo e recebendo
+            const fromUser = await (0, database_1.executeQuery)('SELECT name FROM users WHERE id = ?', [req.user.id]);
+            const toUser = await (0, database_1.executeQuery)('SELECT name, manager_id FROM users WHERE id = ?', [toUserId]);
+            const chat = await Message_1.HumanChatModel.findById(chatId);
+            if (fromUser.length > 0 && toUser.length > 0 && chat) {
+                // Buscar dados do contato
+                const contact = await (0, database_1.executeQuery)('SELECT name, phone_number FROM contacts WHERE id = ?', [chat.contact_id]);
+                const managerId = toUser[0].manager_id || chat.manager_id;
+                // Evento para dashboard - nova transferência
+                io.to(`manager_${managerId}`).emit('dashboard_chat_update', {
+                    type: 'transfer_created',
+                    chatId: chatId,
+                    customerName: contact.length > 0 ? contact[0].name || 'Cliente' : 'Cliente',
+                    customerPhone: contact.length > 0 ? contact[0].phone_number : '',
+                    status: 'transfer_pending',
+                    transferFrom: fromUser[0].name,
+                    transferTo: toUser[0].name,
+                    transferReason: transferReason,
+                    timestamp: new Date()
+                });
+                console.log(`📊 Evento dashboard_chat_update (transfer_created) emitido para gestor ${managerId}`);
+            }
+        }
         res.json({
             success: true,
             message: 'Transferência enviada. Aguardando aceite do operador.',

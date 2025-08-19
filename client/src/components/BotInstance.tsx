@@ -30,6 +30,50 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [showQRPopup, setShowQRPopup] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
+  const [userRole, setUserRole] = useState<string>('manager')
+  const [instanceStats, setInstanceStats] = useState({
+    activeCount: 0,
+    totalCount: 0,
+    limit: 1,
+    canCreateMore: false
+  })
+
+  // Get user role from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      const user = JSON.parse(userData)
+      setUserRole(user.role || 'manager')
+    }
+  }, [])
+
+  // Fetch instance statistics
+  const fetchInstanceStats = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) return
+
+      const response = await fetch('/api/whatsapp/instances', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.stats) {
+          setInstanceStats(data.stats)
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas de instâncias:', error)
+    }
+  }
+
+  // Fetch stats on component mount
+  useEffect(() => {
+    fetchInstanceStats()
+  }, [])
 
   const clearQRStates = () => {
     setShowQRPopup(false)
@@ -258,6 +302,9 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
       
       socket?.emit('start_instance', socketData)
       
+      // Atualizar estatísticas após criar instância
+      await fetchInstanceStats()
+      
     } catch (error) {
       console.error('Erro ao iniciar instância:', error)
       setStatus({ connected: false, message: 'Erro ao conectar com servidor' })
@@ -305,6 +352,9 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
         setStatus({ connected: false, message: 'Erro ao buscar instâncias' })
         setIsLoading(false)
       }
+      
+      // Atualizar estatísticas após parar instância
+      await fetchInstanceStats()
       
     } catch (error) {
       console.error('Erro ao parar instância:', error)
@@ -374,6 +424,9 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
     } finally {
       setIsLoading(false)
     }
+    
+    // Atualizar estatísticas após refresh
+    await fetchInstanceStats()
   }
 
   const formatUptime = (ms: number): string => {
@@ -432,6 +485,37 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
             <p>{formatUptime(uptime)}</p>
           </div>
         </div>
+      </div>
+
+      {/* Role-based Instance Limitation Info */}
+      <div className="instance-info-card">
+        {userRole === 'admin' ? (
+          <div className="info-card admin">
+            <div className="info-icon">👑</div>
+            <div className="info-content">
+              <h3>Conta Administrador</h3>
+              <p>Você pode criar <strong>instâncias ilimitadas</strong> do WhatsApp Bot.</p>
+              <div className="instance-count">
+                Instâncias ativas: <strong>{instanceStats.activeCount}</strong> | 
+                Total: <strong>{instanceStats.totalCount}</strong>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="info-card manager">
+            <div className="info-icon">👤</div>
+            <div className="info-content">
+              <h3>Conta Gestor</h3>
+              <p>Você pode ter <strong>apenas 1 instância ativa</strong> por vez. Para mais instâncias, contate o administrador.</p>
+              <div className="instance-count">
+                Instâncias ativas: <strong>{instanceStats.activeCount}/{instanceStats.limit || 1}</strong>
+                {!instanceStats.canCreateMore && (
+                  <span className="limit-reached"> - Limite atingido</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Instance List */}

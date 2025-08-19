@@ -23,7 +23,22 @@ router.get('/instances', authenticate, requireManager, async (req, res) => {
       instances = await WhatsAppInstanceModel.findByManagerId(req.user.id);
     }
     
-    res.json({ instances });
+    // Contar instâncias ativas e totais
+    const activeCount = await WhatsAppInstanceModel.countActiveInstances(req.user.id);
+    const totalCount = await WhatsAppInstanceModel.countByManager(req.user.id);
+    
+    // Determinar limite baseado no role
+    const instanceLimit = req.user.role === 'admin' ? null : 1; // null = ilimitado
+    
+    res.json({ 
+      instances,
+      stats: {
+        activeCount,
+        totalCount,
+        limit: instanceLimit,
+        canCreateMore: req.user.role === 'admin' || activeCount < 1
+      }
+    });
   } catch (error) {
     console.error('Erro ao listar instâncias:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -43,11 +58,17 @@ router.post('/instances', authenticate, requireManager, logAction('create_whatsa
       return res.status(400).json({ error: 'Nome da instância deve ter pelo menos 3 caracteres' });
     }
     
-    // Verificar se já tem instância ativa (limite de 1 por gestor por enquanto)
-    const hasActive = await WhatsAppInstanceModel.hasActiveInstance(req.user.id);
-    if (hasActive) {
-      return res.status(400).json({ error: 'Você já possui uma instância ativa. Desconecte-a primeiro.' });
+    // Verificar limitação de instâncias baseada no role do usuário
+    if (req.user.role !== 'admin') {
+      // Usuários não-admin (managers) podem ter apenas 1 instância ativa
+      const hasActive = await WhatsAppInstanceModel.hasActiveInstance(req.user.id);
+      if (hasActive) {
+        return res.status(400).json({ 
+          error: 'Você já possui uma instância ativa. Desconecte-a primeiro ou contate o administrador para ter mais instâncias.' 
+        });
+      }
     }
+    // Administradores podem criar quantas instâncias quiserem (sem verificação)
     
     const instance = await WhatsAppInstanceModel.create({
       manager_id: req.user.id,

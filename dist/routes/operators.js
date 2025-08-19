@@ -17,6 +17,15 @@ const requireManager = (req, res, next) => {
     }
     next();
 };
+// Middleware para verificar se é operador ou manager/admin
+const requireOperatorAccess = (req, res, next) => {
+    if (!['admin', 'manager', 'operator'].includes(req.user.role)) {
+        return res.status(403).json({
+            error: 'Acesso negado. Apenas operadores, gestores e administradores.'
+        });
+    }
+    next();
+};
 // 📋 Listar todos os operadores do manager
 router.get('/', auth_1.authenticate, requireManager, async (req, res) => {
     try {
@@ -309,6 +318,296 @@ router.get('/stats/overview', auth_1.authenticate, requireManager, async (req, r
     }
     catch (error) {
         console.error('❌ Erro ao buscar estatísticas:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
+// ===== DASHBOARD ENDPOINTS =====
+// 📊 Dashboard Stats - Estatísticas para operadores
+router.get('/dashboard/stats', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
+    try {
+        const operatorId = req.user.id;
+        const managerId = req.user.manager_id || req.user.id;
+        console.log(`📊 Carregando stats do dashboard para operador ${operatorId}`);
+        // Buscar conversas pendentes
+        const [pendingChats] = await database_1.default.execute(`SELECT COUNT(*) as count 
+       FROM human_chats 
+       WHERE manager_id = ? AND status = 'pending'`, [managerId]);
+        // Buscar conversas ativas do operador
+        const [activeChats] = await database_1.default.execute(`SELECT COUNT(*) as count 
+       FROM human_chats 
+       WHERE operator_id = ? AND status = 'active'`, [operatorId]);
+        // Buscar conversas resolvidas hoje
+        const [resolvedToday] = await database_1.default.execute(`SELECT COUNT(*) as count 
+       FROM human_chats 
+       WHERE operator_id = ? 
+       AND status IN ('resolved', 'finished') 
+       AND DATE(updated_at) = CURDATE()`, [operatorId]);
+        // Calcular tempo médio de resposta (mock por enquanto)
+        const averageResponseTime = Math.floor(Math.random() * 10) + 2;
+        // Contar mensagens novas não lidas
+        const [newMessages] = await database_1.default.execute(`SELECT COUNT(*) as count 
+       FROM messages m
+       JOIN human_chats hc ON m.chat_id = hc.id
+       WHERE hc.operator_id = ? 
+       AND m.sender_type = 'contact' 
+       AND m.is_read = FALSE 
+       AND m.created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)`, [operatorId]);
+        const stats = {
+            pendingChats: pendingChats[0]?.count || 0,
+            activeChats: activeChats[0]?.count || 0,
+            resolvedToday: resolvedToday[0]?.count || 0,
+            averageResponseTime,
+            newMessagesCount: newMessages[0]?.count || 0,
+            customerSatisfaction: 4.8 // Mock value
+        };
+        console.log('✅ Stats carregadas:', stats);
+        res.json({ stats });
+    }
+    catch (error) {
+        console.error('❌ Erro ao carregar stats do dashboard:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
+// 💬 Conversas Pendentes - Lista de conversas aguardando atendimento
+router.get('/chats/pending', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
+    try {
+        const managerId = req.user.manager_id || req.user.id;
+        console.log(`💬 Carregando conversas pendentes para manager ${managerId}`);
+        const [rows] = await database_1.default.execute(`SELECT 
+        hc.id,
+        c.name as customer_name,
+        c.phone_number,
+        hc.status,
+        hc.created_at,
+        (SELECT m.content 
+         FROM messages m 
+         WHERE m.chat_id = hc.id 
+         ORDER BY m.created_at DESC 
+         LIMIT 1) as last_message,
+        TIMESTAMPDIFF(MINUTE, hc.created_at, NOW()) as waiting_minutes
+      FROM human_chats hc
+      JOIN contacts c ON hc.contact_id = c.id
+      WHERE hc.manager_id = ? 
+      AND hc.status = 'pending'
+      ORDER BY hc.created_at ASC`, [managerId]);
+        const chats = rows.map((row) => ({
+            id: row.id,
+            customerName: row.customer_name || row.phone_number,
+            lastMessage: row.last_message || 'Nova conversa',
+            waitingTime: row.waiting_minutes || 0,
+            priority: row.waiting_minutes > 10 ? 'high' : row.waiting_minutes > 5 ? 'medium' : 'low',
+            timestamp: row.created_at
+        }));
+        console.log(`✅ ${chats.length} conversas pendentes encontradas`);
+        res.json({ chats });
+    }
+    catch (error) {
+        console.error('❌ Erro ao carregar conversas pendentes:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
+// 🔔 Alertas - Lista de alertas para o operador
+router.get('/alerts', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
+    try {
+        const operatorId = req.user.id;
+        const managerId = req.user.manager_id || req.user.id;
+        console.log(`🔔 Carregando alertas para operador ${operatorId}`);
+        // Por enquanto, retornar alertas mock
+        // No futuro, implementar sistema de alertas no banco
+        const alerts = [
+            {
+                id: `timeout_${Date.now()}`,
+                type: 'timeout',
+                title: 'Tempo limite excedido',
+                message: 'Algumas conversas estão aguardando há mais de 10 minutos',
+                timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+                priority: 'high',
+                read: false
+            },
+            {
+                id: `new_chat_${Date.now()}`,
+                type: 'pending_chat',
+                title: 'Nova conversa pendente',
+                message: 'Cliente solicitou atendimento humano',
+                timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+                priority: 'medium',
+                read: false
+            }
+        ];
+        console.log(`✅ ${alerts.length} alertas carregados`);
+        res.json({ alerts });
+    }
+    catch (error) {
+        console.error('❌ Erro ao carregar alertas:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
+// 🔄 Conversas Transferidas - Lista de conversas transferidas para o operador
+router.get('/chats/transferred', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
+    try {
+        const operatorId = req.user.id;
+        console.log(`🔄 Carregando conversas transferidas para operador ${operatorId}`);
+        // Buscar conversas com status 'transfer_pending' que foram transferidas para este operador
+        const [rows] = await database_1.default.execute(`SELECT 
+        hc.id,
+        hc.status,
+        hc.transfer_reason,
+        hc.transfer_from,
+        hc.transfer_to,
+        hc.created_at,
+        hc.updated_at,
+        c.name as customer_name,
+        c.phone_number,
+        u_from.name as transfer_from_name,
+        TIMESTAMPDIFF(MINUTE, hc.updated_at, NOW()) as waiting_minutes
+      FROM human_chats hc
+      JOIN contacts c ON hc.contact_id = c.id
+      LEFT JOIN users u_from ON hc.transfer_from = u_from.id
+      WHERE hc.transfer_to = ? AND hc.status = 'transfer_pending'
+      ORDER BY hc.updated_at ASC
+      LIMIT 20`, [operatorId]);
+        const transferredChats = rows.map((row) => {
+            const waitingMinutes = row.waiting_minutes || 0;
+            // Calcular prioridade baseada no tempo de espera
+            let priority = 'low';
+            if (waitingMinutes > 30)
+                priority = 'high';
+            else if (waitingMinutes > 15)
+                priority = 'medium';
+            return {
+                id: row.id,
+                customerName: row.customer_name || `Cliente ${row.phone_number}`,
+                phoneNumber: row.phone_number,
+                transferFromName: row.transfer_from_name || 'Sistema',
+                transferReason: row.transfer_reason || 'Transferência solicitada',
+                waitingTime: waitingMinutes,
+                priority,
+                transferredAt: row.updated_at
+            };
+        });
+        console.log(`✅ ${transferredChats.length} conversas transferidas encontradas`);
+        res.json({
+            success: true,
+            transferredChats,
+            total: transferredChats.length
+        });
+    }
+    catch (error) {
+        console.error('❌ Erro ao buscar conversas transferidas:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
+// 🎯 Atender Conversa - Atribuir conversa pendente ao operador
+router.post('/chats/:chatId/attend', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
+    try {
+        const chatId = parseInt(req.params.chatId);
+        const operatorId = req.user.id;
+        console.log(`🎯 Operador ${operatorId} atendendo conversa ${chatId}`);
+        // Verificar se a conversa existe e está pendente
+        const [chatRows] = await database_1.default.execute(`SELECT id, status, manager_id FROM human_chats WHERE id = ?`, [chatId]);
+        if (chatRows.length === 0) {
+            return res.status(404).json({ error: 'Conversa não encontrada' });
+        }
+        const chat = chatRows[0];
+        if (chat.status !== 'pending') {
+            return res.status(400).json({ error: 'Esta conversa não está pendente' });
+        }
+        // Verificar se o operador pode atender conversas deste manager
+        const managerId = req.user.manager_id || req.user.id;
+        if (chat.manager_id !== managerId && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Sem permissão para atender esta conversa' });
+        }
+        // Atribuir a conversa ao operador
+        await database_1.default.execute(`UPDATE human_chats 
+       SET operator_id = ?, assigned_to = ?, status = 'active', updated_at = NOW()
+       WHERE id = ?`, [operatorId, operatorId, chatId]);
+        console.log(`✅ Conversa ${chatId} atribuída ao operador ${operatorId}`);
+        res.json({
+            success: true,
+            message: 'Conversa atribuída com sucesso',
+            chatId,
+            operatorId
+        });
+    }
+    catch (error) {
+        console.error('❌ Erro ao atender conversa:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
+// ✅ Aceitar Transferência - Aceitar conversa transferida
+router.post('/chats/:chatId/accept-transfer', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
+    try {
+        const chatId = parseInt(req.params.chatId);
+        const operatorId = req.user.id;
+        console.log(`✅ Operador ${operatorId} aceitando transferência da conversa ${chatId}`);
+        // Verificar se a conversa existe e está transferida para este operador
+        const [chatRows] = await database_1.default.execute(`SELECT id, status, transfer_from, transfer_to, manager_id FROM human_chats WHERE id = ?`, [chatId]);
+        if (chatRows.length === 0) {
+            return res.status(404).json({ error: 'Conversa não encontrada' });
+        }
+        const chat = chatRows[0];
+        if (chat.status !== 'transfer_pending') {
+            return res.status(400).json({ error: 'Esta conversa não está aguardando transferência' });
+        }
+        if (chat.transfer_to !== operatorId) {
+            return res.status(403).json({ error: 'Esta transferência não é para você' });
+        }
+        // Aceitar a transferência - atribuir ao operador e limpar campos de transferência
+        await database_1.default.execute(`UPDATE human_chats 
+       SET assigned_to = ?, operator_id = ?, status = 'active', 
+           transfer_from = NULL, transfer_to = NULL, transfer_reason = NULL, updated_at = NOW()
+       WHERE id = ?`, [operatorId, operatorId, chatId]);
+        console.log(`✅ Transferência da conversa ${chatId} aceita pelo operador ${operatorId}`);
+        // Emitir eventos Socket.IO para atualizar dashboards
+        if (req.io) {
+            const io = req.io;
+            // Buscar dados do chat e contato para o evento
+            const [chatRows] = await database_1.default.execute(`SELECT hc.manager_id, c.name as contact_name, c.phone_number 
+         FROM human_chats hc
+         JOIN contacts c ON hc.contact_id = c.id 
+         WHERE hc.id = ?`, [chatId]);
+            if (chatRows.length > 0) {
+                const chatData = chatRows[0];
+                // Evento para dashboard - transferência aceita
+                io.to(`manager_${chatData.manager_id}`).emit('dashboard_chat_update', {
+                    type: 'transfer_accepted',
+                    chatId: chatId,
+                    customerName: chatData.contact_name || 'Cliente',
+                    customerPhone: chatData.phone_number,
+                    status: 'active',
+                    operatorId: operatorId,
+                    timestamp: new Date()
+                });
+                console.log(`📊 Evento dashboard_chat_update (transfer_accepted) emitido para gestor ${chatData.manager_id}`);
+            }
+        }
+        res.json({
+            success: true,
+            message: 'Transferência aceita com sucesso',
+            chatId,
+            operatorId
+        });
+    }
+    catch (error) {
+        console.error('❌ Erro ao aceitar transferência:', error);
         res.status(500).json({
             error: 'Erro interno do servidor',
             details: error instanceof Error ? error.message : 'Erro desconhecido'

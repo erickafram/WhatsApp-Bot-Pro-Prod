@@ -38,6 +38,11 @@ const io = new socket_io_1.Server(server, {
 // Middleware
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+// Middleware para disponibilizar Socket.IO nas rotas
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
 // Servir arquivos estáticos do React build
 app.use(express_1.default.static(path_1.default.join(__dirname, '../client/dist')));
 // Gerenciamento de instâncias WhatsApp por gestor
@@ -236,15 +241,23 @@ async function initializeWhatsAppClient(managerId, instanceId) {
                     console.log(`👤 Mensagem redirecionada para chat humano - ID: ${activeChat.id}`);
                     // Emitir mensagem para o chat humano
                     io.to(`manager_${managerId}`).emit('customer_message', {
-                        chatId: msg.from,
+                        chatId: phoneNumber + '@c.us',
                         message: msg.body,
                         timestamp: new Date(),
                         customerName: contactName,
-                        contactId: dbContact.id,
-                        messageId: savedMessage.id,
-                        humanChatId: activeChat.id
+                        managerId: managerId
                     });
                     console.log(`📨 Evento customer_message emitido para gestor ${managerId} - Chat ID: ${activeChat.id}`);
+                    // Emitir evento para atualizar dashboard
+                    io.to(`manager_${managerId}`).emit('dashboard_chat_update', {
+                        type: 'new_message',
+                        chatId: activeChat.id,
+                        customerName: contactName,
+                        customerPhone: phoneNumber,
+                        status: activeChat.status,
+                        timestamp: new Date()
+                    });
+                    console.log(`📊 Evento dashboard_chat_update emitido para gestor ${managerId}`);
                     return; // Não processar mensagens automáticas
                 }
                 // Buscar projeto padrão do gestor no banco de dados
@@ -393,6 +406,228 @@ async function processAutoMessages(msg, activeMessages, managerId, client, insta
     }
     else {
         console.log(`❓ Nenhuma mensagem automática correspondente para: "${msg.body}"`);
+        // 🏙️ LÓGICA ESPECIAL PARA CIDADES (VENDAS DE PASSAGEM)
+        const userMessage = msg.body.trim();
+        // Lista de cidades disponíveis (expandida e normalizada)
+        const availableCities = [
+            'São Luís', 'São Luis', 'Sao Luis', 'Sao Luís', 'sao luis', 'são luis',
+            'Imperatriz', 'imperatriz',
+            'Brasília', 'Brasilia', 'brasilia', 'brasília', 'DF',
+            'Goiânia', 'Goiania', 'goiania', 'goiânia', 'GO',
+            'Araguaína', 'Araguaina', 'araguaina', 'araguaína',
+            'Gurupi', 'gurupi',
+            'Porto Nacional', 'porto nacional', 'Porto nacional',
+            'Paraíso do Tocantins', 'Paraiso do Tocantins', 'paraiso do tocantins', 'paraíso do tocantins', 'Paraíso', 'Paraiso',
+            'Colinas do Tocantins', 'colinas do tocantins', 'Colinas', 'colinas',
+            'Barreiras', 'barreiras', 'BA',
+            'Luís Eduardo Magalhães', 'Luis Eduardo Magalhaes', 'luis eduardo magalhaes', 'luís eduardo magalhães',
+            'L.E. Magalhães', 'LE Magalhães', 'LEM',
+            'Teresina', 'teresina', 'PI',
+            'Parnaíba', 'Parnaiba', 'parnaiba', 'parnaíba'
+        ];
+        // Verificar se a mensagem pode ser um nome de cidade (mais de 2 caracteres, não é apenas número)
+        if (userMessage.length > 2 && !/^\d+$/.test(userMessage) && !/^[1-9]$/.test(userMessage)) {
+            console.log(`🏙️ Verificando se "${userMessage}" é uma cidade disponível...`);
+            // 📝 DETECTAR DADOS PESSOAIS (Nome, Telefone, CPF, Data)
+            const hasPersonalData = detectPersonalData(userMessage);
+            if (hasPersonalData) {
+                console.log(`📝 Dados pessoais detectados: "${userMessage}" - Transferindo para operador`);
+                const transferMessage = `📋 *DADOS RECEBIDOS*
+
+Perfeito! Recebi suas informações:
+
+${userMessage}
+
+🤝 Vou transferir você para um de nossos operadores especializados em vendas para finalizar sua compra e processar o pagamento.
+
+⏰ *Em alguns instantes um operador entrará em contato!*
+
+Aguarde um momento... 🚌✨`;
+                await transferToHuman(managerId, msg, transferMessage);
+                messageProcessed = true;
+                return; // Sair da função após transferir
+            }
+            // Normalizar entrada do usuário para comparação
+            const normalizedInput = userMessage.toLowerCase().trim();
+            // Verificar se é uma cidade disponível (comparação mais flexível)
+            const isCityAvailable = availableCities.some(city => {
+                const normalizedCity = city.toLowerCase();
+                return normalizedCity.includes(normalizedInput) ||
+                    normalizedInput.includes(normalizedCity) ||
+                    normalizedCity === normalizedInput ||
+                    // Comparação por palavras-chave
+                    (normalizedInput.includes('luis') && normalizedCity.includes('luís')) ||
+                    (normalizedInput.includes('luís') && normalizedCity.includes('luis')) ||
+                    (normalizedInput.includes('brasilia') && normalizedCity.includes('brasília')) ||
+                    (normalizedInput.includes('brasília') && normalizedCity.includes('brasilia')) ||
+                    (normalizedInput.includes('goiania') && normalizedCity.includes('goiânia')) ||
+                    (normalizedInput.includes('goiânia') && normalizedCity.includes('goiania'));
+            });
+            // Tratar "Palmas" como origem (não destino)
+            if (normalizedInput.includes('palmas')) {
+                const chat = await msg.getChat();
+                await delay(2000);
+                await chat.sendStateTyping();
+                await delay(2000);
+                const response = `🏙️ Palmas é nossa cidade de *origem*! 🚌\n\nPara onde você gostaria de viajar saindo de Palmas?\n\nDigite o nome da cidade de *destino* que você deseja! 😊\n\n*Exemplo:* São Luís, Brasília, Goiânia, etc.`;
+                if (client && instanceData.isReady) {
+                    await client.sendMessage(msg.from, response);
+                    console.log(`🏙️ Resposta sobre Palmas (origem) enviada`);
+                }
+                messageProcessed = true;
+            }
+            else if (isCityAvailable) {
+                // Encontrar o nome correto da cidade (versão mais formal)
+                let correctCityName = userMessage;
+                // Mapear para nome formal da cidade
+                const cityMapping = {
+                    'sao luis': 'São Luís - MA',
+                    'são luis': 'São Luís - MA',
+                    'sao luís': 'São Luís - MA',
+                    'imperatriz': 'Imperatriz - MA',
+                    'brasilia': 'Brasília - DF',
+                    'brasília': 'Brasília - DF',
+                    'goiania': 'Goiânia - GO',
+                    'goiânia': 'Goiânia - GO',
+                    'araguaina': 'Araguaína - TO',
+                    'araguaína': 'Araguaína - TO',
+                    'gurupi': 'Gurupi - TO',
+                    'porto nacional': 'Porto Nacional - TO',
+                    'paraiso': 'Paraíso do Tocantins - TO',
+                    'paraíso': 'Paraíso do Tocantins - TO',
+                    'colinas': 'Colinas do Tocantins - TO',
+                    'barreiras': 'Barreiras - BA',
+                    'teresina': 'Teresina - PI',
+                    'parnaiba': 'Parnaíba - PI',
+                    'parnaíba': 'Parnaíba - PI'
+                };
+                // Tentar encontrar nome formal
+                const mappedCity = cityMapping[normalizedInput];
+                if (mappedCity) {
+                    correctCityName = mappedCity;
+                }
+                else {
+                    // Buscar na lista de cidades disponíveis
+                    const foundCity = availableCities.find(city => {
+                        const normalizedCity = city.toLowerCase();
+                        return normalizedCity.includes(normalizedInput) ||
+                            normalizedInput.includes(normalizedCity) ||
+                            normalizedCity === normalizedInput;
+                    });
+                    if (foundCity) {
+                        correctCityName = foundCity;
+                        // Adicionar estado se não tiver
+                        if (!correctCityName.includes(' - ')) {
+                            if (correctCityName.toLowerCase().includes('são luís') || correctCityName.toLowerCase().includes('imperatriz')) {
+                                correctCityName += ' - MA';
+                            }
+                            else if (correctCityName.toLowerCase().includes('brasília')) {
+                                correctCityName += ' - DF';
+                            }
+                            else if (correctCityName.toLowerCase().includes('goiânia')) {
+                                correctCityName += ' - GO';
+                            }
+                            else if (correctCityName.toLowerCase().includes('barreiras')) {
+                                correctCityName += ' - BA';
+                            }
+                            else if (correctCityName.toLowerCase().includes('teresina') || correctCityName.toLowerCase().includes('parnaíba')) {
+                                correctCityName += ' - PI';
+                            }
+                            else {
+                                correctCityName += ' - TO';
+                            }
+                        }
+                    }
+                }
+                // Buscar mensagem de cidade disponível
+                const availableMessage = activeMessages.find(msg => msg.trigger_words.includes('CIDADE_DISPONIVEL'));
+                if (availableMessage) {
+                    const chat = await msg.getChat();
+                    await delay(2000);
+                    await chat.sendStateTyping();
+                    await delay(3000);
+                    let response = availableMessage.response_text;
+                    response = response.replace(/{CIDADE_NOME}/g, correctCityName);
+                    // Substituir {name} se necessário
+                    if (response.includes('{name}')) {
+                        const contact = await msg.getContact();
+                        const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+                        response = response.replace(/{name}/g, name);
+                    }
+                    if (client && instanceData.isReady) {
+                        await client.sendMessage(msg.from, response);
+                        await delay(1000);
+                        console.log(`✅ Resposta de cidade DISPONÍVEL enviada: ${correctCityName}`);
+                        // Salvar resposta no banco
+                        try {
+                            const phoneNumber = msg.from.replace('@c.us', '');
+                            const dbContact = await Message_1.ContactModel.findByPhoneAndManager(phoneNumber, managerId);
+                            if (dbContact) {
+                                const activeChat = await Message_1.HumanChatModel.findActiveByContact(dbContact.id);
+                                await Message_1.MessageModel.create({
+                                    manager_id: managerId,
+                                    chat_id: activeChat?.id || null,
+                                    contact_id: dbContact.id,
+                                    sender_type: 'bot',
+                                    content: response,
+                                    message_type: 'text'
+                                });
+                            }
+                        }
+                        catch (error) {
+                            console.error('❌ Erro ao salvar resposta de cidade disponível:', error);
+                        }
+                    }
+                    messageProcessed = true;
+                }
+            }
+            else {
+                // Buscar mensagem de cidade não disponível
+                const notAvailableMessage = activeMessages.find(msg => msg.trigger_words.includes('CIDADE_NAO_DISPONIVEL'));
+                if (notAvailableMessage) {
+                    const chat = await msg.getChat();
+                    await delay(2000);
+                    await chat.sendStateTyping();
+                    await delay(3000);
+                    let response = notAvailableMessage.response_text;
+                    response = response.replace(/{CIDADE_NOME}/g, userMessage);
+                    // Substituir {name} se necessário
+                    if (response.includes('{name}')) {
+                        const contact = await msg.getContact();
+                        const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+                        response = response.replace(/{name}/g, name);
+                    }
+                    if (client && instanceData.isReady) {
+                        await client.sendMessage(msg.from, response);
+                        await delay(1000);
+                        console.log(`❌ Resposta de cidade NÃO DISPONÍVEL enviada: ${userMessage}`);
+                        // Salvar resposta no banco
+                        try {
+                            const phoneNumber = msg.from.replace('@c.us', '');
+                            const dbContact = await Message_1.ContactModel.findByPhoneAndManager(phoneNumber, managerId);
+                            if (dbContact) {
+                                const activeChat = await Message_1.HumanChatModel.findActiveByContact(dbContact.id);
+                                await Message_1.MessageModel.create({
+                                    manager_id: managerId,
+                                    chat_id: activeChat?.id || null,
+                                    contact_id: dbContact.id,
+                                    sender_type: 'bot',
+                                    content: response,
+                                    message_type: 'text'
+                                });
+                            }
+                        }
+                        catch (error) {
+                            console.error('❌ Erro ao salvar resposta de cidade não disponível:', error);
+                        }
+                    }
+                    messageProcessed = true;
+                }
+            }
+        }
+        if (messageProcessed) {
+            console.log(`🏙️ Mensagem de cidade processada para ${msg.from}`);
+        }
     }
 }
 // Função para transferir conversa para atendimento humano
@@ -469,11 +704,59 @@ async function transferToHuman(managerId, msg, botResponse) {
         console.log(`📤 Emitindo evento human_chat_requested para gestor ${managerId}:`, eventData);
         // Emitir para o gestor específico
         io.to(`manager_${managerId}`).emit('human_chat_requested', eventData);
-        console.log(`🔄 Conversa transferida para humano: ${contactName} (${contactNumber}) - Gestor: ${managerId} - Chat ID: ${humanChat.id}`);
+        // Emitir evento para atualizar dashboard com nova conversa
+        io.to(`manager_${managerId}`).emit('dashboard_chat_update', {
+            type: 'new_chat',
+            chatId: humanChat.id,
+            customerName: contactName,
+            customerPhone: phoneNumber,
+            status: 'pending',
+            timestamp: new Date(),
+            lastMessage: 'Solicitou atendimento humano'
+        });
+        console.log(`📊 Evento dashboard_chat_update (new_chat) emitido para gestor ${managerId}`);
     }
     catch (error) {
         console.error('Erro ao transferir para humano:', error);
     }
+}
+// Função para detectar dados pessoais (Nome, Telefone, CPF, Data)
+function detectPersonalData(message) {
+    const text = message.trim();
+    // Padrões para detectar dados pessoais
+    const patterns = {
+        // Nome completo (duas ou mais palavras com primeira letra maiúscula)
+        name: /^[A-ZÀ-Ÿ][a-zà-ÿ]+\s+[A-ZÀ-Ÿ][a-zà-ÿ]+/,
+        // CPF (vários formatos)
+        cpf: /(\d{3}\.?\d{3}\.?\d{3}-?\d{2})|(\d{11})/,
+        // Data (vários formatos)
+        date: /((\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4}))|((\d{2,4})[\/\-](\d{1,2})[\/\-](\d{1,2}))/,
+        // Telefone (vários formatos)
+        phone: /(\(?\d{2}\)?\s?)?\d{4,5}[\s\-]?\d{4}/,
+        // E-mail
+        email: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+    };
+    // Verificar se contém múltiplas linhas (dados organizados)
+    const hasMultipleLines = text.includes('\n') || text.split(/\s+/).length > 5;
+    // Contar quantos padrões foram encontrados
+    let patternMatches = 0;
+    for (const [key, pattern] of Object.entries(patterns)) {
+        if (pattern.test(text)) {
+            console.log(`📝 Padrão ${key} detectado: ${pattern.exec(text)?.[0]}`);
+            patternMatches++;
+        }
+    }
+    // Detectar se parece ser dados pessoais:
+    // 1. Pelo menos 2 padrões diferentes OU
+    // 2. Múltiplas linhas com pelo menos 1 padrão OU
+    // 3. Mensagem longa com pelo menos 1 padrão
+    const isPersonalData = patternMatches >= 2 ||
+        (hasMultipleLines && patternMatches >= 1) ||
+        (text.length > 20 && patternMatches >= 1);
+    if (isPersonalData) {
+        console.log(`✅ Dados pessoais detectados - Padrões: ${patternMatches}, Múltiplas linhas: ${hasMultipleLines}, Tamanho: ${text.length}`);
+    }
+    return isPersonalData;
 }
 // ===== ROTAS DA API =====
 // Rotas de autenticação

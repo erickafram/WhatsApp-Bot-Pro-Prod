@@ -24,6 +24,7 @@ import HumanChat from './components/HumanChat'
 import Messages from './components/Messages'
 import Devices from './components/Devices'
 import OperatorManagement from './components/OperatorManagement'
+import OperatorDashboard from './components/OperatorDashboard'
 import './App.css'
 import './styles/LandingPage.css'
 import './styles/Auth.css'
@@ -45,7 +46,7 @@ function App() {
       try {
         const user = JSON.parse(userData)
         if (user.role === 'operator') {
-          return 'chat' // Operadores começam no Chat Humano
+          return 'dashboard' // Operadores começam no Dashboard
         }
       } catch (error) {
         console.error('Erro ao parsear dados do usuário:', error)
@@ -207,6 +208,7 @@ function App() {
 
 
   const allMenuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['operator'] },
     { id: 'chat', label: 'Chat Humano', icon: MessageSquare, allowedRoles: ['admin', 'manager', 'operator'] },
     { id: 'instance', label: 'Instância Bot', icon: Bot, active: true, allowedRoles: ['admin', 'manager'] },
     { id: 'messages', label: 'Mensagens', icon: MessageCircle, allowedRoles: ['admin', 'manager'] },
@@ -224,6 +226,17 @@ function App() {
 
   const renderContent = () => {
     switch (activeMenu) {
+      case 'dashboard':
+        return <OperatorDashboard 
+          socket={socket} 
+          onNavigate={(page, chatId) => {
+            setActiveMenu(page)
+            // If navigating to chat with specific chatId, we could store it for later use
+            if (chatId) {
+              sessionStorage.setItem('selectedChatId', chatId.toString())
+            }
+          }} 
+        />
       case 'instance':
         return <BotInstance socket={socket} setSocket={setSocket} />
       case 'messages':

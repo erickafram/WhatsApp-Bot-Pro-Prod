@@ -94,6 +94,7 @@ function Messages({ }: MessagesProps) {
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [newProject, setNewProject] = useState({ name: '', description: '' })
   const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Legacy state - will be migrated to projects
   const [autoMessages, setAutoMessages] = useState<AutoMessage[]>([
@@ -422,12 +423,64 @@ function Messages({ }: MessagesProps) {
     }
   }
 
-  const updateAutoMessage = (updatedMessage: AutoMessage) => {
+  const updateAutoMessage = async (updatedMessage: AutoMessage) => {
+    try {
+      // Save to database if we have a selected project
+      if (selectedProject && selectedProject !== 'default') {
+        await updateAutoMessageInDatabase(updatedMessage)
+      }
+      
+      // Update local state
     const currentMessages = getCurrentMessages()
     updateCurrentMessages(currentMessages.map(msg => 
       msg.id === updatedMessage.id ? updatedMessage : msg
     ))
     setEditingMessage(null)
+    } catch (error) {
+      console.error('❌ Erro ao atualizar mensagem:', error)
+      alert('Erro ao salvar mensagem. Tente novamente.')
+    }
+  }
+
+  // Function to save message updates to database
+  const updateAutoMessageInDatabase = async (updatedMessage: AutoMessage) => {
+    try {
+      setIsSaving(true)
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        console.error('❌ Token de autenticação não encontrado')
+        return
+      }
+
+      console.log('💾 Salvando alterações da mensagem no banco:', updatedMessage.id)
+      
+      const response = await fetch(`/api/messages/messages/${updatedMessage.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trigger_words: Array.isArray(updatedMessage.trigger) ? updatedMessage.trigger : [updatedMessage.trigger],
+          response_text: updatedMessage.response,
+          is_active: updatedMessage.active,
+          order_index: 0 // You may want to track this properly
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Mensagem atualizada no banco:', data.message)
+      } else {
+        console.error('❌ Erro ao atualizar mensagem:', response.statusText)
+        throw new Error('Falha ao salvar no banco de dados')
+      }
+    } catch (error) {
+      console.error('❌ Erro ao salvar mensagem no banco:', error)
+      throw error
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const deleteAutoMessage = (id: string) => {
@@ -872,6 +925,40 @@ Posso ajudar com algo mais? 😊`,
       }))
     }
   }, [showFlowView, autoMessages, messageProjects, selectedProject])
+
+  // Auto-save message projects to database when they change
+  useEffect(() => {
+    const saveProjectsToDatabase = async () => {
+      // Only save if we have projects and a selected project that's not default
+      if (messageProjects.length > 0 && selectedProject && selectedProject !== 'default') {
+        const currentProject = messageProjects.find(p => p.id === selectedProject)
+        if (currentProject && currentProject.messages.length > 0) {
+          try {
+            console.log('💾 Salvamento automático do projeto:', currentProject.name)
+            
+            // Save each message that might have been modified
+            for (const message of currentProject.messages) {
+              // Check if message exists in database (has numeric ID)
+              if (!isNaN(Number(message.id))) {
+                await updateAutoMessageInDatabase(message)
+              }
+            }
+            
+            console.log('✅ Salvamento automático concluído')
+          } catch (error) {
+            console.error('❌ Erro no salvamento automático:', error)
+          }
+        }
+      }
+    }
+
+    // Debounce the save operation to avoid too many requests
+    const timeoutId = setTimeout(() => {
+      saveProjectsToDatabase()
+    }, 2000) // Save 2 seconds after the last change
+
+    return () => clearTimeout(timeoutId)
+  }, [messageProjects, selectedProject])
 
   // Advanced Flow Functions
   const addFlowNode = (type: FlowNode['type'], position: { x: number; y: number }) => {
@@ -1419,6 +1506,15 @@ Posso ajudar com algo mais? 😊`,
                     <span>{flowState.nodes.length} nós</span>
                     <span>•</span>
                     <span>{flowState.connections.length} conexões</span>
+                    {isSaving && (
+                      <>
+                        <span>•</span>
+                        <span className="saving-indicator">
+                          <div className="saving-spinner"></div>
+                          Salvando...
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1778,7 +1874,7 @@ Posso ajudar com algo mais? 😊`,
                           </button>
                           <button 
                             className="btn-modern btn-primary"
-                            onClick={() => {
+                            onClick={async () => {
                               // Salvar alterações no projeto atual
                               if (selectedProject && selectedNode.data.triggers && selectedNode.data.response) {
                                 const nodeMessage: AutoMessage = {
@@ -1788,12 +1884,28 @@ Posso ajudar com algo mais? 😊`,
                                   active: selectedNode.data.active || true
                                 }
                                 
+                                try {
+                                  // Save to database first
+                                  if (selectedProject !== 'default') {
+                                    await updateAutoMessageInDatabase(nodeMessage)
+                                  }
+                                  
+                                  // Update local state
                                 const currentMessages = getCurrentMessages()
                                 const updatedMessages = currentMessages.map(msg => 
                                   msg.id === nodeMessage.id ? nodeMessage : msg
                                 )
                                 
                                 updateCurrentMessages(updatedMessages)
+                                  
+                                  // Show success message
+                                  console.log('✅ Alterações salvas com sucesso!')
+                                  
+                                } catch (error) {
+                                  console.error('❌ Erro ao salvar alterações:', error)
+                                  alert('Erro ao salvar alterações. Tente novamente.')
+                                  return // Don't close editor if save failed
+                                }
                               }
                               setShowNodeEditor(false)
                             }}

@@ -584,49 +584,51 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     localStorage.setItem('sidebarCollapsed', isSidebarCollapsed.toString())
   }, [isSidebarCollapsed])
 
+  // Socket listeners for real-time updates
   useEffect(() => {
     if (!socket) return
 
-    console.log('🔌 Configurando listeners do HumanChat...')
-    console.log('🔌 Socket ID:', socket.id)
+    console.log('🔌 Configurando listeners do socket para HumanChat')
 
-    // Teste: emitir um evento para verificar conexão
-    socket.emit('test_connection', { from: 'HumanChat', socketId: socket.id })
+    // Join manager room for real-time updates
+    try {
+      const userData = localStorage.getItem('user')
+      if (userData) {
+        const user = JSON.parse(userData)
+        const managerId = user.role === 'operator' ? user.manager_id : user.id
+        
+        console.log(`👥 Entrando na sala do manager ${managerId} para receber mensagens em tempo real`)
+        socket.emit('join_manager_room', managerId)
+      }
+    } catch (error) {
+      console.error('Erro ao entrar na sala do manager:', error)
+    }
 
-    // Event listeners para chat humano
-    console.log('📝 Registrando listener para human_chat_requested')
-    
+    // Listener para solicitações de chat humano
     socket.on('human_chat_requested', (data: {
       chatId: string
       customerName: string
       customerPhone: string
-      lastMessage: string
       timestamp: Date
-      humanChatId?: number
-      managerId?: number
-      contactId?: number
-      recentMessages?: any[]
+      messages: any[]
     }) => {
-      console.log('🔔 Evento human_chat_requested recebido:', data)
+      console.log('🔔 Nova solicitação de chat humano:', data)
       
-      // Verificar se já existe um chat para este contato para evitar duplicatas
-      const existingChatIndex = humanChats.findIndex(chat => 
-        chat.contactNumber === data.customerPhone
-      )
+      // Verificar se o chat já existe localmente
+      const existingChat = humanChats.find(chat => chat.contactNumber === data.customerPhone)
       
-      if (existingChatIndex >= 0) {
-        // Se já existe, apenas atualizar o status e histórico
-        console.log('🔄 Atualizando chat existente para:', data.customerName)
+      if (existingChat) {
+        // Atualizar mensagens do chat existente se houver novas
         setHumanChats(chats => 
-          chats.map((chat, index) => 
-            index === existingChatIndex 
-              ? { 
-                  ...chat, 
-                  status: 'pending',
+          chats.map(chat => 
+            chat.contactNumber === data.customerPhone 
+              ? {
+                  ...chat,
+                  status: 'pending' as const,
                   lastActivity: new Date(data.timestamp),
                   hasNewMessage: true,
                   unreadCount: (chat.unreadCount || 0) + 1,
-                  messages: data.recentMessages ? data.recentMessages.map((msg: any) => ({
+                  messages: data.messages?.length > 0 ? data.messages.map((msg: any) => ({
                     id: msg.id.toString(),
                     from: msg.sender_type === 'contact' ? data.chatId : 'bot',
                     to: msg.sender_type === 'contact' ? 'operator' : data.chatId,
@@ -718,20 +720,15 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
         chats.map(chat => {
           if (chat.contactNumber === customerPhone) {
             // Se o chat estava encerrado, reativar automaticamente
-            const newStatus = chat.status === 'finished' ? 'active' : chat.status
+            const updatedStatus = chat.status === 'resolved' || chat.status === 'finished' ? 'active' : chat.status
             
-            // Marcar como não lida se não está selecionado
-            const isCurrentlySelected = selectedChat === chat.id
-            const hasNewMessage = !isCurrentlySelected
-            const unreadCount = hasNewMessage ? (chat.unreadCount || 0) + 1 : chat.unreadCount || 0
-            
-            return { 
-              ...chat, 
-              status: newStatus,
+            return {
+              ...chat,
+              status: updatedStatus as any,
               messages: [...chat.messages, newMessage],
-              lastActivity: new Date(),
-              hasNewMessage,
-              unreadCount
+              lastActivity: new Date(data.timestamp),
+              hasNewMessage: true,
+              unreadCount: (chat.unreadCount || 0) + 1
             }
           }
           return chat
@@ -739,18 +736,48 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       )
     })
 
-    // Listener para transferências de chat
     socket.on('chat_transferred', (data: {
       chatId: string
-      contactNumber: string
       fromOperator: string
       toOperator: string
       reason: string
-      timestamp: Date
     }) => {
       console.log('🔄 Chat transferido:', data)
       // Aqui você pode implementar notificações ou outras ações
       // Por exemplo, mostrar uma notificação toast
+    })
+
+    // Listener para atualizações da dashboard
+    socket.on('dashboard_chat_update', (data: {
+      type: 'new_chat' | 'new_message' | 'transfer_created' | 'transfer_accepted' | 'status_changed'
+      chatId: number
+      customerName: string
+      customerPhone: string
+      status: string
+      timestamp: Date
+      [key: string]: any
+    }) => {
+      console.log('📊 Atualização da dashboard:', data)
+      
+      // Recarregar lista de chats para refletir mudanças
+      if (data.type === 'new_chat' || data.type === 'transfer_created' || data.type === 'transfer_accepted') {
+        console.log('🔄 Recarregando chats devido a:', data.type)
+        loadChatsFromDatabase()
+      }
+      
+      // Atualizar chat existente se for nova mensagem
+      if (data.type === 'new_message') {
+        setHumanChats(chats => chats.map(chat => 
+          chat.id === data.chatId.toString()
+            ? {
+                ...chat,
+                lastActivity: new Date(data.timestamp),
+                hasNewMessage: true,
+                unreadCount: (chat.unreadCount || 0) + 1
+              }
+            : chat
+        ))
+      }
     })
 
     return () => {
@@ -758,8 +785,9 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       socket.off('customer_message')
       socket.off('operator_message_saved')
       socket.off('chat_transferred')
+      socket.off('dashboard_chat_update')
     }
-  }, [socket])
+  }, [socket, humanChats, loadChatsFromDatabase])
 
   return (
     <div className="human-chat-container">

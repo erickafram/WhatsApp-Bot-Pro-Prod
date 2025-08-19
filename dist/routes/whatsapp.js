@@ -23,7 +23,20 @@ router.get('/instances', auth_1.authenticate, auth_1.requireManager, async (req,
             // Gestor vê apenas suas instâncias
             instances = await WhatsAppInstance_1.WhatsAppInstanceModel.findByManagerId(req.user.id);
         }
-        res.json({ instances });
+        // Contar instâncias ativas e totais
+        const activeCount = await WhatsAppInstance_1.WhatsAppInstanceModel.countActiveInstances(req.user.id);
+        const totalCount = await WhatsAppInstance_1.WhatsAppInstanceModel.countByManager(req.user.id);
+        // Determinar limite baseado no role
+        const instanceLimit = req.user.role === 'admin' ? null : 1; // null = ilimitado
+        res.json({
+            instances,
+            stats: {
+                activeCount,
+                totalCount,
+                limit: instanceLimit,
+                canCreateMore: req.user.role === 'admin' || activeCount < 1
+            }
+        });
     }
     catch (error) {
         console.error('Erro ao listar instâncias:', error);
@@ -40,11 +53,17 @@ router.post('/instances', auth_1.authenticate, auth_1.requireManager, (0, auth_1
         if (!instance_name || instance_name.trim().length < 3) {
             return res.status(400).json({ error: 'Nome da instância deve ter pelo menos 3 caracteres' });
         }
-        // Verificar se já tem instância ativa (limite de 1 por gestor por enquanto)
-        const hasActive = await WhatsAppInstance_1.WhatsAppInstanceModel.hasActiveInstance(req.user.id);
-        if (hasActive) {
-            return res.status(400).json({ error: 'Você já possui uma instância ativa. Desconecte-a primeiro.' });
+        // Verificar limitação de instâncias baseada no role do usuário
+        if (req.user.role !== 'admin') {
+            // Usuários não-admin (managers) podem ter apenas 1 instância ativa
+            const hasActive = await WhatsAppInstance_1.WhatsAppInstanceModel.hasActiveInstance(req.user.id);
+            if (hasActive) {
+                return res.status(400).json({
+                    error: 'Você já possui uma instância ativa. Desconecte-a primeiro ou contate o administrador para ter mais instâncias.'
+                });
+            }
         }
+        // Administradores podem criar quantas instâncias quiserem (sem verificação)
         const instance = await WhatsAppInstance_1.WhatsAppInstanceModel.create({
             manager_id: req.user.id,
             instance_name: instance_name.trim(),

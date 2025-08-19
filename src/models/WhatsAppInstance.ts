@@ -299,6 +299,23 @@ export class WhatsAppInstanceModel {
     return Array.isArray(result) && result.length > 0;
   }
 
+  // Contar instâncias ativas de um gestor
+  static async countActiveInstances(managerId: number): Promise<number> {
+    const query = `
+      SELECT COUNT(*) as count 
+      FROM whatsapp_instances 
+      WHERE manager_id = ? AND status = 'connected' AND is_active = TRUE
+    `;
+    
+    const result = await executeQuery(query, [managerId]);
+    
+    if (Array.isArray(result) && result.length > 0) {
+      return parseInt((result[0] as any).count);
+    }
+    
+    return 0;
+  }
+
   // Contar instâncias por gestor
   static async countByManager(managerId: number): Promise<number> {
     const query = `
