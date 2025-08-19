@@ -253,8 +253,8 @@ class HumanChatModel {
     // Criar nova conversa humana
     static async create(data) {
         const query = `
-      INSERT INTO human_chats (manager_id, contact_id, operator_id, assigned_to, status, transfer_reason, tags)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO human_chats (manager_id, contact_id, operator_id, assigned_to, status, transfer_reason, transfer_from, transfer_to, tags)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
         const tagsJson = data.tags ? JSON.stringify(data.tags) : null;
         const result = await (0, database_1.executeQuery)(query, [
@@ -264,6 +264,8 @@ class HumanChatModel {
             data.assigned_to || null,
             data.status || 'pending',
             data.transfer_reason || null,
+            data.transfer_from || null,
+            data.transfer_to || null,
             tagsJson
         ]);
         if (!result || typeof result !== 'object' || !('insertId' in result)) {
@@ -304,9 +306,9 @@ class HumanChatModel {
             params = [managerId];
         }
         else {
-            // Operador vê suas conversas atribuídas + conversas pendentes não atribuídas
-            whereClause = 'WHERE hc.manager_id = ? AND (hc.assigned_to = ? OR (hc.assigned_to IS NULL AND hc.status = "pending"))';
-            params = [managerId, userId];
+            // Operador vê suas conversas atribuídas + conversas pendentes não atribuídas + transferências para ele
+            whereClause = 'WHERE hc.manager_id = ? AND (hc.assigned_to = ? OR (hc.assigned_to IS NULL AND hc.status = "pending") OR hc.transfer_to = ?)';
+            params = [managerId, userId, userId];
         }
         const query = `
       SELECT 
@@ -315,6 +317,8 @@ class HumanChatModel {
         c.phone_number,
         u_op.name as operator_name,
         u_assigned.name as assigned_name,
+        u_from.name as transfer_from_name,
+        u_to.name as transfer_to_name,
         (SELECT COUNT(*) FROM messages WHERE chat_id = hc.id AND is_read = FALSE) as unread_count,
         (SELECT content FROM messages WHERE chat_id = hc.id ORDER BY created_at DESC LIMIT 1) as last_message,
         (SELECT created_at FROM messages WHERE chat_id = hc.id ORDER BY created_at DESC LIMIT 1) as last_message_at
@@ -322,6 +326,8 @@ class HumanChatModel {
       LEFT JOIN contacts c ON hc.contact_id = c.id
       LEFT JOIN users u_op ON hc.operator_id = u_op.id
       LEFT JOIN users u_assigned ON hc.assigned_to = u_assigned.id
+      LEFT JOIN users u_from ON hc.transfer_from = u_from.id
+      LEFT JOIN users u_to ON hc.transfer_to = u_to.id
       ${whereClause}
       ORDER BY hc.updated_at DESC
     `;
@@ -384,10 +390,15 @@ class HumanChatModel {
         await (0, database_1.executeQuery)(query, [userId, id]);
         return this.findById(id);
     }
-    // Transferir conversa entre operadores
+    // Transferir conversa entre operadores (cria transferência pendente)
     static async transferToUser(id, fromUserId, toUserId, transferReason) {
-        const updateFields = ['assigned_to = ?', 'updated_at = NOW()'];
-        const params = [toUserId];
+        const updateFields = [
+            'status = ?',
+            'transfer_from = ?',
+            'transfer_to = ?',
+            'updated_at = NOW()'
+        ];
+        const params = ['transfer_pending', fromUserId, toUserId];
         if (transferReason) {
             updateFields.push('transfer_reason = ?');
             params.push(transferReason);
@@ -396,6 +407,59 @@ class HumanChatModel {
         const query = `UPDATE human_chats SET ${updateFields.join(', ')} WHERE id = ?`;
         await (0, database_1.executeQuery)(query, params);
         return this.findById(id);
+    }
+    // Aceitar transferência
+    static async acceptTransfer(id, userId) {
+        const query = `
+      UPDATE human_chats 
+      SET assigned_to = ?, status = 'active', transfer_from = NULL, transfer_to = NULL, updated_at = NOW() 
+      WHERE id = ? AND transfer_to = ? AND status = 'transfer_pending'
+    `;
+        await (0, database_1.executeQuery)(query, [userId, id, userId]);
+        return this.findById(id);
+    }
+    // Rejeitar transferência
+    static async rejectTransfer(id, userId) {
+        const query = `
+      UPDATE human_chats 
+      SET status = 'active', transfer_from = NULL, transfer_to = NULL, transfer_reason = NULL, assigned_to = transfer_from, updated_at = NOW() 
+      WHERE id = ? AND transfer_to = ? AND status = 'transfer_pending'
+    `;
+        await (0, database_1.executeQuery)(query, [id, userId]);
+        return this.findById(id);
+    }
+    // Buscar transferências pendentes para um usuário
+    static async findPendingTransfers(userId) {
+        const query = `
+      SELECT 
+        hc.*,
+        c.name as contact_name,
+        c.phone_number,
+        u_from.name as transfer_from_name,
+        (SELECT COUNT(*) FROM messages WHERE chat_id = hc.id AND is_read = FALSE) as unread_count,
+        (SELECT content FROM messages WHERE chat_id = hc.id ORDER BY created_at DESC LIMIT 1) as last_message,
+        (SELECT created_at FROM messages WHERE chat_id = hc.id ORDER BY created_at DESC LIMIT 1) as last_message_at
+      FROM human_chats hc
+      LEFT JOIN contacts c ON hc.contact_id = c.id
+      LEFT JOIN users u_from ON hc.transfer_from = u_from.id
+      WHERE hc.transfer_to = ? AND hc.status = 'transfer_pending'
+      ORDER BY hc.updated_at DESC
+    `;
+        const result = await (0, database_1.executeQuery)(query, [userId]);
+        if (!Array.isArray(result)) {
+            return [];
+        }
+        return result.map((chat) => {
+            if (chat.tags && typeof chat.tags === 'string') {
+                try {
+                    chat.tags = JSON.parse(chat.tags);
+                }
+                catch (e) {
+                    chat.tags = null;
+                }
+            }
+            return chat;
+        });
     }
     // Liberar conversa (remover atribuição)
     static async unassign(id) {

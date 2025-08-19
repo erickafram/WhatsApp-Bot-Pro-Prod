@@ -404,7 +404,6 @@ const migration008: Migration = {
   }
 };
 
-// Lista de todas as migrations
 // Migration 009: Adicionar campo assigned_to para controle de atribuição de conversas
 const migration009: Migration = {
   id: '009_add_chat_assignment',
@@ -454,6 +453,66 @@ const migration009: Migration = {
   }
 };
 
+// Migration 010: Adicionar campos para sistema de transferências
+const migration010: Migration = {
+  id: '010_add_transfer_fields',
+  description: 'Adicionar campos transfer_from, transfer_to e status transfer_pending para gerenciar transferências de conversas',
+  up: async () => {
+    const alterQueries = [
+      // Adicionar campos transfer_from e transfer_to
+      'ALTER TABLE human_chats ADD COLUMN transfer_from INT NULL AFTER transfer_reason',
+      'ALTER TABLE human_chats ADD COLUMN transfer_to INT NULL AFTER transfer_from',
+      
+      // Modificar enum status para incluir transfer_pending
+      'ALTER TABLE human_chats MODIFY COLUMN status ENUM("pending", "active", "waiting_payment", "paid", "finished", "resolved", "transfer_pending") DEFAULT "pending"',
+      
+      // Adicionar índices para melhor performance
+      'ALTER TABLE human_chats ADD INDEX idx_transfer_from (transfer_from)',
+      'ALTER TABLE human_chats ADD INDEX idx_transfer_to (transfer_to)',
+      
+      // Adicionar chaves estrangeiras para integridade referencial
+      'ALTER TABLE human_chats ADD FOREIGN KEY (transfer_from) REFERENCES users(id) ON DELETE SET NULL',
+      'ALTER TABLE human_chats ADD FOREIGN KEY (transfer_to) REFERENCES users(id) ON DELETE SET NULL'
+    ];
+    
+    for (const query of alterQueries) {
+      try {
+        await executeQuery(query);
+        console.log(`✅ Migration 010: ${query}`);
+      } catch (error: any) {
+        if (!error.message.includes('Duplicate column name') && 
+            !error.message.includes('Duplicate key name') &&
+            !error.message.includes('Duplicate foreign key') &&
+            !error.message.includes('already exists')) {
+          console.error(`❌ Migration 010 erro: ${error.message}`);
+          throw error;
+        } else {
+          console.log(`⚠️ Migration 010: ${query} - já existe`);
+        }
+      }
+    }
+  },
+  down: async () => {
+    const queries = [
+      'ALTER TABLE human_chats DROP FOREIGN KEY human_chats_ibfk_4',
+      'ALTER TABLE human_chats DROP FOREIGN KEY human_chats_ibfk_5',
+      'ALTER TABLE human_chats DROP INDEX idx_transfer_from',
+      'ALTER TABLE human_chats DROP INDEX idx_transfer_to',
+      'ALTER TABLE human_chats MODIFY COLUMN status ENUM("pending", "active", "waiting_payment", "paid", "finished", "resolved") DEFAULT "pending"',
+      'ALTER TABLE human_chats DROP COLUMN transfer_from',
+      'ALTER TABLE human_chats DROP COLUMN transfer_to'
+    ];
+    
+    for (const query of queries) {
+      try {
+        await executeQuery(query);
+      } catch (error: any) {
+        console.log(`⚠️ Migration 010 down: ${error.message}`);
+      }
+    }
+  }
+};
+
 export const migrations: Migration[] = [
   migration001,
   migration002,
@@ -463,7 +522,8 @@ export const migrations: Migration[] = [
   migration006,
   migration007,
   migration008,
-  migration009
+  migration009,
+  migration010
 ];
 
 // Função para verificar se uma migration já foi executada

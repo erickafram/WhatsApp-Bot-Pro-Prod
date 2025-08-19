@@ -32,8 +32,10 @@ export interface HumanChat {
     contact_id: number;
     operator_id: number | null;
     assigned_to: number | null;
-    status: 'pending' | 'active' | 'waiting_payment' | 'paid' | 'finished' | 'resolved';
+    status: 'pending' | 'active' | 'waiting_payment' | 'paid' | 'finished' | 'resolved' | 'transfer_pending';
     transfer_reason: string | null;
+    transfer_from: number | null;
+    transfer_to: number | null;
     tags: string[] | null;
     created_at: Date;
     updated_at: Date;
@@ -62,8 +64,10 @@ export interface CreateHumanChatData {
     contact_id: number;
     operator_id?: number;
     assigned_to?: number;
-    status?: 'pending' | 'active' | 'waiting_payment' | 'paid' | 'finished' | 'resolved';
+    status?: 'pending' | 'active' | 'waiting_payment' | 'paid' | 'finished' | 'resolved' | 'transfer_pending';
     transfer_reason?: string;
+    transfer_from?: number;
+    transfer_to?: number;
     tags?: string[];
 }
 export declare class ContactModel {
@@ -91,6 +95,9 @@ export declare class HumanChatModel {
     static assignOperator(id: number, operatorId: number): Promise<HumanChat | null>;
     static assignToUser(id: number, userId: number): Promise<HumanChat | null>;
     static transferToUser(id: number, fromUserId: number, toUserId: number, transferReason?: string): Promise<HumanChat | null>;
+    static acceptTransfer(id: number, userId: number): Promise<HumanChat | null>;
+    static rejectTransfer(id: number, userId: number): Promise<HumanChat | null>;
+    static findPendingTransfers(userId: number): Promise<any[]>;
     static unassign(id: number): Promise<HumanChat | null>;
     static findPending(managerId: number): Promise<any[]>;
 }

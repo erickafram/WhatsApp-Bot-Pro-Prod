@@ -26,13 +26,19 @@ interface HumanChat {
   id: string
   contactNumber: string
   contactName: string
-  status: 'pending' | 'active' | 'waiting_payment' | 'paid' | 'finished' | 'resolved'
+  status: 'pending' | 'active' | 'waiting_payment' | 'paid' | 'finished' | 'resolved' | 'transfer_pending'
   messages: ChatMessage[]
   assignedOperator?: string
   operatorId?: number
   createdAt: Date
   lastActivity: Date
   transferReason: string
+  transferFrom?: number
+  transferTo?: number
+  transferFromName?: string
+  transferToName?: string
+  hasNewMessage?: boolean
+  unreadCount?: number
 }
 
 interface Operator {
@@ -44,15 +50,14 @@ interface Operator {
 
 interface HumanChatProps {
   socket: any | null
+  onUnreadCountChange?: (count: number) => void
 }
 
-function HumanChat({ socket }: HumanChatProps) {
+function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   // States for Human Chat System
   const [humanChats, setHumanChats] = useState<HumanChat[]>([])
   
-  const [selectedChat, setSelectedChat] = useState<string | null>(() => {
-    return localStorage.getItem('selectedChat') || null
-  })
+  const [selectedChat, setSelectedChat] = useState<string | null>(null)
   
   const [newChatMessage, setNewChatMessage] = useState('')
   const [operatorName, setOperatorName] = useState(() => {
@@ -76,6 +81,7 @@ function HumanChat({ socket }: HumanChatProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true'
   })
+  const [showTransferAcceptModal, setShowTransferAcceptModal] = useState<string | null>(null)
 
   // Função para carregar operadores disponíveis
   const loadOperators = async () => {
@@ -124,18 +130,25 @@ function HumanChat({ socket }: HumanChatProps) {
         console.log('✅ Chats humanos carregados do banco:', data.chats)
         
         // Converter formato do banco para formato do frontend
-        const convertedChats = data.chats.map((chat: any) => ({
-          id: chat.id.toString(),
-          contactNumber: chat.phone_number,
-          contactName: chat.contact_name || 'Cliente',
-          status: chat.status,
-          messages: [], // Será carregado quando necessário
-          assignedOperator: chat.assigned_name || chat.operator_name || undefined,
-          operatorId: chat.assigned_to || chat.operator_id || undefined,
-          createdAt: new Date(chat.created_at),
-          lastActivity: new Date(chat.updated_at),
-          transferReason: chat.transfer_reason || 'Solicitação do cliente'
-        }))
+        const convertedChats = data.chats.map((chat: any) => {
+          console.log('🔄 Convertendo chat do banco:', chat)
+          return {
+            id: chat.id.toString(),
+            contactNumber: chat.phone_number,
+            contactName: chat.contact_name || 'Cliente',
+            status: chat.status,
+            messages: [], // Será carregado quando necessário
+            assignedOperator: chat.assigned_name || chat.operator_name || undefined,
+            operatorId: chat.assigned_to || chat.operator_id || undefined,
+            createdAt: new Date(chat.created_at),
+            lastActivity: new Date(chat.updated_at),
+            transferReason: chat.transfer_reason || 'Solicitação do cliente',
+            transferFrom: chat.transfer_from || undefined,
+            transferTo: chat.transfer_to || undefined,
+            transferFromName: chat.transfer_from_name || undefined,
+            transferToName: chat.transfer_to_name || undefined
+          }
+        })
         
         setHumanChats(convertedChats)
         console.log(`✅ ${convertedChats.length} chats carregados`)
@@ -217,7 +230,8 @@ function HumanChat({ socket }: HumanChatProps) {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Conversa transferida com sucesso:', data)
+        console.log('✅ Transferência enviada:', data)
+        alert('Transferência enviada! Aguardando aceite do operador.')
         
         // Recarregar chats para refletir a mudança
         await loadChatsFromDatabase()
@@ -236,6 +250,103 @@ function HumanChat({ socket }: HumanChatProps) {
     }
   }
 
+  // Função para aceitar transferência
+  const handleAcceptTransfer = async (chatId: string) => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        console.error('❌ Token de autenticação não encontrado')
+        return
+      }
+
+      console.log(`✅ Aceitando transferência da conversa ${chatId}...`)
+      
+      const response = await fetch(`/api/messages/human-chats/${chatId}/accept-transfer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Transferência aceita:', data)
+        
+        // Adicionar mensagem de sistema informando que o operador assumiu
+        const userData = localStorage.getItem('user')
+        const currentUser = userData ? JSON.parse(userData) : null
+        
+        if (socket && currentUser) {
+          const currentChat = humanChats.find(chat => chat.id === chatId)
+          if (currentChat) {
+            socket.emit('send_system_message', {
+              chatId: currentChat.contactNumber + '@c.us',
+              message: `🔄 *${currentUser.name}* assumiu o atendimento desta conversa.`,
+              operatorName: currentUser.name
+            })
+          }
+        }
+        
+        // Recarregar chats para refletir a mudança
+        await loadChatsFromDatabase()
+        
+        setShowTransferAcceptModal(null)
+        return true
+      } else {
+        const error = await response.json()
+        console.error('❌ Erro ao aceitar transferência:', error)
+        alert(error.error || 'Erro ao aceitar transferência')
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Erro ao aceitar transferência:', error)
+      alert('Erro interno ao aceitar transferência')
+      return false
+    }
+  }
+
+  // Função para rejeitar transferência
+  const handleRejectTransfer = async (chatId: string) => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        console.error('❌ Token de autenticação não encontrado')
+        return
+      }
+
+      console.log(`❌ Rejeitando transferência da conversa ${chatId}...`)
+      
+      const response = await fetch(`/api/messages/human-chats/${chatId}/reject-transfer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Transferência rejeitada:', data)
+        
+        // Recarregar chats para refletir a mudança
+        await loadChatsFromDatabase()
+        
+        setShowTransferAcceptModal(null)
+        return true
+      } else {
+        const error = await response.json()
+        console.error('❌ Erro ao rejeitar transferência:', error)
+        alert(error.error || 'Erro ao rejeitar transferência')
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Erro ao rejeitar transferência:', error)
+      alert('Erro interno ao rejeitar transferência')
+      return false
+    }
+  }
+
   // Função para carregar mensagens de um chat específico
   const loadChatMessages = async (chatId: string) => {
     try {
@@ -246,6 +357,7 @@ function HumanChat({ socket }: HumanChatProps) {
       }
 
       console.log(`🔍 Carregando mensagens do chat ${chatId}...`)
+      console.log(`🔍 URL da requisição: /api/messages/human-chats/${chatId}/messages`)
       
       // Encontrar o chat para obter o contactId
       const currentChat = humanChats.find(chat => chat.id === chatId)
@@ -262,29 +374,45 @@ function HumanChat({ socket }: HumanChatProps) {
         }
       })
 
+      console.log(`🔍 Status da resposta: ${response.status}`)
+
       if (response.ok) {
         const data = await response.json()
+        console.log('✅ Dados recebidos da API:', data)
         console.log('✅ Mensagens carregadas do chat:', data.messages)
+        console.log('✅ Número de mensagens:', data.messages?.length || 0)
+        
+        if (!data.messages || !Array.isArray(data.messages)) {
+          console.error('❌ Formato de resposta inválido - messages não é array')
+          return
+        }
         
         // Converter mensagens para formato do frontend
-        const convertedMessages = data.messages.map((msg: any) => ({
-          id: msg.id.toString(),
-          from: msg.sender_type === 'contact' ? `${currentChat.contactNumber}@c.us` : msg.sender_type,
-          to: msg.sender_type === 'contact' ? 'operator' : `${currentChat.contactNumber}@c.us`,
-          body: msg.content,
-          timestamp: new Date(msg.created_at),
-          isFromBot: msg.sender_type === 'bot',
-          isFromHuman: msg.sender_type === 'operator'
-        }))
+        const convertedMessages = data.messages.map((msg: any) => {
+          console.log('🔄 Convertendo mensagem:', msg)
+          return {
+            id: msg.id.toString(),
+            from: msg.sender_type === 'contact' ? `${currentChat.contactNumber}@c.us` : msg.sender_type,
+            to: msg.sender_type === 'contact' ? 'operator' : `${currentChat.contactNumber}@c.us`,
+            body: msg.content,
+            timestamp: new Date(msg.created_at),
+            isFromBot: msg.sender_type === 'bot',
+            isFromHuman: msg.sender_type === 'operator'
+          }
+        })
+        
+        console.log('✅ Mensagens convertidas:', convertedMessages)
         
         // Atualizar o chat com as mensagens
-        setHumanChats(chats => 
-          chats.map(chat => 
+        setHumanChats(chats => {
+          const updatedChats = chats.map(chat => 
             chat.id === chatId 
               ? { ...chat, messages: convertedMessages }
               : chat
           )
-        )
+          console.log('✅ Estado atualizado - chat encontrado:', updatedChats.find(c => c.id === chatId))
+          return updatedChats
+        })
         
         console.log(`✅ ${convertedMessages.length} mensagens carregadas para chat ${chatId}`)
       } else {
@@ -297,6 +425,8 @@ function HumanChat({ socket }: HumanChatProps) {
 
   // Carregar chats e operadores na inicialização
   useEffect(() => {
+    // Limpar seleção antiga para forçar recarregamento
+    localStorage.removeItem('selectedChat')
     loadChatsFromDatabase()
     loadOperators()
   }, [])
@@ -321,13 +451,30 @@ function HumanChat({ socket }: HumanChatProps) {
     resolved: humanChats.filter(chat => chat.status === 'resolved').length,
   }
 
+  // Função para marcar conversa como lida
+  const markChatAsRead = (chatId: string) => {
+    setHumanChats(chats => chats.map(chat => 
+      chat.id === chatId 
+        ? { ...chat, hasNewMessage: false, unreadCount: 0 }
+        : chat
+    ))
+  }
+
+  // Calcular total de mensagens não lidas
+  useEffect(() => {
+    const total = humanChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0)
+    if (onUnreadCountChange) {
+      onUnreadCountChange(total)
+    }
+  }, [humanChats, onUnreadCountChange])
+
   // Auto-scroll para a última mensagem quando novas mensagens chegam
   const scrollToBottom = () => {
-    const chatMessagesElement = document.querySelector('.chat-messages')
-    if (chatMessagesElement) {
+    const messagesContentElement = document.querySelector('.messages-content')
+    if (messagesContentElement) {
       setTimeout(() => {
-        chatMessagesElement.scrollTo({
-          top: chatMessagesElement.scrollHeight,
+        messagesContentElement.scrollTo({
+          top: messagesContentElement.scrollHeight,
           behavior: 'smooth'
         })
       }, 50)
@@ -354,17 +501,21 @@ function HumanChat({ socket }: HumanChatProps) {
   useEffect(() => {
     if (selectedChat) {
       const currentChat = humanChats.find(chat => chat.id === selectedChat)
-      if (currentChat && currentChat.messages.length === 0) {
+      console.log(`🔍 Debug useEffect - selectedChat: ${selectedChat}`)
+      console.log(`🔍 Debug useEffect - currentChat:`, currentChat)
+      console.log(`🔍 Debug useEffect - messages length:`, currentChat?.messages?.length || 0)
+      
+      if (currentChat) {
         console.log(`🔍 Carregando histórico para chat ${selectedChat}...`)
         loadChatMessages(selectedChat)
       }
     }
-  }, [selectedChat, humanChats])
+  }, [selectedChat])
 
   // Auto-focus no campo de mensagem quando uma conversa é selecionada
   useEffect(() => {
     if (selectedChat) {
-      const textareaElement = document.querySelector('.chat-input textarea') as HTMLTextAreaElement
+      const textareaElement = document.querySelector('.chat-input-fixed textarea') as HTMLTextAreaElement
       if (textareaElement) {
         setTimeout(() => {
           textareaElement.focus()
@@ -372,6 +523,50 @@ function HumanChat({ socket }: HumanChatProps) {
       }
     }
   }, [selectedChat])
+
+  // Função unificada para enviar mensagem
+  const sendMessage = () => {
+    if (!newChatMessage.trim() || !selectedChat) return
+    
+    const currentChat = humanChats.find(chat => chat.id === selectedChat)
+    if (!currentChat) return
+    
+    // Verificar se o operador assumiu a conversa
+    const userData = localStorage.getItem('user')
+    const currentUser = userData ? JSON.parse(userData) : null
+    
+    if (currentChat.status === 'pending' && (!currentChat.assignedOperator || currentUser?.id !== currentChat.operatorId)) {
+      alert('Você precisa assumir esta conversa antes de responder!')
+      return
+    }
+    
+    // Atualizar apenas o status para ativo (não adicionar mensagem aqui)
+    setHumanChats(chats => 
+      chats.map(chat => 
+        chat.id === selectedChat 
+          ? { 
+              ...chat, 
+              lastActivity: new Date(),
+              status: 'active' as const
+            }
+          : chat
+      )
+    )
+    
+    // Enviar via socket - a mensagem será adicionada via operator_message_saved
+    if (socket) {
+      socket.emit('send_operator_message', {
+        chatId: currentChat.contactNumber + '@c.us',
+        message: newChatMessage.trim(),
+        operatorName: operatorName
+      })
+    }
+    
+    setNewChatMessage('')
+    
+    // Scroll para baixo após enviar (com delay para aguardar mensagem do servidor)
+    setTimeout(() => scrollToBottom(), 300)
+  }
 
 
 
@@ -429,6 +624,8 @@ function HumanChat({ socket }: HumanChatProps) {
                   ...chat, 
                   status: 'pending',
                   lastActivity: new Date(data.timestamp),
+                  hasNewMessage: true,
+                  unreadCount: (chat.unreadCount || 0) + 1,
                   messages: data.recentMessages ? data.recentMessages.map((msg: any) => ({
                     id: msg.id.toString(),
                     from: msg.sender_type === 'contact' ? data.chatId : 'bot',
@@ -462,10 +659,21 @@ function HumanChat({ socket }: HumanChatProps) {
     }) => {
       console.log('💾 Mensagem do operador salva:', data)
       
-      // Encontrar o chat e adicionar a mensagem
+      // Encontrar o chat e adicionar a mensagem (verificar se não existe)
       const phoneNumber = data.chatId.replace('@c.us', '')
       setHumanChats(chats => chats.map(chat => {
         if (chat.contactNumber === phoneNumber) {
+          // Verificar se a mensagem já existe
+          const messageExists = chat.messages.some(msg => 
+            msg.id === data.messageId.toString() || 
+            (msg.body === data.message && Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000)
+          )
+          
+          if (messageExists) {
+            console.log('📝 Mensagem já existe, ignorando duplicata')
+            return chat
+          }
+          
           const newMessage = {
             id: data.messageId.toString(),
             from: 'operator',
@@ -512,11 +720,18 @@ function HumanChat({ socket }: HumanChatProps) {
             // Se o chat estava encerrado, reativar automaticamente
             const newStatus = chat.status === 'finished' ? 'active' : chat.status
             
+            // Marcar como não lida se não está selecionado
+            const isCurrentlySelected = selectedChat === chat.id
+            const hasNewMessage = !isCurrentlySelected
+            const unreadCount = hasNewMessage ? (chat.unreadCount || 0) + 1 : chat.unreadCount || 0
+            
             return { 
               ...chat, 
               status: newStatus,
               messages: [...chat.messages, newMessage],
-              lastActivity: new Date()
+              lastActivity: new Date(),
+              hasNewMessage,
+              unreadCount
             }
           }
           return chat
@@ -667,8 +882,20 @@ function HumanChat({ socket }: HumanChatProps) {
               filteredChats.map(chat => (
                 <div
                   key={chat.id}
-                  className={`chat-item-compact ${selectedChat === chat.id ? 'selected' : ''} ${chat.status}`}
-                  onClick={() => setSelectedChat(chat.id)}
+                  className={`chat-item-compact ${selectedChat === chat.id ? 'selected' : ''} ${chat.status} ${chat.hasNewMessage ? 'has-new-message' : ''}`}
+                  onClick={() => {
+                    if (chat.status === 'transfer_pending') {
+                      // Se é uma transferência pendente, abrir modal de aceite
+                      const userData = localStorage.getItem('user')
+                      const currentUser = userData ? JSON.parse(userData) : null
+                      if (currentUser && chat.transferTo === currentUser.id) {
+                        setShowTransferAcceptModal(chat.id)
+                      }
+                    } else {
+                      setSelectedChat(chat.id)
+                      markChatAsRead(chat.id)
+                    }
+                  }}
                 >
                   <div className="chat-avatar-compact">
                     <Users size={14} />
@@ -685,7 +912,10 @@ function HumanChat({ socket }: HumanChatProps) {
                     </div>
                     <div className="chat-content-row">
                       <span className="chat-preview-compact">
-                        {chat.messages[chat.messages.length - 1]?.body.substring(0, 35) || 'Sem mensagens'}...
+                        {chat.status === 'transfer_pending' 
+                          ? `Transferência de ${chat.transferFromName || 'operador'}`
+                          : (chat.messages[chat.messages.length - 1]?.body.substring(0, 35) || 'Sem mensagens') + '...'
+                        }
                       </span>
                       <div className={`status-indicator-compact ${chat.status}`}>
                         {chat.status === 'pending' && '🟡'}
@@ -694,6 +924,10 @@ function HumanChat({ socket }: HumanChatProps) {
                         {chat.status === 'paid' && '🔵'}
                         {chat.status === 'finished' && '🔴'}
                         {chat.status === 'resolved' && '✅'}
+                        {chat.status === 'transfer_pending' && '🔄'}
+                        {chat.hasNewMessage && chat.unreadCount && chat.unreadCount > 0 && (
+                          <span className="notification-badge">{chat.unreadCount}</span>
+                        )}
                       </div>
                     </div>
                     
@@ -806,132 +1040,58 @@ function HumanChat({ socket }: HumanChatProps) {
                       title="Transferir conversa"
                     >
                       <ArrowRightLeft size={12} />
+                      Transferir
                     </button>
                   </div>
                 </div>
 
                 <div className="chat-messages">
-                  {currentChat.messages.map(message => (
-                    <div
-                      key={message.id}
-                      className={`message ${message.isFromBot ? 'bot' : message.isFromHuman ? 'human' : 'customer'}`}
-                    >
-                      <div className="message-content">
-                        <div className="message-text">{message.body}</div>
-                        <div className="message-time">
-                          {new Date(message.timestamp).toLocaleTimeString('pt-BR')}
+                  <div className="messages-content">
+                    {currentChat.messages.map(message => (
+                      <div
+                        key={message.id}
+                        className={`message ${message.isFromBot ? 'bot' : message.isFromHuman ? 'human' : 'customer'}`}
+                      >
+                        <div className="message-content">
+                          <div className="message-text">{message.body}</div>
+                          <div className="message-time">
+                            {new Date(message.timestamp).toLocaleTimeString('pt-BR')}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                <div className="chat-input">
-                  <div className="input-container">
-                    <textarea
-                      value={newChatMessage}
-                      onChange={(e) => setNewChatMessage(e.target.value)}
-                      placeholder={`Responder para ${currentChat.contactName}...`}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          // Enviar mensagem
-                          if (newChatMessage.trim() && selectedChat) {
-                            const message: ChatMessage = {
-                              id: Date.now().toString(),
-                              from: 'operator',
-                              to: currentChat.contactNumber,
-                              body: newChatMessage.trim(),
-                              timestamp: new Date(),
-                              isFromBot: false,
-                              isFromHuman: true
-                            }
-                            
-                            setHumanChats(chats => 
-                              chats.map(chat => 
-                                chat.id === selectedChat 
-                                  ? { 
-                                      ...chat, 
-                                      messages: [...chat.messages, message],
-                                      lastActivity: new Date(),
-                                      status: 'active' as const
-                                    }
-                                  : chat
-                              )
-                            )
-                            
-                            // Enviar via socket
-                            if (socket) {
-                              socket.emit('send_operator_message', {
-                                chatId: currentChat.contactNumber + '@c.us',
-                                message: newChatMessage.trim(),
-                                operatorName: operatorName
-                              })
-                            }
-                            
-                            setNewChatMessage('')
-                            
-                            // Scroll para baixo após enviar
-                            setTimeout(() => scrollToBottom(), 100)
-                          }
+                  <div className="chat-input-fixed">
+                    <div className="input-container">
+                      <textarea
+                        value={newChatMessage}
+                        onChange={(e) => setNewChatMessage(e.target.value)}
+                        placeholder={
+                          currentChat.status === 'pending' && !currentChat.assignedOperator 
+                            ? `Assuma a conversa para responder...`
+                            : `Responder para ${currentChat.contactName}...`
                         }
-                      }}
-                    />
-                    <button 
-                      className="btn-send"
-                      onClick={() => {
-                        if (newChatMessage.trim() && selectedChat) {
-                          const message: ChatMessage = {
-                            id: Date.now().toString(),
-                            from: 'operator',
-                            to: currentChat.contactNumber,
-                            body: newChatMessage.trim(),
-                            timestamp: new Date(),
-                            isFromBot: false,
-                            isFromHuman: true
+                        disabled={currentChat.status === 'pending' && !currentChat.assignedOperator}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            sendMessage()
                           }
-                          
-                          setHumanChats(chats => 
-                            chats.map(chat => 
-                              chat.id === selectedChat 
-                                ? { 
-                                    ...chat, 
-                                    messages: [...chat.messages, message],
-                                    lastActivity: new Date(),
-                                    status: 'active' as const
-                                  }
-                                : chat
-                            )
-                          )
-                          
-                          // Enviar via socket - não precisa mais de managerId, o servidor autentica automaticamente
-                          if (socket) {
-                            const messageData = {
-                              chatId: currentChat.contactNumber,
-                              message: newChatMessage.trim(),
-                              operatorName: operatorName
-                            }
-                            
-                            console.log('🔍 Debug messageData antes de enviar:', messageData)
-                            
-                            socket.emit('send_operator_message', messageData)
-                            
-                            console.log(`📤 Mensagem enviada via socket autenticado`)
-                          } else {
-                            console.error('❌ Socket não está disponível')
-                          }
-                          
-                          setNewChatMessage('')
-                          
-                          // Scroll para baixo após enviar
-                          setTimeout(() => scrollToBottom(), 100)
+                        }}
+                      />
+                      <button 
+                        className="btn-send"
+                        onClick={sendMessage}
+                        disabled={
+                          !newChatMessage.trim() || 
+                          (currentChat.status === 'pending' && !currentChat.assignedOperator)
                         }
-                      }}
-                      disabled={!newChatMessage.trim()}
-                    >
-                      <MessageCircle size={16} />
-                      Enviar
-                    </button>
+                      >
+                        <MessageCircle size={16} />
+                        Enviar
+                      </button>
+                    </div>
                   </div>
                 </div>
               </>
@@ -1048,6 +1208,65 @@ function HumanChat({ socket }: HumanChatProps) {
                 <ArrowRightLeft size={16} />
                 Transferir
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Aceite de Transferência */}
+      {showTransferAcceptModal && (
+        <div className="modal-overlay" onClick={() => setShowTransferAcceptModal(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Aceitar Transferência</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowTransferAcceptModal(null)}
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {(() => {
+                const transferChat = humanChats.find(chat => chat.id === showTransferAcceptModal)
+                if (!transferChat) return null
+                
+                return (
+                  <div>
+                    <div className="transfer-info">
+                      <h4>📞 {transferChat.contactName}</h4>
+                      <p><strong>De:</strong> {transferChat.transferFromName || 'Operador'}</p>
+                      {transferChat.transferReason && (
+                        <div className="transfer-reason">
+                          <p><strong>Motivo da Transferência:</strong></p>
+                          <div className="reason-box">
+                            {transferChat.transferReason}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="transfer-actions">
+                      <button
+                        className="btn-accept-transfer"
+                        onClick={() => handleAcceptTransfer(showTransferAcceptModal)}
+                      >
+                        <CheckCircle2 size={16} />
+                        Aceitar
+                      </button>
+                      
+                      <button
+                        className="btn-reject-transfer"
+                        onClick={() => handleRejectTransfer(showTransferAcceptModal)}
+                      >
+                        <XCircle size={16} />
+                        Rejeitar
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>

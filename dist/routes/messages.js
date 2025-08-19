@@ -254,6 +254,13 @@ router.get('/human-chats/:chatId/messages', auth_1.authenticate, async (req, res
             // Operador pode acessar se está atribuído ao chat ou se é uma conversa pendente do seu manager
             hasPermission = (chat.manager_id === req.user.manager_id) &&
                 (chat.assigned_to === req.user.id || (chat.assigned_to === null && chat.status === 'pending'));
+            console.log(`🔍 Debug permissão operador:`);
+            console.log(`  - chat.manager_id: ${chat.manager_id}`);
+            console.log(`  - req.user.manager_id: ${req.user.manager_id}`);
+            console.log(`  - chat.assigned_to: ${chat.assigned_to}`);
+            console.log(`  - req.user.id: ${req.user.id}`);
+            console.log(`  - chat.status: ${chat.status}`);
+            console.log(`  - hasPermission: ${hasPermission}`);
         }
         if (!hasPermission) {
             return res.status(403).json({ error: 'Sem permissão para acessar mensagens deste chat' });
@@ -382,16 +389,86 @@ router.post('/human-chats/:id/transfer', auth_1.authenticate, async (req, res) =
         if (!canTransfer) {
             return res.status(403).json({ error: 'Sem permissão para transferir este chat' });
         }
-        // Realizar a transferência
+        // Realizar a transferência (agora cria transferência pendente)
         const updatedChat = await Message_1.HumanChatModel.transferToUser(chatId, req.user.id, toUserId, transferReason);
         res.json({
             success: true,
-            message: 'Chat transferido com sucesso',
+            message: 'Transferência enviada. Aguardando aceite do operador.',
             chat: updatedChat
         });
     }
     catch (error) {
         console.error('Erro ao transferir chat:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Aceitar transferência de conversa
+router.post('/human-chats/:id/accept-transfer', auth_1.authenticate, async (req, res) => {
+    try {
+        const chatId = parseInt(req.params.id);
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        const chat = await Message_1.HumanChatModel.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ error: 'Chat não encontrado' });
+        }
+        // Verificar se é uma transferência pendente para este usuário
+        if (chat.status !== 'transfer_pending' || chat.transfer_to !== req.user.id) {
+            return res.status(403).json({ error: 'Transferência não encontrada ou não autorizada' });
+        }
+        // Aceitar a transferência
+        const updatedChat = await Message_1.HumanChatModel.acceptTransfer(chatId, req.user.id);
+        res.json({
+            success: true,
+            message: 'Transferência aceita com sucesso',
+            chat: updatedChat
+        });
+    }
+    catch (error) {
+        console.error('Erro ao aceitar transferência:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Rejeitar transferência de conversa
+router.post('/human-chats/:id/reject-transfer', auth_1.authenticate, async (req, res) => {
+    try {
+        const chatId = parseInt(req.params.id);
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        const chat = await Message_1.HumanChatModel.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ error: 'Chat não encontrado' });
+        }
+        // Verificar se é uma transferência pendente para este usuário
+        if (chat.status !== 'transfer_pending' || chat.transfer_to !== req.user.id) {
+            return res.status(403).json({ error: 'Transferência não encontrada ou não autorizada' });
+        }
+        // Rejeitar a transferência
+        const updatedChat = await Message_1.HumanChatModel.rejectTransfer(chatId, req.user.id);
+        res.json({
+            success: true,
+            message: 'Transferência rejeitada',
+            chat: updatedChat
+        });
+    }
+    catch (error) {
+        console.error('Erro ao rejeitar transferência:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Buscar transferências pendentes para o usuário atual
+router.get('/human-chats/pending-transfers', auth_1.authenticate, async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        const pendingTransfers = await Message_1.HumanChatModel.findPendingTransfers(req.user.id);
+        res.json({ transfers: pendingTransfers });
+    }
+    catch (error) {
+        console.error('Erro ao buscar transferências pendentes:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
