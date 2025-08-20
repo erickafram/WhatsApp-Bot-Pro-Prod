@@ -26,6 +26,18 @@ interface Operator {
   manager_id: number
   created_at: string
   updated_at: string
+  last_login?: string
+  status_label?: string
+  days_since_created?: number
+  performance?: {
+    total_chats: number
+    active_chats: number
+    resolved_chats: number
+    avg_response_time?: number
+    efficiency: number
+  }
+  formatted_created_at?: string
+  formatted_last_login?: string
 }
 
 interface OperatorStats {
@@ -303,9 +315,7 @@ function OperatorManagement() {
     })
   }
 
-  const getOperatorPerformance = (operatorId: number) => {
-    return stats?.operator_performance.find(perf => perf.id === operatorId)
-  }
+
 
   return (
     <div className="operator-management">
@@ -420,123 +430,112 @@ function OperatorManagement() {
           </div>
         ) : (
           <div className="operators-grid">
-            {filteredOperators.map(operator => {
-              const performance = getOperatorPerformance(operator.id)
-              
-              return (
-                <div key={operator.id} className="operator-card">
-                  <div className="operator-header">
-                    <div className="operator-avatar">
-                      {operator.avatar ? (
-                        <img src={operator.avatar} alt={operator.name} />
+            {filteredOperators.map(operator => (
+              <div key={operator.id} className="operator-card">
+                <div className="operator-header">
+                  <div className="operator-avatar">
+                    {operator.avatar ? (
+                      <img src={operator.avatar} alt={operator.name} />
+                    ) : (
+                      <Users size={20} />
+                    )}
+                  </div>
+                  
+                  <div className="operator-info">
+                    <h4>{operator.name}</h4>
+                    <p>{operator.email}</p>
+                    {operator.phone && operator.phone !== 'Não informado' && (
+                      <p><Phone size={12} /> {operator.phone}</p>
+                    )}
+                    <p><Calendar size={12} /> Criado em {operator.formatted_created_at || formatDate(operator.created_at)}</p>
+                    {operator.status_label && (
+                      <p><Activity size={12} /> {operator.status_label}</p>
+                    )}
+                  </div>
+                  
+                  <div className="operator-actions">
+                    <div className={`status-badge ${operator.is_active ? 'active' : 'inactive'}`}>
+                      {operator.is_active ? (
+                        <>
+                          <CheckCircle size={14} />
+                          Ativo
+                        </>
                       ) : (
-                        <Users size={20} />
+                        <>
+                          <XCircle size={14} />
+                          Inativo
+                        </>
                       )}
                     </div>
                     
-                    <div className="operator-info">
-                      <h4>{operator.name}</h4>
-                      <p>{operator.email}</p>
-                    </div>
-                    
-                    <div className="operator-actions">
-                      <div className={`status-badge ${operator.is_active ? 'active' : 'inactive'}`}>
-                        {operator.is_active ? (
-                          <>
-                            <CheckCircle size={14} />
-                            Ativo
-                          </>
-                        ) : (
-                          <>
-                            <XCircle size={14} />
-                            Inativo
-                          </>
-                        )}
-                      </div>
+                    <div className="dropdown-container">
+                      <button
+                        className="btn-dropdown"
+                        onClick={() => setShowDropdown(showDropdown === operator.id ? null : operator.id)}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
                       
-                      <div className="dropdown-container">
-                        <button
-                          className="btn-dropdown"
-                          onClick={() => setShowDropdown(showDropdown === operator.id ? null : operator.id)}
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                        
-                        {showDropdown === operator.id && (
-                          <div className="dropdown-menu">
-                            <button
-                              className="dropdown-item"
-                              onClick={() => {
-                                openEditOperatorModal(operator)
-                                setShowDropdown(null)
-                              }}
-                            >
-                              <Edit3 size={14} />
-                              Editar
-                            </button>
-                            <button
-                              className="dropdown-item"
-                              onClick={() => {
-                                setEditingOperator(operator)
-                                setShowPasswordModal(true)
-                                setShowDropdown(null)
-                              }}
-                            >
-                              <Key size={14} />
-                              Alterar Senha
-                            </button>
-                            <button
-                              className="dropdown-item danger"
-                              onClick={() => {
-                                deleteOperator(operator)
-                                setShowDropdown(null)
-                              }}
-                            >
-                              <Trash2 size={14} />
-                              Excluir
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      {showDropdown === operator.id && (
+                        <div className="dropdown-menu">
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              openEditOperatorModal(operator)
+                              setShowDropdown(null)
+                            }}
+                          >
+                            <Edit3 size={14} />
+                            Editar
+                          </button>
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              setEditingOperator(operator)
+                              setShowPasswordModal(true)
+                              setShowDropdown(null)
+                            }}
+                          >
+                            <Key size={14} />
+                            Alterar Senha
+                          </button>
+                          <button
+                            className="dropdown-item danger"
+                            onClick={() => {
+                              deleteOperator(operator)
+                              setShowDropdown(null)
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            Excluir
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className="operator-details">
-                    {operator.phone && (
-                      <div className="detail-item">
-                        <Phone size={14} />
-                        <span>{operator.phone}</span>
-                      </div>
-                    )}
-                    
-                    <div className="detail-item">
-                      <Calendar size={14} />
-                      <span>Criado em {formatDate(operator.created_at)}</span>
-                    </div>
-                  </div>
-                  
-                  {performance && (
-                    <div className="operator-performance">
-                      <h5>Desempenho</h5>
-                      <div className="performance-stats">
-                        <div className="perf-item">
-                          <span className="perf-number">{performance.total_chats}</span>
-                          <span className="perf-label">Total de Chats</span>
-                        </div>
-                        <div className="perf-item">
-                          <span className="perf-number active">{performance.active_chats}</span>
-                          <span className="perf-label">Ativos</span>
-                        </div>
-                        <div className="perf-item">
-                          <span className="perf-number finished">{performance.finished_chats}</span>
-                          <span className="perf-label">Finalizados</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              )
-            })}
+                
+                {operator.performance && (
+                  <div className="operator-performance">
+                    <h5>Desempenho</h5>
+                    <div className="performance-stats">
+                      <div className="perf-item">
+                        <span className="perf-number">{operator.performance.total_chats}</span>
+                        <span className="perf-label">Total</span>
+                      </div>
+                      <div className="perf-item">
+                        <span className="perf-number">{operator.performance.active_chats}</span>
+                        <span className="perf-label">Ativos</span>
+                      </div>
+                      <div className="perf-item">
+                        <span className="perf-number">{operator.performance.efficiency}%</span>
+                        <span className="perf-label">Eficiência</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -700,3 +699,4 @@ function OperatorManagement() {
 }
 
 export default OperatorManagement
+

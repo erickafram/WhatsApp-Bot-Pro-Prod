@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react'
-import { 
+import {
   MessageSquareText,
   MessageCircle,
   Users,
-  UserCheck,
   Edit3,
   ArrowRightLeft,
   CreditCard,
   CheckCircle2,
   XCircle,
-  ChevronDown
+  ChevronDown,
+  Send,
+  Phone,
+  MoreVertical,
+  Search
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -60,6 +63,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   const [selectedChat, setSelectedChat] = useState<string | null>(null)
   
   const [newChatMessage, setNewChatMessage] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [operatorName, setOperatorName] = useState(() => {
     try {
       const userData = localStorage.getItem('user')
@@ -72,6 +76,40 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
     return 'Operador'
   })
+
+  // Função para solicitar permissão de notificação
+  const requestNotificationPermission = () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }
+
+  // Função para mostrar notificação
+  const showNotification = (title: string, message: string, chatId?: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const notification = new Notification(title, {
+        body: message,
+        icon: '/vite.svg', // Usar o ícone da aplicação
+        tag: chatId || 'chat-notification',
+        requireInteraction: true
+      })
+
+      notification.onclick = () => {
+        window.focus()
+        if (chatId) {
+          const chat = humanChats.find(c => c.id === chatId)
+          if (chat) {
+            setSelectedChat(chat.id)
+          }
+        }
+        notification.close()
+      }
+
+      // Auto-fechar após 5 segundos
+      setTimeout(() => notification.close(), 5000)
+    }
+  }
+
   const [showStatusDropdown, setShowStatusDropdown] = useState<string | null>(null)
   const [showTransferModal, setShowTransferModal] = useState<string | null>(null)
   const [transferOperator, setTransferOperator] = useState('')
@@ -149,8 +187,23 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
             transferToName: chat.transfer_to_name || undefined
           }
         })
-        
-        setHumanChats(convertedChats)
+
+        // Preservar mensagens existentes e status atualizados recentemente
+        setHumanChats(prevChats => {
+          return convertedChats.map((newChat: HumanChat) => {
+            const existingChat = prevChats.find(chat => chat.id === newChat.id)
+            if (existingChat) {
+              // Preservar mensagens e outros dados locais
+              return {
+                ...newChat,
+                messages: existingChat.messages || [],
+                hasNewMessage: existingChat.hasNewMessage,
+                unreadCount: existingChat.unreadCount
+              }
+            }
+            return newChat
+          })
+        })
         console.log(`✅ ${convertedChats.length} chats carregados`)
       } else {
         console.error('❌ Erro ao carregar chats:', response.statusText)
@@ -429,16 +482,27 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     localStorage.removeItem('selectedChat')
     loadChatsFromDatabase()
     loadOperators()
+    
+    // Solicitar permissão para notificações
+    requestNotificationPermission()
   }, [])
 
   // Debug: verificar se socket está sendo passado
   console.log('🔍 HumanChat - Socket recebido:', socket ? 'SIM' : 'NÃO')
   console.log('💾 Chats carregados do banco:', humanChats.length)
 
-  // Filtrar chats por status
+  // Filtrar chats por status e busca
   const filteredChats = humanChats.filter(chat => {
-    if (statusFilter === 'all') return true
-    return chat.status === statusFilter
+    // Filtro por status
+    const statusMatch = statusFilter === 'all' || chat.status === statusFilter
+
+    // Filtro por busca
+    const searchMatch = !searchTerm ||
+      chat.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      chat.contactNumber.includes(searchTerm) ||
+      chat.messages.some(msg => msg.body.toLowerCase().includes(searchTerm.toLowerCase()))
+
+    return statusMatch && searchMatch
   })
 
   // Contadores por status
@@ -704,6 +768,13 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }) => {
       console.log('📩 Mensagem do cliente recebida:', data)
       
+      // Mostrar notificação para nova mensagem do cliente
+      showNotification(
+        '💬 Nova Mensagem',
+        `${data.customerName}: ${data.message.substring(0, 50)}...`,
+        data.chatId
+      )
+      
       // Adicionar mensagem do cliente ao chat existente
       const customerPhone = data.chatId.replace('@c.us', '')
       const newMessage: ChatMessage = {
@@ -797,22 +868,17 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
           {/* Header compacto com operador e ações */}
           <div className="chat-header-compact">
             <div className="operator-info-compact">
-              <UserCheck size={14} />
-              <span className="operator-name">{operatorName}</span>
-              <span className="operator-status">Online</span>
+              <div className="operator-avatar">
+                {operatorName.charAt(0).toUpperCase()}
+              </div>
+              <div className="operator-details">
+                <div className="operator-name">{operatorName}</div>
+                <div className="operator-status">Online</div>
+              </div>
             </div>
             <div className="header-actions-compact">
-              <button 
-                className="btn-collapse-sidebar"
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                title={isSidebarCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
-              >
-                {isSidebarCollapsed ? '→' : '←'}
-              </button>
-              {!isSidebarCollapsed && (
-                <>
-              <button 
-                className="btn-edit-name-compact"
+              <button
+                className="header-action-btn"
                 onClick={() => {
                   const newName = prompt('Digite seu nome:', operatorName)
                   if (newName && newName.trim()) {
@@ -820,12 +886,12 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     localStorage.setItem('operatorName', newName.trim())
                   }
                 }}
-                title="Editar nome"
+                title="Editar perfil"
               >
-                    <Edit3 size={10} />
+                <Edit3 size={20} />
               </button>
-              <button 
-                className="btn-clear-chats-compact"
+              <button
+                className="header-action-btn"
                 onClick={() => {
                   if (confirm('Tem certeza que deseja limpar todos os chats?')) {
                     setHumanChats([])
@@ -834,12 +900,31 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     localStorage.removeItem('selectedChat')
                   }
                 }}
-                title="Limpar todos os chats"
+                title="Limpar chats"
               >
-                🗑️
+                <MessageCircle size={20} />
               </button>
-                </>
-              )}
+              <button
+                className="header-action-btn"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                title="Menu"
+              >
+                <MoreVertical size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Barra de Busca */}
+          <div className="search-bar">
+            <div className="search-container">
+              <Search size={20} className="search-icon" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Pesquisar ou começar uma nova conversa"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
 
@@ -931,30 +1016,26 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                   <div className="chat-info-compact">
                     <div className="chat-header-row">
                       <span className="chat-name-compact">{chat.contactName}</span>
-                      <span className="chat-time-compact">
-                        {new Date(chat.lastActivity).toLocaleTimeString('pt-BR', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
                     </div>
                     <div className="chat-content-row">
                       <span className="chat-preview-compact">
-                        {chat.status === 'transfer_pending' 
+                        {chat.status === 'transfer_pending'
                           ? `Transferência de ${chat.transferFromName || 'operador'}`
-                          : (chat.messages[chat.messages.length - 1]?.body.substring(0, 35) || 'Sem mensagens') + '...'
+                          : (chat.messages[chat.messages.length - 1]?.body.substring(0, 30) || 'Sem mensagens') + '...'
                         }
                       </span>
-                      <div className={`status-indicator-compact ${chat.status}`}>
-                        {chat.status === 'pending' && '🟡'}
-                        {chat.status === 'active' && '🟢'}
-                        {chat.status === 'waiting_payment' && '🟠'}
-                        {chat.status === 'paid' && '🔵'}
-                        {chat.status === 'finished' && '🔴'}
-                        {chat.status === 'resolved' && '✅'}
-                        {chat.status === 'transfer_pending' && '🔄'}
+                      {chat.hasNewMessage && !chat.unreadCount && (
+                        <div className="new-message-indicator"></div>
+                      )}
+                      <div className="status-indicator-compact">
+                        <span className="chat-time-compact">
+                          {new Date(chat.lastActivity).toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
                         {chat.hasNewMessage && chat.unreadCount && chat.unreadCount > 0 && (
-                          <span className="notification-badge">{chat.unreadCount}</span>
+                          <span className="unread-badge">{chat.unreadCount}</span>
                         )}
                       </div>
                     </div>
@@ -982,14 +1063,31 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 <div className="chat-main-header-compact">
                   <div className="contact-info-compact">
                     <div className="contact-avatar-compact">
-                      <Users size={16} />
+                      <Users size={18} />
                     </div>
                     <div className="contact-details-compact">
                       <span className="contact-name-compact">{currentChat.contactName}</span>
                       <span className="contact-number-compact">{currentChat.contactNumber}</span>
+                      <span className="contact-status-compact">
+                        {currentChat.status === 'active' && '🟢 Online'}
+                        {currentChat.status === 'pending' && '🟡 Pendente'}
+                        {currentChat.status === 'waiting_payment' && '🟠 Aguardando Pagamento'}
+                        {currentChat.status === 'paid' && '🔵 Pago'}
+                        {currentChat.status === 'finished' && '🔴 Finalizado'}
+                        {currentChat.status === 'resolved' && '✅ Resolvido'}
+                      </span>
                     </div>
                   </div>
                   <div className="chat-actions-compact">
+                    <button className="chat-action-btn" title="Buscar na conversa">
+                      <Search size={16} />
+                    </button>
+                    <button className="chat-action-btn" title="Ligar">
+                      <Phone size={16} />
+                    </button>
+                    <button className="chat-action-btn" title="Mais opções">
+                      <MoreVertical size={16} />
+                    </button>
                     {/* Botão para Assumir Conversa (se pendente e não atribuída) */}
                     {currentChat.status === 'pending' && !currentChat.assignedOperator && (
                       <button 
@@ -1031,22 +1129,49 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                             <button
                               key={status}
                               className={`status-option ${status}`}
-                              onClick={() => {
-                                setHumanChats(chats => 
-                                  chats.map(chat => 
-                                    chat.id === selectedChat 
-                                      ? { ...chat, status: status as any }
-                                      : chat
-                                  )
-                                )
-                                
-                                // Se encerrar, notificar o servidor
-                                if (status === 'finished' && socket) {
-                                  socket.emit('finish_human_chat', {
-                                    contactNumber: currentChat.contactNumber
+                              onClick={async () => {
+                                try {
+                                  // Atualizar no servidor primeiro
+                                  const response = await fetch(`/api/messages/human-chats/${selectedChat}/status`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                                    },
+                                    body: JSON.stringify({ status })
                                   })
+
+                                  if (response.ok) {
+                                    const responseData = await response.json()
+                                    console.log('✅ Status atualizado no servidor:', responseData)
+
+                                    // Atualizar o estado local com os dados confirmados do servidor
+                                    setHumanChats(chats =>
+                                      chats.map(chat =>
+                                        chat.id === selectedChat
+                                          ? { ...chat, status: status as any, lastActivity: new Date() }
+                                          : chat
+                                      )
+                                    )
+
+                                    // Se encerrar, notificar o servidor via socket
+                                    if (status === 'finished' && socket) {
+                                      socket.emit('finish_human_chat', {
+                                        contactNumber: currentChat.contactNumber
+                                      })
+                                    }
+
+                                    console.log(`✅ Status do chat ${selectedChat} atualizado para: ${status}`)
+                                  } else {
+                                    const errorData = await response.json()
+                                    console.error('❌ Erro ao atualizar status no servidor:', errorData)
+                                    alert(`Erro ao atualizar status: ${errorData.error || 'Erro desconhecido'}`)
+                                  }
+                                } catch (error) {
+                                  console.error('Erro ao atualizar status:', error)
+                                  alert('Erro ao atualizar status. Tente novamente.')
                                 }
-                                
+
                                 setShowStatusDropdown(null)
                               }}
                             >
@@ -1101,23 +1226,23 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                             : `Responder para ${currentChat.contactName}...`
                         }
                         disabled={currentChat.status === 'pending' && !currentChat.assignedOperator}
-                        onKeyPress={(e) => {
+                        onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
                             sendMessage()
                           }
                         }}
                       />
-                      <button 
+                      <button
                         className="btn-send"
                         onClick={sendMessage}
                         disabled={
-                          !newChatMessage.trim() || 
+                          !newChatMessage.trim() ||
                           (currentChat.status === 'pending' && !currentChat.assignedOperator)
                         }
+                        title="Enviar mensagem"
                       >
-                        <MessageCircle size={16} />
-                        Enviar
+                        <Send size={18} />
                       </button>
                     </div>
                   </div>

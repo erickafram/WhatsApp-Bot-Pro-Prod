@@ -529,9 +529,43 @@ export class HumanChatModel {
 
   // Atualizar status do chat
   static async updateStatus(id: number, status: HumanChat['status']): Promise<HumanChat | null> {
-    const query = `UPDATE human_chats SET status = ?, updated_at = NOW() WHERE id = ?`;
-    await executeQuery(query, [status, id]);
-    return this.findById(id);
+    console.log(`🔄 HumanChatModel.updateStatus - ID: ${id}, Status: ${status}`);
+
+    // Verificar se o chat existe antes de atualizar
+    const existingChat = await this.findById(id);
+    if (!existingChat) {
+      console.error(`❌ Chat ${id} não encontrado para atualização`);
+      return null;
+    }
+
+    console.log(`📋 Chat antes do update - Status atual: ${existingChat.status}`);
+
+    const query = `UPDATE human_chats SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    console.log(`🔍 Executando query: ${query} com params: [${status}, ${id}]`);
+    const result = await executeQuery(query, [status, id]);
+
+    console.log(`📊 Update result:`, result);
+    console.log(`📊 Affected rows:`, result?.affectedRows || 'N/A');
+
+    // Verificação direta no banco para confirmar a atualização
+    const directQuery = `SELECT id, status, updated_at FROM human_chats WHERE id = ?`;
+    const directResult = await executeQuery(directQuery, [id]);
+    console.log(`🔍 Verificação direta no banco:`, directResult);
+
+    // Aguardar um pouco para garantir que a transação foi commitada
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const updatedChat = await this.findById(id);
+    console.log(`📋 Chat após update - Status: ${updatedChat?.status}`);
+
+    if (updatedChat?.status !== status) {
+      console.error(`❌ ERRO: Status não foi atualizado! Esperado: ${status}, Atual: ${updatedChat?.status}`);
+      console.error(`❌ Resultado direto do banco:`, directResult);
+    } else {
+      console.log(`✅ Status atualizado com sucesso: ${status}`);
+    }
+
+    return updatedChat;
   }
 
   // Atribuir operador

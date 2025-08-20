@@ -22,7 +22,11 @@ export async function connectDatabase(): Promise<mysql.Connection> {
   if (!connection) {
     try {
       connection = await mysql.createConnection(dbConfig);
-      console.log('✅ Conectado ao banco de dados MySQL');
+
+      // Garantir que autocommit está habilitado
+      await connection.execute('SET autocommit = 1');
+      console.log('✅ Conectado ao banco de dados MySQL com autocommit habilitado');
+
       return connection;
     } catch (error) {
       console.error('❌ Erro ao conectar ao banco de dados:', error);

@@ -36,12 +36,21 @@ export declare class UserModel {
     static findByEmail(email: string): Promise<User | null>;
     static findByEmailWithPassword(email: string): Promise<User | null>;
     static emailExists(email: string, excludeId?: number): Promise<boolean>;
-    static login(credentials: LoginCredentials): Promise<{
+    static login(credentials: LoginCredentials, sessionData?: {
+        ip_address?: string;
+        user_agent?: string;
+    }): Promise<{
         user: User;
         token: string;
+        sessionToken: string;
     } | null>;
     static generateToken(user: User): string;
     static verifyToken(token: string): JWTPayload | null;
+    static logout(sessionToken: string): Promise<void>;
+    static verifySession(sessionToken: string): Promise<{
+        user: User;
+        session: any;
+    } | null>;
     static findOperatorsByManager(managerId: number): Promise<User[]>;
     static findAllManagers(): Promise<User[]>;
     static update(id: number, updateData: Partial<CreateUserData>): Promise<User | null>;

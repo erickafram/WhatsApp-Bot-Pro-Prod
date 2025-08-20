@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { executeQuery } from '../config/database';
+import { UserSessionModel } from './UserSession';
 
 export interface User {
   id: number;
@@ -121,26 +122,36 @@ export class UserModel {
   }
 
   // Fazer login
-  static async login(credentials: LoginCredentials): Promise<{ user: User; token: string } | null> {
+  static async login(
+    credentials: LoginCredentials,
+    sessionData?: { ip_address?: string; user_agent?: string }
+  ): Promise<{ user: User; token: string; sessionToken: string } | null> {
     const user = await UserModel.findByEmailWithPassword(credentials.email);
-    
+
     if (!user || !user.password) {
       return null;
     }
-    
+
     const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-    
+
     if (!isPasswordValid) {
       return null;
     }
-    
-    // Gerar token JWT
+
+    // Criar sessão no banco de dados
+    const session = await UserSessionModel.create({
+      user_id: user.id,
+      ip_address: sessionData?.ip_address,
+      user_agent: sessionData?.user_agent
+    });
+
+    // Gerar token JWT (mantido para compatibilidade)
     const token = UserModel.generateToken(user);
-    
+
     // Remover senha do objeto de retorno
     delete user.password;
-    
-    return { user, token };
+
+    return { user, token, sessionToken: session.session_token };
   }
 
   // Gerar token JWT
@@ -160,10 +171,42 @@ export class UserModel {
   // Verificar token JWT
   static verifyToken(token: string): JWTPayload | null {
     try {
-      return jwt.verify(token, process.env.JWT_SECRET || 'default_secret') as JWTPayload;
+      const secret = process.env.JWT_SECRET || 'default_secret';
+      return jwt.verify(token, secret) as JWTPayload;
     } catch (error) {
       return null;
     }
+  }
+
+  // Fazer logout
+  static async logout(sessionToken: string): Promise<void> {
+    await UserSessionModel.deactivateByToken(sessionToken);
+  }
+
+  // Verificar sessão no banco de dados
+  static async verifySession(sessionToken: string): Promise<{ user: User; session: any } | null> {
+    const isValid = await UserSessionModel.isValidSession(sessionToken);
+
+    if (!isValid) {
+      return null;
+    }
+
+    const session = await UserSessionModel.findByToken(sessionToken);
+
+    if (!session) {
+      return null;
+    }
+
+    const user = await UserModel.findById(session.user_id);
+
+    if (!user) {
+      return null;
+    }
+
+    // Atualizar última atividade
+    await UserSessionModel.updateActivity(sessionToken);
+
+    return { user, session };
   }
 
   // Buscar operadores de um gestor

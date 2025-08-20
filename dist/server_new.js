@@ -27,6 +27,7 @@ const whatsapp_1 = __importDefault(require("./routes/whatsapp"));
 const messages_1 = __importDefault(require("./routes/messages"));
 const devices_1 = __importDefault(require("./routes/devices"));
 const operators_1 = __importDefault(require("./routes/operators"));
+const managers_1 = __importDefault(require("./routes/managers"));
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
 const io = new socket_io_1.Server(server, {
@@ -771,6 +772,8 @@ app.use('/api/messages', messages_1.default);
 app.use('/api/devices', devices_1.default);
 // Rotas de operadores
 app.use('/api/operators', operators_1.default);
+// Rotas de gestores
+app.use('/api/managers', managers_1.default);
 // Rota de status do sistema
 app.get('/api/status', async (req, res) => {
     try {

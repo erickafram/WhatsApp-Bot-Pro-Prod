@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.logAction = exports.validateUserData = exports.requireUserManagement = exports.requireManagerAccess = exports.requireManager = exports.requireAdmin = exports.authenticate = void 0;
+exports.requireRole = exports.logAction = exports.validateUserData = exports.requireUserManagement = exports.requireManagerAccess = exports.requireManager = exports.requireAdmin = exports.authenticate = void 0;
 const User_1 = require("../models/User");
 // Middleware para verificar autenticação
 const authenticate = async (req, res, next) => {
@@ -11,6 +11,17 @@ const authenticate = async (req, res, next) => {
             return;
         }
         const token = authHeader.substring(7);
+        // Primeiro tentar verificar como sessão do banco de dados
+        const sessionResult = await User_1.UserModel.verifySession(token);
+        if (sessionResult) {
+            // Sessão válida no banco de dados
+            req.user = sessionResult.user;
+            req.token = token;
+            req.session = sessionResult.session;
+            next();
+            return;
+        }
+        // Fallback para JWT (compatibilidade com tokens antigos)
         const payload = User_1.UserModel.verifyToken(token);
         if (!payload) {
             res.status(401).json({ error: 'Token inválido ou expirado' });
@@ -21,12 +32,16 @@ const authenticate = async (req, res, next) => {
             res.status(401).json({ error: 'Usuário não encontrado' });
             return;
         }
+        if (!user.is_active) {
+            res.status(401).json({ error: 'Usuário inativo' });
+            return;
+        }
         req.user = user;
         req.token = token;
         next();
     }
     catch (error) {
-        console.error('Erro na autenticação:', error);
+        console.error('❌ Erro na autenticação:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };
@@ -156,4 +171,21 @@ const logAction = (action) => {
     };
 };
 exports.logAction = logAction;
+// Middleware para verificar roles específicos
+const requireRole = (allowedRoles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            res.status(401).json({ error: 'Usuário não autenticado' });
+            return;
+        }
+        if (!allowedRoles.includes(req.user.role)) {
+            res.status(403).json({
+                error: `Acesso negado. Apenas usuários com papel: ${allowedRoles.join(', ')} podem acessar esta funcionalidade.`
+            });
+            return;
+        }
+        next();
+    };
+};
+exports.requireRole = requireRole;
 //# sourceMappingURL=auth.js.map

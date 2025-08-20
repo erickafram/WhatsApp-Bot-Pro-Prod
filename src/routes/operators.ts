@@ -17,6 +17,18 @@ interface Operator {
   manager_id: number
   created_at: string
   updated_at: string
+  last_login?: string
+  status_label?: string
+  days_since_created?: number
+  performance?: {
+    total_chats: number
+    active_chats: number
+    resolved_chats: number
+    avg_response_time?: number
+    efficiency: number
+  }
+  formatted_created_at?: string
+  formatted_last_login?: string
 }
 
 // Middleware para verificar se é manager
@@ -52,22 +64,88 @@ router.get('/', authenticate, requireManager, async (req: any, res) => {
 
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT 
-        id, name, email, phone, avatar, is_active, manager_id, 
-        created_at, updated_at
-      FROM users 
-      WHERE role = 'operator' AND manager_id = ? 
-      ORDER BY created_at DESC`,
+        u.id, 
+        u.name, 
+        u.email, 
+        u.phone, 
+        u.avatar, 
+        u.is_active, 
+        u.manager_id, 
+        u.created_at, 
+        u.updated_at,
+        u.last_login,
+        COALESCE(chat_stats.total_chats, 0) as total_chats,
+        COALESCE(chat_stats.active_chats, 0) as active_chats,
+        COALESCE(chat_stats.resolved_chats, 0) as resolved_chats,
+        CASE 
+          WHEN u.last_login IS NULL THEN 'Nunca logou'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 'Online'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 1 HOUR) THEN 'Recentemente ativo'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 1 DAY) THEN 'Ativo hoje'
+          ELSE 'Inativo'
+        END as status_label,
+        TIMESTAMPDIFF(DAY, u.created_at, NOW()) as days_since_created
+      FROM users u
+      LEFT JOIN (
+        SELECT 
+          operator_id,
+          COUNT(*) as total_chats,
+          SUM(CASE WHEN status IN ('active', 'pending') THEN 1 ELSE 0 END) as active_chats,
+          SUM(CASE WHEN status IN ('resolved', 'finished') THEN 1 ELSE 0 END) as resolved_chats
+        FROM human_chats 
+        WHERE operator_id IS NOT NULL 
+        GROUP BY operator_id
+      ) chat_stats ON u.id = chat_stats.operator_id
+      WHERE u.role = 'operator' AND u.manager_id = ? 
+      ORDER BY u.is_active DESC, u.created_at DESC`,
       [managerId]
     )
 
-    const operators = rows as Operator[]
+    const operators = rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone || 'Não informado',
+      avatar: row.avatar || null,
+      is_active: Boolean(row.is_active),
+      manager_id: row.manager_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      last_login: row.last_login,
+      status_label: row.status_label,
+      days_since_created: row.days_since_created,
+      performance: {
+        total_chats: row.total_chats,
+        active_chats: row.active_chats,
+        resolved_chats: row.resolved_chats,
+        efficiency: row.total_chats > 0 ? Math.round((row.resolved_chats / row.total_chats) * 100) : 0
+      },
+      formatted_created_at: new Date(row.created_at).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      }),
+      formatted_last_login: row.last_login ? new Date(row.last_login).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : 'Nunca'
+    }))
 
     console.log(`✅ ${operators.length} operadores encontrados`)
 
     res.json({
       success: true,
       operators: operators,
-      total: operators.length
+      total: operators.length,
+      summary: {
+        active: operators.filter(op => op.is_active).length,
+        inactive: operators.filter(op => !op.is_active).length,
+        online: operators.filter(op => op.status_label === 'Online').length,
+        total_chats: operators.reduce((sum, op) => sum + op.performance.total_chats, 0)
+      }
     })
 
   } catch (error) {
@@ -89,18 +167,82 @@ router.get('/:id', authenticate, requireManager, async (req: any, res) => {
 
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT 
-        id, name, email, phone, avatar, is_active, manager_id, 
-        created_at, updated_at
-      FROM users 
-      WHERE id = ? AND role = 'operator' AND manager_id = ?`,
-      [operatorId, managerId]
+        u.id, 
+        u.name, 
+        u.email, 
+        u.phone, 
+        u.avatar, 
+        u.is_active, 
+        u.manager_id, 
+        u.created_at, 
+        u.updated_at,
+        u.last_login,
+        COALESCE(chat_stats.total_chats, 0) as total_chats,
+        COALESCE(chat_stats.active_chats, 0) as active_chats,
+        COALESCE(chat_stats.resolved_chats, 0) as resolved_chats,
+        COALESCE(chat_stats.avg_response_time, 0) as avg_response_time,
+        CASE 
+          WHEN u.last_login IS NULL THEN 'Nunca logou'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 'Online'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 1 HOUR) THEN 'Recentemente ativo'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 1 DAY) THEN 'Ativo hoje'
+          ELSE 'Inativo'
+        END as status_label,
+        TIMESTAMPDIFF(DAY, u.created_at, NOW()) as days_since_created
+      FROM users u
+      LEFT JOIN (
+        SELECT 
+          operator_id,
+          COUNT(*) as total_chats,
+          SUM(CASE WHEN status IN ('active', 'pending') THEN 1 ELSE 0 END) as active_chats,
+          SUM(CASE WHEN status IN ('resolved', 'finished') THEN 1 ELSE 0 END) as resolved_chats,
+          AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)) as avg_response_time
+        FROM human_chats 
+        WHERE operator_id = ?
+        GROUP BY operator_id
+      ) chat_stats ON u.id = chat_stats.operator_id
+      WHERE u.id = ? AND u.role = 'operator' AND u.manager_id = ?`,
+      [operatorId, operatorId, managerId]
     )
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Operador não encontrado' })
     }
 
-    const operator = rows[0] as Operator
+    const row = rows[0]
+    const operator = {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone || 'Não informado',
+      avatar: row.avatar || null,
+      is_active: Boolean(row.is_active),
+      manager_id: row.manager_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      last_login: row.last_login,
+      status_label: row.status_label,
+      days_since_created: row.days_since_created,
+      performance: {
+        total_chats: row.total_chats,
+        active_chats: row.active_chats,
+        resolved_chats: row.resolved_chats,
+        avg_response_time: Math.round(row.avg_response_time || 0),
+        efficiency: row.total_chats > 0 ? Math.round((row.resolved_chats / row.total_chats) * 100) : 0
+      },
+      formatted_created_at: new Date(row.created_at).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      }),
+      formatted_last_login: row.last_login ? new Date(row.last_login).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : 'Nunca'
+    }
 
     console.log(`✅ Operador encontrado: ${operator.name}`)
 
@@ -173,17 +315,57 @@ router.post('/', authenticate, requireManager, async (req: any, res) => {
 
     const operatorId = result.insertId
 
-    // Buscar o operador criado
+    // Buscar o operador criado com informações completas
     const [newOperator] = await pool.execute<RowDataPacket[]>(
       `SELECT 
-        id, name, email, phone, avatar, is_active, manager_id, 
-        created_at, updated_at
-      FROM users 
-      WHERE id = ?`,
+        u.id, 
+        u.name, 
+        u.email, 
+        u.phone, 
+        u.avatar, 
+        u.is_active, 
+        u.manager_id, 
+        u.created_at, 
+        u.updated_at,
+        u.last_login,
+        CASE 
+          WHEN u.last_login IS NULL THEN 'Nunca logou'
+          ELSE 'Inativo'
+        END as status_label,
+        0 as days_since_created
+      FROM users u
+      WHERE u.id = ?`,
       [operatorId]
     )
 
-    const operator = newOperator[0] as Operator
+    const row = newOperator[0]
+    const operator = {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone || 'Não informado',
+      avatar: row.avatar || null,
+      is_active: Boolean(row.is_active),
+      manager_id: row.manager_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      last_login: row.last_login,
+      status_label: row.status_label,
+      days_since_created: 0,
+      performance: {
+        total_chats: 0,
+        active_chats: 0,
+        resolved_chats: 0,
+        avg_response_time: 0,
+        efficiency: 0
+      },
+      formatted_created_at: new Date(row.created_at).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      }),
+      formatted_last_login: 'Nunca'
+    }
 
     console.log(`✅ Operador criado com sucesso: ${operator.name} (ID: ${operatorId})`)
 
@@ -250,17 +432,81 @@ router.put('/:id', authenticate, requireManager, async (req: any, res) => {
       [name, email, phone || null, avatar || null, is_active ? 1 : 0, operatorId, managerId]
     )
 
-    // Buscar operador atualizado
+    // Buscar operador atualizado com informações completas
     const [updatedOperator] = await pool.execute<RowDataPacket[]>(
       `SELECT 
-        id, name, email, phone, avatar, is_active, manager_id, 
-        created_at, updated_at
-      FROM users 
-      WHERE id = ?`,
-      [operatorId]
+        u.id, 
+        u.name, 
+        u.email, 
+        u.phone, 
+        u.avatar, 
+        u.is_active, 
+        u.manager_id, 
+        u.created_at, 
+        u.updated_at,
+        u.last_login,
+        COALESCE(chat_stats.total_chats, 0) as total_chats,
+        COALESCE(chat_stats.active_chats, 0) as active_chats,
+        COALESCE(chat_stats.resolved_chats, 0) as resolved_chats,
+        COALESCE(chat_stats.avg_response_time, 0) as avg_response_time,
+        CASE 
+          WHEN u.last_login IS NULL THEN 'Nunca logou'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 'Online'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 1 HOUR) THEN 'Recentemente ativo'
+          WHEN u.last_login > DATE_SUB(NOW(), INTERVAL 1 DAY) THEN 'Ativo hoje'
+          ELSE 'Inativo'
+        END as status_label,
+        TIMESTAMPDIFF(DAY, u.created_at, NOW()) as days_since_created
+      FROM users u
+      LEFT JOIN (
+        SELECT 
+          operator_id,
+          COUNT(*) as total_chats,
+          SUM(CASE WHEN status IN ('active', 'pending') THEN 1 ELSE 0 END) as active_chats,
+          SUM(CASE WHEN status IN ('resolved', 'finished') THEN 1 ELSE 0 END) as resolved_chats,
+          AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)) as avg_response_time
+        FROM human_chats 
+        WHERE operator_id = ?
+        GROUP BY operator_id
+      ) chat_stats ON u.id = chat_stats.operator_id
+      WHERE u.id = ?`,
+      [operatorId, operatorId]
     )
 
-    const operator = updatedOperator[0] as Operator
+    const row = updatedOperator[0]
+    const operator = {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone || 'Não informado',
+      avatar: row.avatar || null,
+      is_active: Boolean(row.is_active),
+      manager_id: row.manager_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      last_login: row.last_login,
+      status_label: row.status_label,
+      days_since_created: row.days_since_created,
+      performance: {
+        total_chats: row.total_chats,
+        active_chats: row.active_chats,
+        resolved_chats: row.resolved_chats,
+        avg_response_time: Math.round(row.avg_response_time || 0),
+        efficiency: row.total_chats > 0 ? Math.round((row.resolved_chats / row.total_chats) * 100) : 0
+      },
+      formatted_created_at: new Date(row.created_at).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      }),
+      formatted_last_login: row.last_login ? new Date(row.last_login).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : 'Nunca'
+    }
 
     console.log(`✅ Operador atualizado com sucesso: ${operator.name}`)
 

@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react'
 import '../styles/OperatorDashboard.css'
-import { 
-  Bell, 
-  MessageCircle, 
-  Clock, 
-  Users, 
+import {
+  Bell,
+  MessageCircle,
+  Clock,
+  Users,
   AlertTriangle,
   CheckCircle,
   TrendingUp,
   Activity,
-  Phone,
   MessageSquare,
   Timer,
-  UserCheck,
-  AlertCircle,
-  Zap,
-  BarChart3
+  UserCheck
 } from 'lucide-react'
 
 interface PendingChat {
@@ -789,31 +785,7 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="quick-actions">
-        <div className="quick-actions-header">
-          <Zap size={20} />
-          <span>Ações Rápidas</span>
-        </div>
-        <div className="actions-grid">
-          <button className="action-btn">
-            <MessageCircle size={20} />
-            <span>Nova Conversa</span>
-          </button>
-          <button className="action-btn">
-            <BarChart3 size={20} />
-            <span>Relatórios</span>
-          </button>
-          <button className="action-btn">
-            <Phone size={20} />
-            <span>Chamada</span>
-          </button>
-          <button className="action-btn">
-            <AlertCircle size={20} />
-            <span>Escalar</span>
-          </button>
-        </div>
-      </div>
+
     </div>
   )
 }

@@ -21,7 +21,9 @@ async function connectDatabase() {
     if (!connection) {
         try {
             connection = await promise_1.default.createConnection(exports.dbConfig);
-            console.log('✅ Conectado ao banco de dados MySQL');
+            // Garantir que autocommit está habilitado
+            await connection.execute('SET autocommit = 1');
+            console.log('✅ Conectado ao banco de dados MySQL com autocommit habilitado');
             return connection;
         }
         catch (error) {

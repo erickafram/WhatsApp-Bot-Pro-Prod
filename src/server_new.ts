@@ -25,6 +25,7 @@ import whatsappRoutes from './routes/whatsapp';
 import messageRoutes from './routes/messages';
 import deviceRoutes from './routes/devices';
 import operatorRoutes from './routes/operators';
+import managerRoutes from './routes/managers';
 
 const app = express();
 const server = http.createServer(app);
@@ -928,6 +929,9 @@ app.use('/api/devices', deviceRoutes);
 
 // Rotas de operadores
 app.use('/api/operators', operatorRoutes);
+
+// Rotas de gestores
+app.use('/api/managers', managerRoutes);
 
 // Rota de status do sistema
 app.get('/api/status', async (req, res) => {

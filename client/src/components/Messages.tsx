@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { 
+import { useState, useEffect, useRef } from 'react'
+import {
   MessageSquareText,
   MessageCircle,
   Plus,
@@ -29,21 +29,23 @@ import {
   CheckCircle,
   Type,
   Bot,
-  List
+  List,
+  Send,
+  Phone
 } from 'lucide-react'
 
-interface AutoMessage {
+interface AutoTemplate {
   id: string
   trigger: string[]
   response: string
   active: boolean
 }
 
-interface MessageProject {
+interface TemplateProject {
   id: string
   name: string
   description: string
-  messages: AutoMessage[]
+  templates: AutoTemplate[]
   createdAt: string
   isActive: boolean
   isDefault?: boolean
@@ -83,13 +85,28 @@ interface FlowState {
   panOffset: { x: number; y: number }
 }
 
-interface MessagesProps {
+interface TemplatesProps {
   socket: any | null
 }
 
-function Messages({ }: MessagesProps) {
-  // States for Message Projects
-  const [messageProjects, setMessageProjects] = useState<MessageProject[]>([])
+interface ChatMessage {
+  id: string
+  type: 'user' | 'bot'
+  content: string
+  timestamp: Date
+  nodeId?: string
+}
+
+interface SimulationState {
+  isActive: boolean
+  currentNodeId: string | null
+  chatHistory: ChatMessage[]
+  awaitingInput: boolean
+}
+
+function Templates({ }: TemplatesProps) {
+    // States for Template Projects
+  const [templateProjects, setTemplateProjects] = useState<TemplateProject[]>([])  
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [newProject, setNewProject] = useState({ name: '', description: '' })
@@ -97,7 +114,7 @@ function Messages({ }: MessagesProps) {
   const [isSaving, setIsSaving] = useState(false)
 
   // Legacy state - will be migrated to projects
-  const [autoMessages, setAutoMessages] = useState<AutoMessage[]>([
+  const [autoTemplates, setAutoTemplates] = useState<AutoTemplate[]>([
     {
       id: '1',
       trigger: ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite'],
@@ -135,10 +152,10 @@ function Messages({ }: MessagesProps) {
       active: true
     }
   ])
-  const [editingMessage, setEditingMessage] = useState<AutoMessage | null>(null)
-  const [showAddMessage, setShowAddMessage] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<AutoTemplate | null>(null)
+  const [showAddTemplate, setShowAddTemplate] = useState(false)
   const [showFlowView, setShowFlowView] = useState(false)
-  const [newAutoMessage, setNewAutoMessage] = useState<Partial<AutoMessage>>({
+  const [newAutoTemplate, setNewAutoTemplate] = useState<Partial<AutoTemplate>>({
     trigger: [],
     response: '',
     active: true
@@ -157,6 +174,17 @@ function Messages({ }: MessagesProps) {
   const [showNodeEditor, setShowNodeEditor] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [activeFlowTool, setActiveFlowTool] = useState<'select' | 'connect' | 'pan'>('select')
+
+  // Chat Simulation States
+  const [showChatSimulator, setShowChatSimulator] = useState(false)
+  const [simulationState, setSimulationState] = useState<SimulationState>({
+    isActive: false,
+    currentNodeId: null,
+    chatHistory: [],
+    awaitingInput: false
+  })
+  const [userInput, setUserInput] = useState('')
+  const chatMessagesRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<{
     isDragging: boolean
     draggedNodeId: string | null
@@ -204,13 +232,13 @@ function Messages({ }: MessagesProps) {
           id: project.id.toString(),
           name: project.name,
           description: project.description || '',
-          messages: [], // Será carregado depois
+          templates: [], // Será carregado depois
           isActive: project.is_active,
           isDefault: project.is_default,
           createdAt: new Date(project.created_at)
         }))
         
-        setMessageProjects(convertedProjects)
+        setTemplateProjects(convertedProjects)
         
         // Encontrar projeto padrão
         const defaultProject = data.projects.find((p: any) => p.is_default)
@@ -218,8 +246,8 @@ function Messages({ }: MessagesProps) {
           setDefaultProjectId(defaultProject.id.toString())
           console.log('🌟 Projeto padrão encontrado:', defaultProject.name)
           
-          // Carregar mensagens do projeto padrão
-          await loadProjectMessages(defaultProject.id)
+          // Carregar templates do projeto padrão
+          await loadProjectTemplates(defaultProject.id)
         }
       } else {
         console.error('❌ Erro ao carregar projetos:', response.statusText)
@@ -331,13 +359,13 @@ function Messages({ }: MessagesProps) {
     }
   }
 
-  // Função para carregar mensagens de um projeto específico
-  const loadProjectMessages = async (projectId: number) => {
+  // Função para carregar templates de um projeto específico
+  const loadProjectTemplates = async (projectId: number) => {
     try {
       const authToken = localStorage.getItem('authToken')
       if (!authToken) return
 
-      console.log(`🔍 Carregando mensagens do projeto ${projectId}...`)
+      console.log(`🔍 Carregando templates do projeto ${projectId}...`)
       
       const response = await fetch(`/api/messages/projects/${projectId}/messages`, {
         headers: {
@@ -348,38 +376,38 @@ function Messages({ }: MessagesProps) {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Mensagens carregadas do banco:', data.messages)
+        console.log('✅ Templates carregados do banco:', data.messages)
         
         // Converter formato do banco para formato do frontend
-        const convertedMessages = data.messages.map((msg: any) => ({
+        const convertedTemplates = data.messages.map((msg: any) => ({
           id: msg.id.toString(),
           trigger: msg.trigger_words,
           response: msg.response_text,
           active: msg.is_active
         }))
         
-        // Atualizar as mensagens automáticas
-        setAutoMessages(convertedMessages)
+        // Atualizar os templates automáticos
+        setAutoTemplates(convertedTemplates)
         
-        // Atualizar também o projeto com as mensagens
-        setMessageProjects(prev => prev.map(project => 
+        // Atualizar também o projeto com os templates
+        setTemplateProjects(prev => prev.map(project => 
           project.id === projectId.toString() 
-            ? { ...project, messages: convertedMessages }
+            ? { ...project, templates: convertedTemplates }
             : project
         ))
         
-        console.log(`✅ ${convertedMessages.length} mensagens carregadas para o projeto ${projectId}`)
+        console.log(`✅ ${convertedTemplates.length} templates carregados para o projeto ${projectId}`)
       } else {
-        console.error('❌ Erro ao carregar mensagens:', response.statusText)
+        console.error('❌ Erro ao carregar templates:', response.statusText)
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar mensagens do banco:', error)
+      console.error('❌ Erro ao carregar templates do banco:', error)
     }
   }
 
-  // Auto Messages Management Functions
-  const addAutoMessage = async () => {
-    if (newAutoMessage.trigger && newAutoMessage.response && defaultProjectId) {
+  // Auto Templates Management Functions
+  const addAutoTemplate = async () => {
+    if (newAutoTemplate.trigger && newAutoTemplate.response && defaultProjectId) {
       try {
         const authToken = localStorage.getItem('authToken')
         if (!authToken) {
@@ -396,10 +424,10 @@ function Messages({ }: MessagesProps) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            trigger_words: Array.isArray(newAutoMessage.trigger) ? newAutoMessage.trigger : [newAutoMessage.trigger],
-            response_text: newAutoMessage.response,
-            is_active: newAutoMessage.active || true,
-            order_index: autoMessages.length
+            trigger_words: Array.isArray(newAutoTemplate.trigger) ? newAutoTemplate.trigger : [newAutoTemplate.trigger],
+            response_text: newAutoTemplate.response,
+            is_active: newAutoTemplate.active || true,
+            order_index: autoTemplates.length
           })
         })
 
@@ -407,43 +435,43 @@ function Messages({ }: MessagesProps) {
           const data = await response.json()
           console.log('✅ Mensagem criada no banco:', data.message)
           
-          // Recarregar mensagens do projeto
-          await loadProjectMessages(parseInt(defaultProjectId))
+          // Recarregar templates do projeto
+          await loadProjectTemplates(parseInt(defaultProjectId))
           
-      setNewAutoMessage({ trigger: [], response: '', active: true })
-      setShowAddMessage(false)
+      setNewAutoTemplate({ trigger: [], response: '', active: true })
+      setShowAddTemplate(false)
         } else {
-          console.error('❌ Erro ao criar mensagem:', response.statusText)
-          alert('Erro ao criar mensagem. Tente novamente.')
+          console.error('❌ Erro ao criar template:', response.statusText)
+          alert('Erro ao criar template. Tente novamente.')
         }
       } catch (error) {
-        console.error('❌ Erro ao criar mensagem no banco:', error)
-        alert('Erro ao criar mensagem. Tente novamente.')
+        console.error('❌ Erro ao criar template no banco:', error)
+        alert('Erro ao criar template. Tente novamente.')
       }
     }
   }
 
-  const updateAutoMessage = async (updatedMessage: AutoMessage) => {
+  const updateAutoTemplate = async (updatedTemplate: AutoTemplate) => {
     try {
       // Save to database if we have a selected project
       if (selectedProject && selectedProject !== 'default') {
-        await updateAutoMessageInDatabase(updatedMessage)
+        await updateAutoTemplateInDatabase(updatedTemplate)
       }
       
       // Update local state
-    const currentMessages = getCurrentMessages()
-    updateCurrentMessages(currentMessages.map(msg => 
-      msg.id === updatedMessage.id ? updatedMessage : msg
+    const currentTemplates = getCurrentTemplates()
+    updateCurrentTemplates(currentTemplates.map(tpl => 
+      tpl.id === updatedTemplate.id ? updatedTemplate : tpl
     ))
-    setEditingMessage(null)
+    setEditingTemplate(null)
     } catch (error) {
-      console.error('❌ Erro ao atualizar mensagem:', error)
-      alert('Erro ao salvar mensagem. Tente novamente.')
+      console.error('❌ Erro ao atualizar template:', error)
+      alert('Erro ao salvar template. Tente novamente.')
     }
   }
 
-  // Function to save message updates to database
-  const updateAutoMessageInDatabase = async (updatedMessage: AutoMessage) => {
+  // Function to save template updates to database
+  const updateAutoTemplateInDatabase = async (updatedTemplate: AutoTemplate) => {
     try {
       setIsSaving(true)
       const authToken = localStorage.getItem('authToken')
@@ -452,58 +480,58 @@ function Messages({ }: MessagesProps) {
         return
       }
 
-      console.log('💾 Salvando alterações da mensagem no banco:', updatedMessage.id)
+      console.log('💾 Salvando alterações do template no banco:', updatedTemplate.id)
       
-      const response = await fetch(`/api/messages/messages/${updatedMessage.id}`, {
+      const response = await fetch(`/api/messages/messages/${updatedTemplate.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          trigger_words: Array.isArray(updatedMessage.trigger) ? updatedMessage.trigger : [updatedMessage.trigger],
-          response_text: updatedMessage.response,
-          is_active: updatedMessage.active,
+          trigger_words: Array.isArray(updatedTemplate.trigger) ? updatedTemplate.trigger : [updatedTemplate.trigger],
+          response_text: updatedTemplate.response,
+          is_active: updatedTemplate.active,
           order_index: 0 // You may want to track this properly
         })
       })
 
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Mensagem atualizada no banco:', data.message)
+        console.log('✅ Template atualizado no banco:', data.message)
       } else {
-        console.error('❌ Erro ao atualizar mensagem:', response.statusText)
+        console.error('❌ Erro ao atualizar template:', response.statusText)
         throw new Error('Falha ao salvar no banco de dados')
       }
     } catch (error) {
-      console.error('❌ Erro ao salvar mensagem no banco:', error)
+      console.error('❌ Erro ao salvar template no banco:', error)
       throw error
     } finally {
       setIsSaving(false)
     }
   }
 
-  const deleteAutoMessage = (id: string) => {
-    const currentMessages = getCurrentMessages()
-    updateCurrentMessages(currentMessages.filter(msg => msg.id !== id))
+  const deleteAutoTemplate = (id: string) => {
+    const currentTemplates = getCurrentTemplates()
+    updateCurrentTemplates(currentTemplates.filter(tpl => tpl.id !== id))
   }
 
-  const toggleMessageActive = (id: string) => {
-    const currentMessages = getCurrentMessages()
-    updateCurrentMessages(currentMessages.map(msg => 
-      msg.id === id ? { ...msg, active: !msg.active } : msg
+  const toggleTemplateActive = (id: string) => {
+    const currentTemplates = getCurrentTemplates()
+    updateCurrentTemplates(currentTemplates.map(tpl => 
+      tpl.id === id ? { ...tpl, active: !tpl.active } : tpl
     ))
   }
 
   const addHumanIntervention = () => {
-    const humanMessage: AutoMessage = {
+    const humanTemplate: AutoTemplate = {
       id: 'human-' + Date.now().toString(),
       trigger: ['falar com humano', 'atendente', 'suporte humano', 'pessoa real', 'operador'],
       response: '🙋‍♀️ Entendi que você gostaria de falar com um atendente humano.\n\nVou transferir você para nossa equipe de suporte. Em alguns instantes um de nossos especialistas entrará em contato.\n\n⏰ Horário de atendimento: Segunda a Sexta, 8h às 18h\n\nObrigado pela paciência! 😊',
       active: true
     }
-    const currentMessages = getCurrentMessages()
-    updateCurrentMessages([...currentMessages, humanMessage])
+    const currentTemplates = getCurrentTemplates()
+    updateCurrentTemplates([...currentTemplates, humanTemplate])
   }
 
   // Project Management Functions
@@ -536,18 +564,18 @@ function Messages({ }: MessagesProps) {
           const data = await response.json()
           console.log('✅ Projeto criado no banco:', data.project)
           
-          // Converter formato do banco para formato do frontend
-          const convertedProject: MessageProject = {
-            id: data.project.id.toString(),
-            name: data.project.name,
-            description: data.project.description || '',
-        messages: [],
-            createdAt: new Date(data.project.created_at).toISOString(),
-            isActive: data.project.is_active,
-            isDefault: data.project.is_default
+                  // Converter formato do banco para formato do frontend
+        const convertedProject: TemplateProject = {
+          id: data.project.id.toString(),
+          name: data.project.name,
+          description: data.project.description || '',
+        templates: [],
+          createdAt: new Date(data.project.created_at).toISOString(),
+          isActive: data.project.is_active,
+          isDefault: data.project.is_default
       }
           
-          setMessageProjects([...messageProjects, convertedProject])
+          setTemplateProjects([...templateProjects, convertedProject])
       setNewProject({ name: '', description: '' })
       setShowProjectForm(false)
         } else {
@@ -562,14 +590,14 @@ function Messages({ }: MessagesProps) {
   }
 
   const deleteProject = (projectId: string) => {
-    setMessageProjects(messageProjects.filter(p => p.id !== projectId))
+    setTemplateProjects(templateProjects.filter(p => p.id !== projectId))
     if (selectedProject === projectId) {
       setSelectedProject(null)
     }
   }
 
   const toggleProjectActive = (projectId: string) => {
-    setMessageProjects(messageProjects.map(p => 
+    setTemplateProjects(templateProjects.map(p => 
       p.id === projectId ? { ...p, isActive: !p.isActive } : p
     ))
   }
@@ -600,12 +628,12 @@ function Messages({ }: MessagesProps) {
         
         // Atualizar estado local
     setDefaultProjectId(projectId)
-    setMessageProjects(messageProjects.map(p => 
+    setTemplateProjects(templateProjects.map(p => 
       ({ ...p, isDefault: p.id === projectId })
     ))
         
-        // Carregar mensagens do novo projeto padrão
-        await loadProjectMessages(parseInt(projectId))
+        // Carregar templates do novo projeto padrão
+        await loadProjectTemplates(parseInt(projectId))
       } else {
         console.error('❌ Erro ao definir projeto como padrão:', response.statusText)
         alert('Erro ao definir projeto como padrão. Tente novamente.')
@@ -618,7 +646,7 @@ function Messages({ }: MessagesProps) {
 
   // Criar projeto específico para vendas de passagem de ônibus (OTIMIZADO)
   const createBusTicketProject = () => {
-    const busTicketMessages: AutoMessage[] = [
+    const busTicketTemplates: AutoTemplate[] = [
       {
         id: 'bus-welcome',
         trigger: ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite', 'bom dia', 'boa tarde', 'boa noite'],
@@ -749,39 +777,39 @@ Posso ajudar com algo mais? 😊`,
       }
     ]
 
-    const project: MessageProject = {
+    const project: TemplateProject = {
       id: `bus-ticket-${Date.now()}`,
       name: 'Vendas de Passagem de Ônibus',
-      description: 'Fluxo otimizado para vendas de passagens com sistema inteligente de verificação de cidades (6 mensagens ao invés de 39)',
-      messages: busTicketMessages,
+      description: 'Fluxo otimizado para vendas de passagens com sistema inteligente de verificação de cidades (6 templates ao invés de 39)',
+      templates: busTicketTemplates,
       createdAt: new Date().toISOString(),
       isActive: true,
       isDefault: false
     }
 
-    setMessageProjects([...messageProjects, project])
+    setTemplateProjects([...templateProjects, project])
     setSelectedProject(project.id)
     return project
   }
 
-  const getCurrentMessages = (): AutoMessage[] => {
-    if (!selectedProject) return autoMessages
-    const project = messageProjects.find(p => p.id === selectedProject)
-    return project ? project.messages : []
+  const getCurrentTemplates = (): AutoTemplate[] => {
+    if (!selectedProject) return autoTemplates
+    const project = templateProjects.find(p => p.id === selectedProject)
+    return project ? project.templates : []
   }
 
-  const updateCurrentMessages = (messages: AutoMessage[]) => {
+  const updateCurrentTemplates = (templates: AutoTemplate[]) => {
     if (!selectedProject) {
-      setAutoMessages(messages)
+      setAutoTemplates(templates)
     } else {
-      setMessageProjects(messageProjects.map(p => 
-        p.id === selectedProject ? { ...p, messages } : p
+      setTemplateProjects(templateProjects.map(p => 
+        p.id === selectedProject ? { ...p, templates } : p
       ))
     }
   }
 
-  // Convert AutoMessages to FlowNodes
-  const convertMessagesToFlow = (messages: AutoMessage[]): { nodes: FlowNode[], connections: FlowConnection[] } => {
+  // Convert AutoTemplates to FlowNodes
+  const convertTemplatesToFlow = (templates: AutoTemplate[]): { nodes: FlowNode[], connections: FlowConnection[] } => {
     const nodes: FlowNode[] = []
     const connections: FlowConnection[] = []
 
@@ -795,26 +823,27 @@ Posso ajudar com algo mais? 😊`,
     }
     nodes.push(startNode)
 
-    // Find welcome message (with oi, olá, menu triggers)
-    const welcomeMsg = messages.find(msg => 
-      msg.trigger.some(t => ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite'].includes(t.toLowerCase()))
+    // Find welcome template (with oi, olá, menu triggers)
+    const welcomeTpl = templates.find(tpl =>
+      tpl.trigger.some(t => ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite', 'bom dia', 'boa tarde', 'boa noite'].includes(t.toLowerCase()))
     )
 
-    if (welcomeMsg) {
-      const welcomeNode: FlowNode = {
-        id: `message-${welcomeMsg.id}`,
+    let welcomeNode: FlowNode | null = null
+    if (welcomeTpl) {
+      welcomeNode = {
+        id: `template-${welcomeTpl.id}`,
         type: 'message',
         position: { x: 50, y: 150 },
-        data: { 
-          title: 'Boas-vindas', 
-          triggers: welcomeMsg.trigger,
-          response: welcomeMsg.response,
-          active: welcomeMsg.active
+        data: {
+          title: 'Boas-vindas',
+          triggers: welcomeTpl.trigger,
+          response: welcomeTpl.response,
+          active: welcomeTpl.active
         },
         connections: []
       }
       nodes.push(welcomeNode)
-      
+
       // Connect start to welcome
       connections.push({
         id: `${startNode.id}-${welcomeNode.id}`,
@@ -824,23 +853,36 @@ Posso ajudar com algo mais? 😊`,
       startNode.connections.push(welcomeNode.id)
     }
 
-    // Find menu options (1, 2, 3, 4, 5)
-    const menuOptions = messages.filter(msg => 
-      msg.trigger.some(t => ['1', '2', '3', '4', '5'].includes(t))
+    // Find menu options (1, 2, 3, 4, 5) - these are the actual responses to user choices
+    const menuOptions = templates.filter(tpl =>
+      tpl.trigger.some(t => ['1', '2', '3', '4', '5'].includes(t)) &&
+      !tpl.trigger.some(t => ['oi', 'olá', 'menu', 'dia', 'tarde', 'noite', 'bom dia', 'boa tarde', 'boa noite'].includes(t.toLowerCase()))
     ).sort((a, b) => {
       const aNum = parseInt(a.trigger.find(t => ['1', '2', '3', '4', '5'].includes(t)) || '0')
       const bNum = parseInt(b.trigger.find(t => ['1', '2', '3', '4', '5'].includes(t)) || '0')
       return aNum - bNum
     })
 
+    // Create option nodes
     menuOptions.forEach((option, index) => {
       const optionNumber = option.trigger.find(t => ['1', '2', '3', '4', '5'].includes(t))
+      let optionTitle = `Opção ${optionNumber}`
+
+      // Set more descriptive titles based on content
+      if (option.trigger.some(t => ['comprar', 'passagem', 'bilhete'].includes(t.toLowerCase()))) {
+        optionTitle = `Opção ${optionNumber} - Comprar Passagem`
+      } else if (option.trigger.some(t => ['horários', 'horario', 'hora'].includes(t.toLowerCase()))) {
+        optionTitle = `Opção ${optionNumber} - Ver Horários`
+      } else if (option.trigger.some(t => ['operador', 'atendente', 'humano', 'pessoa'].includes(t.toLowerCase()))) {
+        optionTitle = `Opção ${optionNumber} - Falar com Operador`
+      }
+
       const optionNode: FlowNode = {
-        id: `option-${option.id}`,
+        id: `template-${option.id}`,
         type: 'message',
         position: { x: 300 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 120 },
-        data: { 
-          title: `Opção ${optionNumber}`, 
+        data: {
+          title: optionTitle,
           triggers: option.trigger,
           response: option.response,
           active: option.active
@@ -849,41 +891,76 @@ Posso ajudar com algo mais? 😊`,
       }
       nodes.push(optionNode)
 
-      // Connect welcome to options
-      if (welcomeMsg) {
-        const welcomeNodeId = `message-${welcomeMsg.id}`
+      // Connect welcome to options if welcome exists
+      if (welcomeNode) {
         connections.push({
-          id: `${welcomeNodeId}-${optionNode.id}`,
-          source: welcomeNodeId,
+          id: `${welcomeNode.id}-${optionNode.id}`,
+          source: welcomeNode.id,
           target: optionNode.id
         })
-        const welcomeFlowNode = nodes.find(n => n.id === welcomeNodeId)
-        if (welcomeFlowNode) {
-          welcomeFlowNode.connections.push(optionNode.id)
+        welcomeNode.connections.push(optionNode.id)
+      }
+    })
+
+    // Find special templates (CIDADE_DISPONIVEL, CIDADE_NAO_DISPONIVEL, etc.)
+    const specialTemplates = templates.filter(tpl =>
+      tpl.trigger.some(t => t.includes('CIDADE_') || t.includes('_DISPONIVEL') || t.includes('_NAO_DISPONIVEL'))
+    )
+
+    // Add special templates as separate nodes
+    specialTemplates.forEach((template, index) => {
+      let nodeTitle = 'Template Especial'
+      if (template.trigger.some(t => t.includes('CIDADE_DISPONIVEL'))) {
+        nodeTitle = 'Cidade Disponível'
+      } else if (template.trigger.some(t => t.includes('CIDADE_NAO_DISPONIVEL'))) {
+        nodeTitle = 'Cidade Não Disponível'
+      }
+
+      const specialNode: FlowNode = {
+        id: `template-${template.id}`,
+        type: 'condition',
+        position: { x: 50 + (index * 250), y: 400 },
+        data: {
+          title: nodeTitle,
+          triggers: template.trigger,
+          response: template.response,
+          active: template.active
+        },
+        connections: []
+      }
+      nodes.push(specialNode)
+
+      // Connect from comprar passagem option if it exists
+      const comprarOption = menuOptions.find(opt =>
+        opt.trigger.some(t => ['comprar', 'passagem', '1'].includes(t.toLowerCase()))
+      )
+      if (comprarOption) {
+        const comprarNodeId = `template-${comprarOption.id}`
+        connections.push({
+          id: `${comprarNodeId}-${specialNode.id}`,
+          source: comprarNodeId,
+          target: specialNode.id
+        })
+        const comprarFlowNode = nodes.find(n => n.id === comprarNodeId)
+        if (comprarFlowNode) {
+          comprarFlowNode.connections.push(specialNode.id)
         }
       }
     })
 
-    // Find human intervention
-    const humanMsg = messages.find(msg => 
-      msg.id.startsWith('human-') || 
-      msg.trigger.some(t => ['falar com humano', 'atendente', 'suporte'].includes(t.toLowerCase()))
+    // Find human intervention template (operador option)
+    const humanTpl = menuOptions.find(tpl =>
+      tpl.trigger.some(t => ['3', 'operador', 'atendente', 'humano', 'pessoa'].includes(t.toLowerCase()))
     )
 
-    if (humanMsg) {
-      const humanNode: FlowNode = {
-        id: `human-${humanMsg.id}`,
-        type: 'human',
-        position: { x: 50, y: 350 },
-        data: { 
-          title: 'Atendimento Humano', 
-          triggers: humanMsg.trigger,
-          response: humanMsg.response,
-          active: humanMsg.active
-        },
-        connections: []
+    if (humanTpl) {
+      // Convert the operador option to human type
+      const humanNodeIndex = nodes.findIndex(n => n.id === `template-${humanTpl.id}`)
+      if (humanNodeIndex !== -1) {
+        nodes[humanNodeIndex].type = 'human'
+        nodes[humanNodeIndex].data.title = 'Atendimento Humano'
+        nodes[humanNodeIndex].position = { x: 50, y: 300 }
       }
-      nodes.push(humanNode)
     }
 
     // Add end node
@@ -896,51 +973,52 @@ Posso ajudar com algo mais? 😊`,
     }
     nodes.push(endNode)
 
-    // Connect options to end
-    menuOptions.forEach(option => {
-      const optionNodeId = `option-${option.id}`
-      connections.push({
-        id: `${optionNodeId}-${endNode.id}`,
-        source: optionNodeId,
-        target: endNode.id
-      })
-      const optionFlowNode = nodes.find(n => n.id === optionNodeId)
-      if (optionFlowNode) {
-        optionFlowNode.connections.push(endNode.id)
+    // Connect all leaf nodes to end (except human intervention)
+    nodes.forEach(node => {
+      if (node.connections.length === 0 &&
+          node.id !== endNode.id &&
+          node.id !== startNode.id &&
+          node.type !== 'human') {
+        connections.push({
+          id: `${node.id}-${endNode.id}`,
+          source: node.id,
+          target: endNode.id
+        })
+        node.connections.push(endNode.id)
       }
     })
 
     return { nodes, connections }
   }
 
-  // Update flow when messages change or flow view is opened
+  // Update flow when templates change or flow view is opened
   useEffect(() => {
-    const currentMessages = getCurrentMessages()
-    if (showFlowView && currentMessages.length > 0) {
-      const { nodes, connections } = convertMessagesToFlow(currentMessages)
+    const currentTemplates = getCurrentTemplates()
+    if (showFlowView && currentTemplates.length > 0) {
+      const { nodes, connections } = convertTemplatesToFlow(currentTemplates)
       setFlowState(prev => ({
         ...prev,
         nodes,
         connections
       }))
     }
-  }, [showFlowView, autoMessages, messageProjects, selectedProject])
+  }, [showFlowView, autoTemplates, templateProjects, selectedProject])
 
   // Auto-save message projects to database when they change
   useEffect(() => {
     const saveProjectsToDatabase = async () => {
       // Only save if we have projects and a selected project that's not default
-      if (messageProjects.length > 0 && selectedProject && selectedProject !== 'default') {
-        const currentProject = messageProjects.find(p => p.id === selectedProject)
-        if (currentProject && currentProject.messages.length > 0) {
+      if (templateProjects.length > 0 && selectedProject && selectedProject !== 'default') {
+        const currentProject = templateProjects.find((p: TemplateProject) => p.id === selectedProject)
+        if (currentProject && currentProject.templates.length > 0) {
           try {
             console.log('💾 Salvamento automático do projeto:', currentProject.name)
             
-            // Save each message that might have been modified
-            for (const message of currentProject.messages) {
-              // Check if message exists in database (has numeric ID)
-              if (!isNaN(Number(message.id))) {
-                await updateAutoMessageInDatabase(message)
+            // Save each template that might have been modified
+            for (const template of currentProject.templates) {
+              // Check if template exists in database (has numeric ID)
+              if (!isNaN(Number(template.id))) {
+                await updateAutoTemplateInDatabase(template)
               }
             }
             
@@ -958,16 +1036,162 @@ Posso ajudar com algo mais? 😊`,
     }, 2000) // Save 2 seconds after the last change
 
     return () => clearTimeout(timeoutId)
-  }, [messageProjects, selectedProject])
+      }, [templateProjects, selectedProject])
+
+  // Auto scroll to bottom when new messages are added
+  useEffect(() => {
+    if (chatMessagesRef.current && simulationState.chatHistory.length > 0) {
+      setTimeout(() => {
+        if (chatMessagesRef.current) {
+          chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight
+        }
+      }, 100)
+    }
+  }, [simulationState.chatHistory])
+
+  // Chat Simulation Functions
+  const startChatSimulation = () => {
+    const startNode = flowState.nodes.find(node => node.type === 'start')
+    if (!startNode) {
+      alert('Nenhum nó de início encontrado no fluxo!')
+      return
+    }
+
+    setSimulationState({
+      isActive: true,
+      currentNodeId: startNode.id,
+      chatHistory: [{
+        id: Date.now().toString(),
+        type: 'bot',
+        content: '👋 Olá! Bem-vindo ao nosso atendimento. Como posso ajudá-lo?',
+        timestamp: new Date()
+      }],
+      awaitingInput: true
+    })
+    setShowChatSimulator(true)
+  }
+
+  const stopChatSimulation = () => {
+    setSimulationState({
+      isActive: false,
+      currentNodeId: null,
+      chatHistory: [],
+      awaitingInput: false
+    })
+    setShowChatSimulator(false)
+    setUserInput('')
+  }
+
+  const sendUserMessage = () => {
+    if (!userInput.trim() || !simulationState.isActive) return
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: userInput.trim(),
+      timestamp: new Date()
+    }
+
+    // Add user message to chat and show typing indicator
+    setSimulationState(prev => ({
+      ...prev,
+      chatHistory: [...prev.chatHistory, userMessage],
+      awaitingInput: false
+    }))
+
+    // Process user input and find matching template
+    const currentTemplates = getCurrentTemplates()
+    const matchingTemplate = currentTemplates.find(template =>
+      template.active && template.trigger.some(trigger =>
+        userInput.toLowerCase().includes(trigger.toLowerCase())
+      )
+    )
+
+    setTimeout(() => {
+      if (matchingTemplate) {
+        // Replace {name} placeholder with a default name
+        const responseText = matchingTemplate.response.replace(/{name}/g, 'Usuário')
+
+        const botMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'bot',
+          content: responseText,
+          timestamp: new Date(),
+          nodeId: matchingTemplate.id
+        }
+
+        setSimulationState(prev => ({
+          ...prev,
+          chatHistory: [...prev.chatHistory, botMessage],
+          awaitingInput: true,
+          currentNodeId: `template-${matchingTemplate.id}`
+        }))
+      } else {
+        // No matching template found
+        const botMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'bot',
+          content: '🤔 Desculpe, não entendi sua mensagem. Você pode tentar novamente ou digitar "menu" para ver as opções disponíveis.',
+          timestamp: new Date()
+        }
+
+        setSimulationState(prev => ({
+          ...prev,
+          chatHistory: [...prev.chatHistory, botMessage],
+          awaitingInput: true
+        }))
+      }
+    }, 1000) // Simulate typing delay
+
+    setUserInput('')
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendUserMessage()
+    }
+  }
 
   // Advanced Flow Functions
-  const addFlowNode = (type: FlowNode['type'], position: { x: number; y: number }) => {
+  const addFlowNode = async (type: FlowNode['type'], position: { x: number; y: number }) => {
+    const nodeId = `${type}-${Date.now()}`
     const newNode: FlowNode = {
-      id: `${type}-${Date.now()}`,
+      id: nodeId,
       type,
       position,
       data: getDefaultNodeData(type),
       connections: []
+    }
+    
+    // If it's a message node and we have a selected project, create template in database
+    if (type === 'message' && selectedProject && selectedProject !== 'default') {
+      try {
+        const newTemplate: AutoTemplate = {
+          id: nodeId.replace('template-', ''),
+          trigger: ['novo'],
+          response: 'Nova resposta automática',
+          active: true
+        }
+        
+        // Create in database first
+        const dbResult = await createAutoTemplateInDatabase(newTemplate)
+        
+        // Update node ID with database ID
+        if (dbResult && dbResult.autoMessage && dbResult.autoMessage.id) {
+          newNode.id = `template-${dbResult.autoMessage.id}`
+          newNode.data = {
+            ...newNode.data,
+            triggers: newTemplate.trigger,
+            response: newTemplate.response,
+            active: newTemplate.active
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao criar template no banco:', error)
+        alert('Erro ao criar novo template. Será criado apenas localmente.')
+      }
     }
     
     setFlowState(prev => ({
@@ -983,7 +1207,7 @@ Posso ajudar com algo mais? 😊`,
       case 'start':
         return { title: 'Início', description: 'Conversa iniciada' }
       case 'message':
-        return { title: 'Nova Mensagem', triggers: [''], response: '', active: true }
+        return { title: 'Novo Template', triggers: [''], response: '', active: true }
       case 'condition':
         return { title: 'Condição', conditions: [{ field: '', operator: 'contains', value: '' }] }
       case 'options':
@@ -997,7 +1221,130 @@ Posso ajudar com algo mais? 😊`,
     }
   }
 
-  const deleteFlowNode = (nodeId: string) => {
+  // Function to save entire flow to database
+  const saveFlowToDatabase = async () => {
+    if (!selectedProject || selectedProject === 'default') {
+      alert('Selecione um projeto para salvar o fluxo.')
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      console.log('💾 Salvando fluxo completo no banco de dados...')
+      
+      const currentProject = templateProjects.find(p => p.id === selectedProject)
+      if (!currentProject) {
+        throw new Error('Projeto não encontrado')
+      }
+
+      // Save all templates from the current project
+      for (const template of currentProject.templates) {
+        if (!isNaN(Number(template.id))) {
+          // Existing template - update
+          await updateAutoTemplateInDatabase(template)
+        } else {
+          // New template - create
+          await createAutoTemplateInDatabase(template)
+        }
+      }
+
+      console.log('✅ Fluxo salvo com sucesso!')
+      alert('Fluxo salvo com sucesso!')
+      
+    } catch (error) {
+      console.error('❌ Erro ao salvar fluxo:', error)
+      alert('Erro ao salvar fluxo. Tente novamente.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Function to create new template in database
+  const createAutoTemplateInDatabase = async (template: AutoTemplate) => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        throw new Error('Token de autenticação não encontrado')
+      }
+
+      const response = await fetch('/api/messages/auto-messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          project_id: selectedProject,
+          trigger_words: JSON.stringify(template.trigger),
+          response_text: template.response,
+          is_active: template.active,
+          order_index: 0
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Falha ao criar template no banco de dados')
+      }
+
+      const data = await response.json()
+      console.log('✅ Novo template criado no banco:', data.message)
+      return data
+      
+    } catch (error) {
+      console.error('❌ Erro ao criar template no banco:', error)
+      throw error
+    }
+  }
+
+  // Function to delete template from database
+  const deleteAutoTemplateFromDatabase = async (templateId: string) => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        throw new Error('Token de autenticação não encontrado')
+      }
+
+      console.log(`🗑️ Iniciando exclusão do template ${templateId} no banco...`)
+
+      const response = await fetch(`/api/messages/auto-messages/${templateId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Resposta de erro do servidor:', errorData)
+        throw new Error(`Falha ao excluir template do banco de dados: ${response.status} ${response.statusText}`)
+      }
+
+      const result = await response.json().catch(() => ({}))
+      console.log('✅ Template excluído do banco com sucesso:', result)
+      
+      // Force reload templates to ensure sync
+      if (selectedProject && selectedProject !== 'default') {
+        console.log('🔄 Recarregando templates após exclusão...')
+        await loadProjectTemplates(parseInt(selectedProject))
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao excluir template do banco:', error)
+      throw error
+    }
+  }
+
+  const deleteFlowNode = async (nodeId: string) => {
+    console.log(`🗑️ Iniciando exclusão do nó: ${nodeId}`)
+    
+    const nodeToDelete = flowState.nodes.find(node => node.id === nodeId)
+    if (!nodeToDelete) {
+      console.warn(`⚠️ Nó ${nodeId} não encontrado no estado`)
+      return
+    }
+
+    // First remove from visual flow state immediately for better UX
     setFlowState(prev => ({
       ...prev,
       nodes: prev.nodes.filter(node => node.id !== nodeId),
@@ -1006,6 +1353,41 @@ Posso ajudar com algo mais? 😊`,
       ),
       selectedNode: prev.selectedNode === nodeId ? null : prev.selectedNode
     }))
+    
+    // If this is a template node that corresponds to a database entry, delete from database too
+    if (selectedProject && selectedProject !== 'default') {
+      try {
+        // Extract template ID from node ID
+        let templateId = nodeId
+        if (nodeId.startsWith('template-')) {
+          templateId = nodeId.replace('template-', '')
+        } else if (nodeId.includes('-')) {
+          const parts = nodeId.split('-')
+          templateId = parts[parts.length - 1]
+        }
+        
+        // Only delete from database if it's a valid numeric ID
+        if (!isNaN(Number(templateId)) && Number(templateId) > 0) {
+          console.log(`🗑️ Excluindo template ${templateId} do banco de dados...`)
+          await deleteAutoTemplateFromDatabase(templateId)
+          console.log(`✅ Exclusão completa do template ${templateId}`)
+        } else {
+          console.log(`ℹ️ Nó ${nodeId} não tem ID de template válido, removido apenas visualmente`)
+        }
+      } catch (error) {
+        console.error('❌ Erro ao excluir template do banco:', error)
+        alert(`Erro ao excluir template do banco de dados: ${error instanceof Error ? error.message : String(error)}`)
+        
+        // Rollback: add the node back to the flow state
+        setFlowState(prev => ({
+          ...prev,
+          nodes: [...prev.nodes, nodeToDelete]
+        }))
+        return
+      }
+    }
+    
+    console.log(`✅ Nó ${nodeId} removido completamente`)
   }
 
   // Drag and Drop handlers
@@ -1103,8 +1485,8 @@ Posso ajudar com algo mais? 😊`,
                   <MessageSquareText size={24} />
                 </div>
                 <div>
-                  <h2>Projetos de Mensagens</h2>
-                  <p>Organize suas mensagens automáticas em projetos</p>
+                  <h2>Projetos de Templates</h2>
+                  <p>Organize seus templates de resposta em projetos</p>
                 </div>
               </div>
             </div>
@@ -1229,17 +1611,17 @@ Posso ajudar com algo mais? 😊`,
                 
                 <div className="project-metrics">
                   <div className="metric-primary">
-                    <div className="metric-value">{autoMessages.length}</div>
-                    <div className="metric-label">Total de Mensagens</div>
+                    <div className="metric-value">{autoTemplates.length}</div>
+                    <div className="metric-label">Total de Templates</div>
                   </div>
                   <div className="metric-secondary">
                     <div className="metric-item">
                       <Zap size={14} />
-                      <span>{autoMessages.filter(msg => msg.active).length} ativas</span>
+                      <span>{autoTemplates.filter(tpl => tpl.active).length} ativas</span>
                     </div>
                     <div className="metric-item">
                       <MessageCircle size={14} />
-                      <span>{autoMessages.filter(msg => !msg.active).length} inativas</span>
+                      <span>{autoTemplates.filter(tpl => !tpl.active).length} inativas</span>
                     </div>
                   </div>
                 </div>
@@ -1252,11 +1634,11 @@ Posso ajudar com algo mais? 😊`,
                     <div className="effectiveness-bar">
                       <div 
                         className="effectiveness-fill" 
-                        style={{ width: `${Math.round((autoMessages.filter(msg => msg.active).length / autoMessages.length) * 100)}%` }}
+                        style={{ width: `${Math.round((autoTemplates.filter((tpl: AutoTemplate) => tpl.active).length / autoTemplates.length) * 100)}%` }}
                       ></div>
                     </div>
                     <span className="effectiveness-text">
-                      {Math.round((autoMessages.filter(msg => msg.active).length / autoMessages.length) * 100)}% ativo
+                      {Math.round((autoTemplates.filter((tpl: AutoTemplate) => tpl.active).length / autoTemplates.length) * 100)}% ativo
                     </span>
                   </div>
                 </div>
@@ -1264,7 +1646,7 @@ Posso ajudar com algo mais? 😊`,
             </div>
 
             {/* Custom Projects */}
-            {messageProjects.map((project) => {
+            {templateProjects.map((project: TemplateProject) => {
               const getProjectCategory = (projectName: string) => {
                 if (projectName.toLowerCase().includes('passagem') || projectName.toLowerCase().includes('ônibus')) {
                   return { type: 'transport', label: 'TRANSPORTE', icon: Route }
@@ -1280,9 +1662,9 @@ Posso ajudar com algo mais? 😊`,
 
               const category = getProjectCategory(project.name)
               const IconComponent = category.icon
-              const activeMessages = project.messages.filter(msg => msg.active).length
-              const totalMessages = project.messages.length
-              const effectiveness = totalMessages > 0 ? Math.round((activeMessages / totalMessages) * 100) : 0
+              const activeTemplates = project.templates.filter((tpl: AutoTemplate) => tpl.active).length
+              const totalTemplates = project.templates.length
+              const effectiveness = totalTemplates > 0 ? Math.round((activeTemplates / totalTemplates) * 100) : 0
 
               return (
                 <div 
@@ -1355,21 +1737,21 @@ Posso ajudar com algo mais? 😊`,
                       <h3>{project.name}</h3>
                       <div className="project-type">Projeto Personalizado</div>
                     </div>
-                    <p>{project.description || 'Projeto de mensagens personalizadas'}</p>
+                    <p>{project.description || 'Projeto de templates personalizados'}</p>
                     
                     <div className="project-metrics">
                       <div className="metric-primary">
-                        <div className="metric-value">{totalMessages}</div>
-                        <div className="metric-label">Total de Mensagens</div>
+                        <div className="metric-value">{totalTemplates}</div>
+                        <div className="metric-label">Total de Templates</div>
                       </div>
                       <div className="metric-secondary">
                         <div className="metric-item">
                           <Zap size={14} />
-                          <span>{activeMessages} ativas</span>
+                          <span>{activeTemplates} ativas</span>
                         </div>
                         <div className="metric-item">
                           <MessageCircle size={14} />
-                          <span>{totalMessages - activeMessages} inativas</span>
+                          <span>{totalTemplates - activeTemplates} inativas</span>
                         </div>
                       </div>
                     </div>
@@ -1394,13 +1776,13 @@ Posso ajudar com algo mais? 😊`,
             })}
 
             {/* Empty State */}
-            {messageProjects.length === 0 && (
+            {templateProjects.length === 0 && (
               <div className="empty-projects">
                 <div className="empty-icon">
                   <MessageSquareText size={48} />
                 </div>
                 <h3>Nenhum projeto criado</h3>
-                <p>Crie seu primeiro projeto para organizar suas mensagens automáticas</p>
+                <p>Crie seu primeiro projeto para organizar seus templates de resposta</p>
                 <button 
                   className="btn-modern btn-primary"
                   onClick={() => setShowProjectForm(true)}
@@ -1413,10 +1795,10 @@ Posso ajudar com algo mais? 😊`,
           </div>
         </div>
       ) : (
-        // Messages View for Selected Project
+        // Templates View for Selected Project
         <div>
-          <div className="messages-header-modern">
-            <div className="messages-title-section">
+          <div className="templates-header-modern">
+            <div className="templates-title-section">
               <button 
                 className="btn-back"
                 onClick={() => setSelectedProject(null)}
@@ -1428,18 +1810,18 @@ Posso ajudar com algo mais? 😊`,
                   <MessageSquareText size={24} />
                 </div>
                 <div>
-                  <h2>{selectedProject ? messageProjects.find(p => p.id === selectedProject)?.name : 'Mensagens Padrão'}</h2>
-                  <p>Configure as respostas inteligentes do seu chatbot</p>
+                  <h2>{selectedProject ? templateProjects.find(p => p.id === selectedProject)?.name : 'Templates Padrão'}</h2>
+                  <p>Configure os templates de resposta do seu chatbot</p>
                 </div>
               </div>
-              <div className="messages-stats">
+              <div className="templates-stats">
                 <div className="stat-item">
                   <Zap size={16} />
-                  <span>{getCurrentMessages().filter(msg => msg.active).length} Ativas</span>
+                  <span>{getCurrentTemplates().filter(tpl => tpl.active).length} Ativas</span>
                 </div>
                 <div className="stat-item">
                   <MessageCircle size={16} />
-                  <span>{getCurrentMessages().length} Total</span>
+                  <span>{getCurrentTemplates().length} Total</span>
                 </div>
               </div>
             </div>
@@ -1451,19 +1833,27 @@ Posso ajudar com algo mais? 😊`,
                 {showFlowView ? <EyeOff size={16} /> : <Eye size={16} />}
                 {showFlowView ? 'Ocultar Fluxo' : 'Ver Fluxo'}
               </button>
-              <button 
+              <button
                 className="btn-modern btn-info"
                 onClick={addHumanIntervention}
               >
                 <UserCheck size={16} />
                 + Intervenção Humana
               </button>
-              <button 
+              <button
+                className="btn-modern btn-success"
+                onClick={startChatSimulation}
+                disabled={getCurrentTemplates().length === 0}
+              >
+                <PlayCircle size={16} />
+                Simular Conversa
+              </button>
+              <button
                 className="btn-modern btn-primary"
-                onClick={() => setShowAddMessage(true)}
+                onClick={() => setShowAddTemplate(true)}
               >
                 <Sparkles size={18} />
-                Criar Mensagem
+                Criar Template
               </button>
             </div>
           </div>
@@ -1519,7 +1909,11 @@ Posso ajudar com algo mais? 😊`,
                 </div>
 
                 <div className="toolbar-right">
-                  <button className="toolbar-btn" title="Salvar">
+                  <button 
+                    className="toolbar-btn" 
+                    title="Salvar Fluxo"
+                    onClick={saveFlowToDatabase}
+                  >
                     <Save size={16} />
                   </button>
                   <button className="toolbar-btn" title="Exportar">
@@ -1664,18 +2058,18 @@ Posso ajudar com algo mais? 😊`,
                     <div className="node-palette-vertical">
                       <button 
                         className="node-btn" 
-                        onClick={() => addFlowNode('message', { x: 150, y: 100 })}
+                        onClick={async () => await addFlowNode('message', { x: 150, y: 100 })}
                       >
                         <MessageCircle size={16} />
                         <div className="node-btn-info">
-                          <span>Mensagem</span>
+                          <span>Template</span>
                           <small>Resposta automática</small>
                         </div>
                       </button>
                       
                       <button 
                         className="node-btn" 
-                        onClick={() => addFlowNode('condition', { x: 150, y: 200 })}
+                        onClick={async () => await addFlowNode('condition', { x: 150, y: 200 })}
                       >
                         <Diamond size={16} />
                         <div className="node-btn-info">
@@ -1686,7 +2080,7 @@ Posso ajudar com algo mais? 😊`,
                       
                       <button 
                         className="node-btn" 
-                        onClick={() => addFlowNode('options', { x: 150, y: 300 })}
+                        onClick={async () => await addFlowNode('options', { x: 150, y: 300 })}
                       >
                         <List size={16} />
                         <div className="node-btn-info">
@@ -1697,7 +2091,7 @@ Posso ajudar com algo mais? 😊`,
                       
                       <button 
                         className="node-btn" 
-                        onClick={() => addFlowNode('human', { x: 150, y: 400 })}
+                        onClick={async () => await addFlowNode('human', { x: 150, y: 400 })}
                       >
                         <UserCheck size={16} />
                         <div className="node-btn-info">
@@ -1708,7 +2102,7 @@ Posso ajudar com algo mais? 😊`,
                       
                       <button 
                         className="node-btn" 
-                        onClick={() => addFlowNode('end', { x: 150, y: 500 })}
+                        onClick={async () => await addFlowNode('end', { x: 150, y: 500 })}
                       >
                         <CheckCircle size={16} />
                         <div className="node-btn-info">
@@ -1877,8 +2271,8 @@ Posso ajudar com algo mais? 😊`,
                             onClick={async () => {
                               // Salvar alterações no projeto atual
                               if (selectedProject && selectedNode.data.triggers && selectedNode.data.response) {
-                                const nodeMessage: AutoMessage = {
-                                  id: selectedNode.id.replace('message-', ''),
+                                const nodeTemplate: AutoTemplate = {
+                                  id: selectedNode.id.replace('template-', ''),
                                   trigger: selectedNode.data.triggers,
                                   response: selectedNode.data.response,
                                   active: selectedNode.data.active || true
@@ -1887,16 +2281,16 @@ Posso ajudar com algo mais? 😊`,
                                 try {
                                   // Save to database first
                                   if (selectedProject !== 'default') {
-                                    await updateAutoMessageInDatabase(nodeMessage)
+                                    await updateAutoTemplateInDatabase(nodeTemplate)
                                   }
                                   
                                   // Update local state
-                                const currentMessages = getCurrentMessages()
-                                const updatedMessages = currentMessages.map(msg => 
-                                  msg.id === nodeMessage.id ? nodeMessage : msg
+                                const currentTemplates = getCurrentTemplates()
+                                const updatedTemplates = currentTemplates.map(tpl => 
+                                  tpl.id === nodeTemplate.id ? nodeTemplate : tpl
                                 )
                                 
-                                updateCurrentMessages(updatedMessages)
+                                updateCurrentTemplates(updatedTemplates)
                                   
                                   // Show success message
                                   console.log('✅ Alterações salvas com sucesso!')
@@ -1922,22 +2316,177 @@ Posso ajudar com algo mais? 😊`,
             </div>
           )}
 
-          {/* Add New Message Form */}
-          {showAddMessage && (
-            <div className="message-form-modern">
+          {/* Chat Simulator */}
+          {showChatSimulator && (
+            <div className="chat-simulator-overlay">
+              <div className="chat-simulator-container">
+                <div className="chat-simulator-header">
+                  <div className="chat-header-info">
+                    <div className="chat-avatar">
+                      <Phone size={20} />
+                    </div>
+                    <div className="chat-contact-info">
+                      <h3>Simulação WhatsApp</h3>
+                      <span className="chat-status">
+                        <div className="status-dot online"></div>
+                        Online - Testando fluxo
+                      </span>
+                    </div>
+                  </div>
+                  <div className="chat-header-actions">
+                    <button
+                      className="btn-icon"
+                      onClick={stopChatSimulation}
+                      title="Fechar simulação"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="chat-messages-container" ref={chatMessagesRef}>
+                  {simulationState.chatHistory.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`chat-message ${message.type === 'user' ? 'user-message' : 'bot-message'}`}
+                    >
+                      <div className="message-content">
+                        {message.content}
+                      </div>
+                      <div className="message-time">
+                        {message.timestamp.toLocaleTimeString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {!simulationState.awaitingInput && simulationState.isActive && (
+                    <div className="typing-indicator">
+                      <div className="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="chat-input-container">
+                  <div className="chat-input-wrapper">
+                    <input
+                      type="text"
+                      className="chat-input"
+                      placeholder="Digite sua mensagem..."
+                      value={userInput}
+                      onChange={(e) => setUserInput(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      disabled={!simulationState.awaitingInput}
+                    />
+                    <button
+                      className="send-button"
+                      onClick={sendUserMessage}
+                      disabled={!userInput.trim() || !simulationState.awaitingInput}
+                    >
+                      <Send size={18} />
+                    </button>
+                  </div>
+
+                  <div className="chat-suggestions">
+                    <span className="suggestions-label">Sugestões:</span>
+                    <div className="suggestion-chips">
+                      {['oi', 'menu', '1', '2', '3'].map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          className="suggestion-chip"
+                          onClick={() => {
+                            if (!simulationState.awaitingInput) return
+
+                            const userMessage: ChatMessage = {
+                              id: Date.now().toString(),
+                              type: 'user',
+                              content: suggestion,
+                              timestamp: new Date()
+                            }
+
+                            // Add user message to chat
+                            setSimulationState(prev => ({
+                              ...prev,
+                              chatHistory: [...prev.chatHistory, userMessage],
+                              awaitingInput: false
+                            }))
+
+                            // Process the suggestion
+                            const currentTemplates = getCurrentTemplates()
+                            const matchingTemplate = currentTemplates.find(template =>
+                              template.active && template.trigger.some(trigger =>
+                                suggestion.toLowerCase().includes(trigger.toLowerCase())
+                              )
+                            )
+
+                            setTimeout(() => {
+                              if (matchingTemplate) {
+                                const responseText = matchingTemplate.response.replace(/{name}/g, 'Usuário')
+
+                                const botMessage: ChatMessage = {
+                                  id: (Date.now() + 1).toString(),
+                                  type: 'bot',
+                                  content: responseText,
+                                  timestamp: new Date(),
+                                  nodeId: matchingTemplate.id
+                                }
+
+                                setSimulationState(prev => ({
+                                  ...prev,
+                                  chatHistory: [...prev.chatHistory, botMessage],
+                                  awaitingInput: true,
+                                  currentNodeId: `template-${matchingTemplate.id}`
+                                }))
+                              } else {
+                                const botMessage: ChatMessage = {
+                                  id: (Date.now() + 1).toString(),
+                                  type: 'bot',
+                                  content: '🤔 Desculpe, não entendi sua mensagem. Você pode tentar novamente ou digitar "menu" para ver as opções disponíveis.',
+                                  timestamp: new Date()
+                                }
+
+                                setSimulationState(prev => ({
+                                  ...prev,
+                                  chatHistory: [...prev.chatHistory, botMessage],
+                                  awaitingInput: true
+                                }))
+                              }
+                            }, 1000)
+                          }}
+                          disabled={!simulationState.awaitingInput}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add New Template Form */}
+          {showAddTemplate && (
+            <div className="template-form-modern">
               <div className="form-header-modern">
                 <div className="form-title-section">
                   <div className="form-icon">
                     <Plus size={20} />
                   </div>
                   <div>
-                    <h3>Criar Nova Mensagem</h3>
-                    <p>Configure uma resposta automática inteligente</p>
+                    <h3>Criar Novo Template</h3>
+                    <p>Configure um template de resposta inteligente</p>
                   </div>
                 </div>
                 <button 
                   className="btn-close"
-                  onClick={() => setShowAddMessage(false)}
+                  onClick={() => setShowAddTemplate(false)}
                 >
                   <X size={18} />
                 </button>
@@ -1954,9 +2503,9 @@ Posso ajudar com algo mais? 😊`,
                       className="input-modern"
                       type="text"
                       placeholder="Ex: oi, olá, bom dia, menu (separadas por vírgula)"
-                      value={Array.isArray(newAutoMessage.trigger) ? newAutoMessage.trigger.join(', ') : ''}
-                      onChange={(e) => setNewAutoMessage({
-                        ...newAutoMessage,
+                      value={Array.isArray(newAutoTemplate.trigger) ? newAutoTemplate.trigger.join(', ') : ''}
+                      onChange={(e) => setNewAutoTemplate({
+                        ...newAutoTemplate,
                         trigger: e.target.value.split(',').map(t => t.trim()).filter(t => t)
                       })}
                     />
@@ -1971,9 +2520,9 @@ Posso ajudar com algo mais? 😊`,
                     <textarea
                       className="textarea-modern"
                       placeholder="Digite a resposta que será enviada automaticamente..."
-                      value={newAutoMessage.response || ''}
-                      onChange={(e) => setNewAutoMessage({
-                        ...newAutoMessage,
+                      value={newAutoTemplate.response || ''}
+                      onChange={(e) => setNewAutoTemplate({
+                        ...newAutoTemplate,
                         response: e.target.value
                       })}
                       rows={5}
@@ -1987,33 +2536,33 @@ Posso ajudar com algo mais? 😊`,
                 <div className="form-actions-modern">
                   <button 
                     className="btn-modern btn-secondary"
-                    onClick={() => setShowAddMessage(false)}
+                    onClick={() => setShowAddTemplate(false)}
                   >
                     <X size={16} />
                     Cancelar
                   </button>
                   <button 
                     className="btn-modern btn-primary"
-                    onClick={addAutoMessage}
+                    onClick={addAutoTemplate}
                   >
                     <Check size={16} />
-                    Criar Mensagem
+                    Criar Template
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Messages List */}
-          <div className="messages-list-modern">
-            {getCurrentMessages().map((message) => (
-              <div key={message.id} className={`message-card-modern ${!message.active ? 'inactive' : ''}`}>
-                {editingMessage?.id === message.id ? (
+          {/* Templates List */}
+          <div className="templates-list-modern">
+            {getCurrentTemplates().map((template) => (
+              <div key={template.id} className={`template-card-modern ${!template.active ? 'inactive' : ''}`}>
+                {editingTemplate?.id === template.id ? (
                   // Edit Form
-                  <div className="message-edit-modern">
+                  <div className="template-edit-modern">
                     <div className="edit-header">
                       <Edit3 size={18} />
-                      <span>Editando Mensagem</span>
+                      <span>Editando Template</span>
                     </div>
                     
                     <div className="edit-content">
@@ -2025,9 +2574,9 @@ Posso ajudar com algo mais? 😊`,
                         <input
                           className="input-modern"
                           type="text"
-                          value={editingMessage.trigger.join(', ')}
-                          onChange={(e) => setEditingMessage({
-                            ...editingMessage,
+                          value={editingTemplate.trigger.join(', ')}
+                          onChange={(e) => setEditingTemplate({
+                            ...editingTemplate,
                             trigger: e.target.value.split(',').map(t => t.trim()).filter(t => t)
                           })}
                         />
@@ -2040,9 +2589,9 @@ Posso ajudar com algo mais? 😊`,
                         </label>
                         <textarea
                           className="textarea-modern"
-                          value={editingMessage.response}
-                          onChange={(e) => setEditingMessage({
-                            ...editingMessage,
+                          value={editingTemplate.response}
+                          onChange={(e) => setEditingTemplate({
+                            ...editingTemplate,
                             response: e.target.value
                           })}
                           rows={4}
@@ -2053,14 +2602,14 @@ Posso ajudar com algo mais? 😊`,
                     <div className="edit-actions">
                       <button 
                         className="btn-modern btn-secondary"
-                        onClick={() => setEditingMessage(null)}
+                        onClick={() => setEditingTemplate(null)}
                       >
                         <X size={14} />
                         Cancelar
                       </button>
                       <button 
                         className="btn-modern btn-primary"
-                        onClick={() => updateAutoMessage(editingMessage)}
+                        onClick={() => updateAutoTemplate(editingTemplate)}
                       >
                         <Check size={14} />
                         Salvar
@@ -2070,9 +2619,9 @@ Posso ajudar com algo mais? 😊`,
                 ) : (
                   // Display Mode
                   <>
-                    <div className="message-header-card">
-                      <div className="message-status">
-                        {message.active ? (
+                    <div className="template-header-card">
+                      <div className="template-status">
+                        {template.active ? (
                           <div className="status-active">
                             <Zap size={14} />
                             <span>Ativa</span>
@@ -2085,18 +2634,18 @@ Posso ajudar com algo mais? 😊`,
                         )}
                       </div>
                       
-                      <div className="message-actions-modern">
+                      <div className="template-actions-modern">
                         <button
                           className="action-btn toggle-btn"
-                          onClick={() => toggleMessageActive(message.id)}
-                          title={message.active ? 'Desativar' : 'Ativar'}
+                          onClick={() => toggleTemplateActive(template.id)}
+                          title={template.active ? 'Desativar' : 'Ativar'}
                         >
-                          {message.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                          {template.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                         </button>
                         
                         <button
                           className="action-btn edit-btn"
-                          onClick={() => setEditingMessage(message)}
+                          onClick={() => setEditingTemplate(template)}
                           title="Editar"
                         >
                           <Edit3 size={14} />
@@ -2104,7 +2653,7 @@ Posso ajudar com algo mais? 😊`,
                         
                         <button
                           className="action-btn delete-btn"
-                          onClick={() => deleteAutoMessage(message.id)}
+                          onClick={() => deleteAutoTemplate(template.id)}
                           title="Excluir"
                         >
                           <Trash2 size={14} />
@@ -2112,14 +2661,14 @@ Posso ajudar com algo mais? 😊`,
                       </div>
                     </div>
 
-                    <div className="message-content-modern">
+                    <div className="template-content-modern">
                       <div className="triggers-section">
                         <div className="section-label">
                           <Tag size={14} />
                           <span>Gatilhos</span>
                         </div>
                         <div className="triggers-container">
-                          {message.trigger.map((trigger, index) => (
+                          {template.trigger.map((trigger, index) => (
                             <span key={index} className="trigger-chip">
                               {trigger}
                             </span>
@@ -2133,7 +2682,7 @@ Posso ajudar com algo mais? 😊`,
                           <span>Resposta</span>
                         </div>
                         <div className="response-preview">
-                          {message.response}
+                          {template.response}
                         </div>
                       </div>
                     </div>
@@ -2142,20 +2691,20 @@ Posso ajudar com algo mais? 😊`,
               </div>
             ))}
 
-            {getCurrentMessages().length === 0 && (
+            {getCurrentTemplates().length === 0 && (
               <div className="empty-state-modern">
                 <div className="empty-icon-container">
                   <MessageSquareText size={64} />
                 </div>
                 <div className="empty-content">
-                  <h3>Nenhuma mensagem criada ainda</h3>
-                  <p>Comece criando sua primeira resposta automática inteligente para o chatbot</p>
+                  <h3>Nenhum template criado ainda</h3>
+                  <p>Comece criando seu primeiro template de resposta inteligente para o chatbot</p>
                   <button 
                     className="btn-modern btn-primary"
-                    onClick={() => setShowAddMessage(true)}
+                    onClick={() => setShowAddTemplate(true)}
                   >
                     <Sparkles size={16} />
-                    Criar Primeira Mensagem
+                    Criar Primeiro Template
                   </button>
                 </div>
               </div>
@@ -2167,4 +2716,4 @@ Posso ajudar com algo mais? 😊`,
   )
 }
 
-export default Messages
+export default Templates

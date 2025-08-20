@@ -8,7 +8,7 @@ import {
   BarChart3,
   Users,
   MessageCircle,
-  Smartphone,
+
   UserCheck,
   User,
   ChevronUp,
@@ -22,12 +22,14 @@ import Register from './components/Register'
 import BotInstance from './components/BotInstance'
 import HumanChat from './components/HumanChat'
 import Messages from './components/Messages'
-import Devices from './components/Devices'
+
 import OperatorManagement from './components/OperatorManagement'
 import OperatorDashboard from './components/OperatorDashboard'
+import ManagerDashboard from './components/ManagerDashboard'
 import './App.css'
 import './styles/LandingPage.css'
 import './styles/Auth.css'
+import './styles/ManagerDashboard.css'
 
 type PageType = 'landing' | 'login' | 'register' | 'dashboard'
 
@@ -47,12 +49,14 @@ function App() {
         const user = JSON.parse(userData)
         if (user.role === 'operator') {
           return 'dashboard' // Operadores começam no Dashboard
+        } else if (user.role === 'manager' || user.role === 'admin') {
+          return 'manager-dashboard' // Gestores começam no Dashboard do Gestor
         }
       } catch (error) {
         console.error('Erro ao parsear dados do usuário:', error)
       }
     }
-    return 'instance' // Padrão para managers/admins
+    return 'instance' // Fallback
   })
   const sidebarCollapsed = true // Sempre recolhido
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -112,6 +116,23 @@ function App() {
     
     // Verificar imediatamente
     checkAuth()
+    
+    // Quando entrar na dashboard, definir o menu correto baseado no papel do usuário
+    if (currentPage === 'dashboard') {
+      const userData = localStorage.getItem('user')
+      if (userData) {
+        try {
+          const user = JSON.parse(userData)
+          if (user.role === 'operator') {
+            setActiveMenu('dashboard') // Operadores vão para Dashboard do Operador
+          } else if (user.role === 'manager' || user.role === 'admin') {
+            setActiveMenu('manager-dashboard') // Gestores vão para Dashboard do Gestor
+          }
+        } catch (error) {
+          console.error('Erro ao parsear dados do usuário:', error)
+        }
+      }
+    }
     
     // Conectar ao socket apenas se estiver autenticado
     const authToken = localStorage.getItem('authToken')
@@ -208,14 +229,18 @@ function App() {
 
 
   const allMenuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['operator'] },
-    { id: 'chat', label: 'Chat Humano', icon: MessageSquare, allowedRoles: ['admin', 'manager', 'operator'] },
+    // Ordem para manager/admin
+    { id: 'manager-dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['admin', 'manager'] },
     { id: 'instance', label: 'Instância Bot', icon: Bot, active: true, allowedRoles: ['admin', 'manager'] },
-    { id: 'messages', label: 'Mensagens', icon: MessageCircle, allowedRoles: ['admin', 'manager'] },
+    { id: 'chat', label: 'Chat Humano', icon: MessageSquare, allowedRoles: ['admin', 'manager', 'operator'] },
+    { id: 'messages', label: 'Templates', icon: MessageCircle, allowedRoles: ['admin', 'manager'] },
     { id: 'contacts', label: 'Contatos', icon: Users, allowedRoles: ['admin', 'manager'] },
-    { id: 'devices', label: 'Dispositivos', icon: Smartphone, allowedRoles: ['admin', 'manager'] },
+
     { id: 'analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin', 'manager'] },
-    { id: 'operators', label: 'Operadores', icon: UserCheck, allowedRoles: ['admin', 'manager'] }
+    { id: 'operators', label: 'Operadores', icon: UserCheck, allowedRoles: ['admin', 'manager'] },
+
+    // Ordem para operador
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['operator'] }
   ]
 
   // Filtrar menu baseado no papel do usuário
@@ -226,6 +251,17 @@ function App() {
 
   const renderContent = () => {
     switch (activeMenu) {
+      case 'manager-dashboard':
+        return <ManagerDashboard 
+          socket={socket} 
+          onNavigate={(page, chatId) => {
+            setActiveMenu(page)
+            // If navigating to chat with specific chatId, we could store it for later use
+            if (chatId) {
+              sessionStorage.setItem('selectedChatId', chatId.toString())
+            }
+          }} 
+        />
       case 'dashboard':
         return <OperatorDashboard 
           socket={socket} 
@@ -251,8 +287,7 @@ function App() {
             <p>Apenas gestores podem gerenciar operadores</p>
           </div>
         )
-      case 'devices':
-        return <Devices />
+
       case 'analytics':
         return (
           <div className="content-placeholder">
@@ -301,12 +336,29 @@ function App() {
   }
 
   // Função para logout
-  const handleLogout = () => {
-    // Limpar todos os dados de autenticação
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('user')
-    localStorage.removeItem('userSession') // compatibilidade
-    setCurrentPage('landing')
+  const handleLogout = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+
+      if (authToken) {
+        // Fazer logout no servidor para desativar a sessão
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao fazer logout no servidor:', error)
+    } finally {
+      // Limpar todos os dados de autenticação localmente
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+      localStorage.removeItem('userSession') // compatibilidade
+      setCurrentPage('landing')
+    }
   }
 
   // Função para atualizar perfil do usuário

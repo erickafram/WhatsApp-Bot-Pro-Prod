@@ -311,19 +311,74 @@ router.put('/human-chats/:id/status', auth_1.authenticate, async (req, res) => {
         if (!chat) {
             return res.status(404).json({ error: 'Chat não encontrado' });
         }
-        // Verificar permissão
-        if (req.user.role !== 'admin' && chat.manager_id !== req.user.id) {
+        // Verificar permissão - operadores podem alterar status dos chats atribuídos a eles
+        const hasPermission = req.user.role === 'admin' ||
+            chat.manager_id === req.user.id ||
+            (req.user.role === 'operator' && chat.assigned_to === req.user.id);
+        console.log('🔍 Debug permissão status:', {
+            userRole: req.user.role,
+            userId: req.user.id,
+            chatManagerId: chat.manager_id,
+            chatAssignedTo: chat.assigned_to,
+            hasPermission
+        });
+        if (!hasPermission) {
             return res.status(403).json({ error: 'Sem permissão para editar este chat' });
         }
         const validStatuses = ['pending', 'active', 'waiting_payment', 'paid', 'finished', 'resolved'];
         if (!validStatuses.includes(status)) {
+            console.log(`❌ Status inválido recebido: ${status}. Válidos: ${validStatuses.join(', ')}`);
             return res.status(400).json({ error: 'Status inválido' });
         }
+        console.log(`✅ Status válido: ${status}`);
+        console.log(`🔄 Atualizando status do chat ${chatId} para: ${status}`);
+        // Verificar se o chat existe e mostrar dados atuais
+        const chatBefore = await Message_1.HumanChatModel.findById(chatId);
+        console.log(`📋 Chat antes da atualização:`, {
+            id: chatBefore?.id,
+            status: chatBefore?.status,
+            contact_id: chatBefore?.contact_id
+        });
         const updatedChat = await Message_1.HumanChatModel.updateStatus(chatId, status);
+        console.log('✅ Status atualizado - Resposta:', {
+            id: updatedChat?.id,
+            status: updatedChat?.status,
+            contact_id: updatedChat?.contact_id
+        });
+        if (!updatedChat) {
+            return res.status(404).json({ error: 'Chat não encontrado após atualização' });
+        }
         res.json({ chat: updatedChat });
     }
     catch (error) {
         console.error('Erro ao atualizar status do chat:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Rota de teste para verificar atualização de status
+router.get('/test-status/:id', auth_1.authenticate, async (req, res) => {
+    try {
+        const chatId = parseInt(req.params.id);
+        // Buscar chat atual
+        const chat = await Message_1.HumanChatModel.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ error: 'Chat não encontrado' });
+        }
+        console.log(`🧪 TESTE - Chat ${chatId} status atual: ${chat.status}`);
+        // Tentar atualizar para 'waiting_payment'
+        const testStatus = 'waiting_payment';
+        const updatedChat = await Message_1.HumanChatModel.updateStatus(chatId, testStatus);
+        console.log(`🧪 TESTE - Chat ${chatId} status após update: ${updatedChat?.status}`);
+        res.json({
+            message: 'Teste de atualização de status',
+            chatId,
+            statusAnterior: chat.status,
+            statusNovo: updatedChat?.status,
+            sucesso: updatedChat?.status === testStatus
+        });
+    }
+    catch (error) {
+        console.error('Erro no teste de status:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });

@@ -49,17 +49,23 @@ router.post('/register', validateUserData, logAction('user_register'), async (re
 router.post('/login', logAction('user_login'), async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email e senha são obrigatórios' });
     }
-    
-    const result = await UserModel.login({ email, password });
-    
+
+    // Capturar dados da sessão
+    const sessionData = {
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.headers['user-agent']
+    };
+
+    const result = await UserModel.login({ email, password }, sessionData);
+
     if (!result) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
-    
+
     res.json({
       message: 'Login realizado com sucesso',
       user: {
@@ -71,7 +77,8 @@ router.post('/login', logAction('user_login'), async (req, res) => {
         phone: result.user.phone,
         avatar: result.user.avatar
       },
-      token: result.token
+      token: result.sessionToken, // Usar sessionToken em vez de JWT
+      sessionToken: result.sessionToken
     });
   } catch (error) {
     console.error('Erro no login:', error);
@@ -85,7 +92,7 @@ router.get('/verify', authenticate, async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Token inválido' });
     }
-    
+
     res.json({
       valid: true,
       user: {
@@ -100,6 +107,62 @@ router.get('/verify', authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error('Erro na verificação:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota de logout
+router.post('/logout', authenticate, async (req, res) => {
+  try {
+    if (!req.token) {
+      return res.status(400).json({ error: 'Token não fornecido' });
+    }
+
+    // Desativar sessão no banco de dados
+    await UserModel.logout(req.token);
+
+    res.json({
+      message: 'Logout realizado com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro no logout:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota de debug para verificar token sem middleware
+router.post('/debug-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Token é obrigatório' });
+    }
+
+    console.log('🔍 Debug Token - Recebido:', token.substring(0, 20) + '...');
+    console.log('🔍 Debug Token - JWT_SECRET:', process.env.JWT_SECRET?.substring(0, 10) + '...');
+
+    const payload = UserModel.verifyToken(token);
+
+    if (!payload) {
+      return res.status(401).json({ error: 'Token inválido ou expirado' });
+    }
+
+    const user = await UserModel.findById(payload.id);
+
+    res.json({
+      valid: true,
+      payload,
+      user: user ? {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        is_active: user.is_active
+      } : null
+    });
+  } catch (error) {
+    console.error('Erro no debug do token:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });

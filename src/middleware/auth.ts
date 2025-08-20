@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserModel, JWTPayload, User } from '../models/User';
+import { UserSessionModel } from '../models/UserSession';
 
-// Extend Request interface to include user
+// Extend Request interface to include user and session
 declare global {
   namespace Express {
     interface Request {
       user?: User;
       token?: string;
+      session?: any;
     }
   }
 }
@@ -15,32 +17,51 @@ declare global {
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({ error: 'Token de acesso requerido' });
       return;
     }
-    
+
     const token = authHeader.substring(7);
+
+    // Primeiro tentar verificar como sessão do banco de dados
+    const sessionResult = await UserModel.verifySession(token);
+
+    if (sessionResult) {
+      // Sessão válida no banco de dados
+      req.user = sessionResult.user;
+      req.token = token;
+      req.session = sessionResult.session;
+      next();
+      return;
+    }
+
+    // Fallback para JWT (compatibilidade com tokens antigos)
     const payload = UserModel.verifyToken(token);
-    
+
     if (!payload) {
       res.status(401).json({ error: 'Token inválido ou expirado' });
       return;
     }
-    
+
     const user = await UserModel.findById(payload.id);
-    
+
     if (!user) {
       res.status(401).json({ error: 'Usuário não encontrado' });
       return;
     }
-    
+
+    if (!user.is_active) {
+      res.status(401).json({ error: 'Usuário inativo' });
+      return;
+    }
+
     req.user = user;
     req.token = token;
     next();
   } catch (error) {
-    console.error('Erro na autenticação:', error);
+    console.error('❌ Erro na autenticação:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -186,6 +207,25 @@ export const logAction = (action: string) => {
     req.body._logAction = action;
     req.body._logIP = req.ip || req.connection.remoteAddress;
     req.body._logUserAgent = req.headers['user-agent'];
+    next();
+  };
+};
+
+// Middleware para verificar roles específicos
+export const requireRole = (allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+    
+    if (!allowedRoles.includes(req.user.role)) {
+      res.status(403).json({ 
+        error: `Acesso negado. Apenas usuários com papel: ${allowedRoles.join(', ')} podem acessar esta funcionalidade.` 
+      });
+      return;
+    }
+    
     next();
   };
 };

@@ -513,6 +513,50 @@ const migration010: Migration = {
   }
 };
 
+// Migration 011: Adicionar campo last_login na tabela users
+const migration011: Migration = {
+  id: '011_add_last_login_field',
+  description: 'Adicionar campo last_login para rastrear último login dos usuários',
+  up: async () => {
+    const alterQueries = [
+      // Adicionar campo last_login
+      'ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL AFTER updated_at',
+      
+      // Adicionar índice para melhor performance
+      'ALTER TABLE users ADD INDEX idx_last_login (last_login)'
+    ];
+    
+    for (const query of alterQueries) {
+      try {
+        await executeQuery(query);
+        console.log(`✅ Migration 011: ${query}`);
+      } catch (error: any) {
+        if (!error.message.includes('Duplicate column name') && 
+            !error.message.includes('Duplicate key name')) {
+          console.error(`❌ Migration 011 erro: ${error.message}`);
+          throw error;
+        } else {
+          console.log(`⚠️ Migration 011: ${query} - já existe`);
+        }
+      }
+    }
+  },
+  down: async () => {
+    const queries = [
+      'ALTER TABLE users DROP INDEX idx_last_login',
+      'ALTER TABLE users DROP COLUMN last_login'
+    ];
+    
+    for (const query of queries) {
+      try {
+        await executeQuery(query);
+      } catch (error: any) {
+        console.log(`⚠️ Migration 011 down: ${error.message}`);
+      }
+    }
+  }
+};
+
 export const migrations: Migration[] = [
   migration001,
   migration002,
@@ -523,7 +567,8 @@ export const migrations: Migration[] = [
   migration007,
   migration008,
   migration009,
-  migration010
+  migration010,
+  migration011
 ];
 
 // Função para verificar se uma migration já foi executada

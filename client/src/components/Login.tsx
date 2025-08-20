@@ -81,9 +81,13 @@ export default function Login({ onNavigate }: LoginProps) {
       const data = await response.json()
 
       if (response.ok) {
-        // Login bem-sucedido
-        localStorage.setItem('authToken', data.token)
+        // Login bem-sucedido - usar sessionToken
+        localStorage.setItem('authToken', data.sessionToken || data.token)
         localStorage.setItem('user', JSON.stringify(data.user))
+
+        console.log('✅ Login realizado com sucesso, token salvo:', data.sessionToken?.substring(0, 20) + '...')
+
+        // Redirecionar para dashboard independente do role
         onNavigate('dashboard')
       } else {
         // Erro de login

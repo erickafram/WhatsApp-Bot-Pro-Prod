@@ -14,7 +14,17 @@ import {
   Sparkles,
   Play,
   Menu,
-  X
+  X,
+  Settings,
+  Heart,
+  DollarSign,
+  Mail,
+  Phone,
+  Facebook,
+  Twitter,
+  Instagram,
+  Linkedin,
+  Youtube
 } from 'lucide-react'
 
 interface LandingPageProps {
@@ -93,7 +103,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
   const plans = [
     {
       name: "Starter",
-      price: "299",
+      price: "399",
       period: "/mês",
       description: "Ideal para pequenos negócios",
       features: [
@@ -106,7 +116,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
     },
     {
       name: "Professional",
-      price: "399", 
+      price: "499", 
       period: "/mês",
       description: "Para empresas em crescimento",
       features: [
@@ -120,7 +130,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
     },
     {
       name: "Enterprise",
-      price: "499",
+      price: "599",
       period: "/mês", 
       description: "Para grandes empresas",
       features: [
@@ -147,10 +157,22 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             
                          {/* Desktop Menu */}
              <div className="nav-menu desktop-menu">
-               <button onClick={() => scrollToSection('features')} className="nav-link">Funcionalidades</button>
-               <button onClick={() => scrollToSection('testimonials')} className="nav-link">Depoimentos</button>
-               <button onClick={() => scrollToSection('pricing')} className="nav-link">Preços</button>
-               <button onClick={() => scrollToSection('contact')} className="nav-link">Contato</button>
+               <button onClick={() => scrollToSection('features')} className="nav-link">
+                 <Settings size={16} />
+                 Funcionalidades
+               </button>
+               <button onClick={() => scrollToSection('testimonials')} className="nav-link">
+                 <Heart size={16} />
+                 Depoimentos
+               </button>
+               <button onClick={() => scrollToSection('pricing')} className="nav-link">
+                 <DollarSign size={16} />
+                 Preços
+               </button>
+               <button onClick={() => scrollToSection('contact')} className="nav-link">
+                 <Mail size={16} />
+                 Contato
+               </button>
              </div>
 
             <div className="nav-actions desktop-actions">
@@ -181,10 +203,22 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
           {mobileMenuOpen && (
             <div className="mobile-menu">
                              <div className="mobile-nav-links">
-                 <button onClick={() => scrollToSection('features')} className="mobile-nav-link">Funcionalidades</button>
-                 <button onClick={() => scrollToSection('testimonials')} className="mobile-nav-link">Depoimentos</button>
-                 <button onClick={() => scrollToSection('pricing')} className="mobile-nav-link">Preços</button>
-                 <button onClick={() => scrollToSection('contact')} className="mobile-nav-link">Contato</button>
+                 <button onClick={() => scrollToSection('features')} className="mobile-nav-link">
+                   <Settings size={16} />
+                   Funcionalidades
+                 </button>
+                 <button onClick={() => scrollToSection('testimonials')} className="mobile-nav-link">
+                   <Heart size={16} />
+                   Depoimentos
+                 </button>
+                 <button onClick={() => scrollToSection('pricing')} className="mobile-nav-link">
+                   <DollarSign size={16} />
+                   Preços
+                 </button>
+                 <button onClick={() => scrollToSection('contact')} className="mobile-nav-link">
+                   <Mail size={16} />
+                   Contato
+                 </button>
                </div>
               <div className="mobile-nav-actions">
                 <button 
@@ -469,35 +503,98 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 <span>WhatsApp Bot Pro</span>
               </div>
               <p className="footer-description">
-                A plataforma mais completa para automatizar seu WhatsApp Business e aumentar suas vendas.
+                A plataforma mais completa para automatizar seu WhatsApp Business e aumentar suas vendas. 
+                Transforme sua comunicação e acelere seus resultados.
               </p>
+              <div className="footer-social">
+                <a href="#" className="social-link" aria-label="Facebook">
+                  <Facebook size={18} />
+                </a>
+                <a href="#" className="social-link" aria-label="Twitter">
+                  <Twitter size={18} />
+                </a>
+                <a href="#" className="social-link" aria-label="Instagram">
+                  <Instagram size={18} />
+                </a>
+                <a href="#" className="social-link" aria-label="LinkedIn">
+                  <Linkedin size={18} />
+                </a>
+                <a href="#" className="social-link" aria-label="YouTube">
+                  <Youtube size={18} />
+                </a>
+              </div>
             </div>
-            <div className="footer-links">
-                             <div className="footer-section">
-                 <h4>Produto</h4>
-                 <button onClick={() => scrollToSection('features')} className="footer-link">Funcionalidades</button>
-                 <button onClick={() => scrollToSection('pricing')} className="footer-link">Preços</button>
-                 <a href="#" className="footer-link">Integrações</a>
-                 <a href="#" className="footer-link">API</a>
-               </div>
-                             <div className="footer-section">
-                 <h4>Suporte</h4>
-                 <a href="#" className="footer-link">Central de Ajuda</a>
-                 <a href="#" className="footer-link">Documentação</a>
-                 <a href="#" className="footer-link">Contato</a>
-                 <a href="#" className="footer-link">Status</a>
-               </div>
-               <div className="footer-section">
-                 <h4>Empresa</h4>
-                 <a href="#" className="footer-link">Sobre</a>
-                 <a href="#" className="footer-link">Blog</a>
-                 <a href="#" className="footer-link">Carreiras</a>
-                 <a href="#" className="footer-link">Privacidade</a>
-               </div>
+            
+            <div className="footer-section">
+              <h4>Produto</h4>
+              <button onClick={() => scrollToSection('features')} className="footer-link">
+                <Settings size={14} />
+                Funcionalidades
+              </button>
+              <button onClick={() => scrollToSection('pricing')} className="footer-link">
+                <DollarSign size={14} />
+                Preços
+              </button>
+              <a href="#" className="footer-link">
+                <Zap size={14} />
+                Integrações
+              </a>
+              <a href="#" className="footer-link">
+                <Bot size={14} />
+                API
+              </a>
+            </div>
+            
+            <div className="footer-section">
+              <h4>Suporte</h4>
+              <a href="#" className="footer-link">
+                <CheckCircle size={14} />
+                Central de Ajuda
+              </a>
+              <a href="#" className="footer-link">
+                <MessageSquare size={14} />
+                Documentação
+              </a>
+              <a href="#" className="footer-link">
+                <Phone size={14} />
+                Contato
+              </a>
+              <a href="#" className="footer-link">
+                <Shield size={14} />
+                Status
+              </a>
+            </div>
+            
+            <div className="footer-section">
+              <h4>Empresa</h4>
+              <a href="#" className="footer-link">
+                <Users size={14} />
+                Sobre
+              </a>
+              <a href="#" className="footer-link">
+                <Star size={14} />
+                Blog
+              </a>
+              <a href="#" className="footer-link">
+                <Sparkles size={14} />
+                Carreiras
+              </a>
+              <a href="#" className="footer-link">
+                <Shield size={14} />
+                Privacidade
+              </a>
             </div>
           </div>
+          
           <div className="footer-bottom">
-            <p>&copy; 2024 WhatsApp Bot Pro. Todos os direitos reservados.</p>
+            <div className="footer-bottom-text">
+              &copy; 2024 WhatsApp Bot Pro. Todos os direitos reservados.
+            </div>
+            <div className="footer-bottom-links">
+              <a href="#" className="footer-bottom-link">Termos de Uso</a>
+              <a href="#" className="footer-bottom-link">Política de Privacidade</a>
+              <a href="#" className="footer-bottom-link">Cookies</a>
+            </div>
           </div>
         </div>
       </footer>

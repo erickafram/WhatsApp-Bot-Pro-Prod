@@ -5,6 +5,7 @@ declare global {
         interface Request {
             user?: User;
             token?: string;
+            session?: any;
         }
     }
 }
@@ -15,4 +16,5 @@ export declare const requireManagerAccess: (req: Request, res: Response, next: N
 export declare const requireUserManagement: (req: Request, res: Response, next: NextFunction) => void;
 export declare const validateUserData: (req: Request, res: Response, next: NextFunction) => void;
 export declare const logAction: (action: string) => (req: Request, res: Response, next: NextFunction) => void;
+export declare const requireRole: (allowedRoles: string[]) => (req: Request, res: Response, next: NextFunction) => void;
 //# sourceMappingURL=auth.d.ts.map
