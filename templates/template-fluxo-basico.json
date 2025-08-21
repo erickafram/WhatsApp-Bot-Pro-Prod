@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2024-08-21T16:00:00.000Z",
+    "description": "Template básico para criar seu próprio fluxo"
+  },
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 50, "y": 50 },
+      "data": {
+        "title": "Início",
+        "description": "Usuário inicia conversa"
+      },
+      "connections": ["boas-vindas"]
+    },
+    {
+      "id": "boas-vindas",
+      "type": "message",
+      "position": { "x": 200, "y": 50 },
+      "data": {
+        "title": "Boas-vindas",
+        "triggers": ["oi", "olá", "menu", "início"],
+        "response": "👋 Olá! Bem-vindo ao *[SEU NEGÓCIO]*!\n\nComo posso ajudar você hoje?\n\n*1* - [OPÇÃO 1]\n*2* - [OPÇÃO 2]\n*3* - 👨‍💼 Falar com Atendente\n\nDigite o número da opção desejada!",
+        "active": true
+      },
+      "connections": ["opcao-1", "opcao-2", "atendente"]
+    },
+    {
+      "id": "opcao-1",
+      "type": "message",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "title": "Opção 1",
+        "triggers": ["1", "primeira", "opcao1"],
+        "response": "✅ Você escolheu a *Opção 1*!\n\n[COLOQUE AQUI SUA RESPOSTA]\n\nPara falar com atendente, digite *3*!",
+        "active": true
+      },
+      "connections": ["atendente"]
+    },
+    {
+      "id": "opcao-2",
+      "type": "message",
+      "position": { "x": 300, "y": 200 },
+      "data": {
+        "title": "Opção 2",
+        "triggers": ["2", "segunda", "opcao2"],
+        "response": "✅ Você escolheu a *Opção 2*!\n\n[COLOQUE AQUI SUA RESPOSTA]\n\nPara falar com atendente, digite *3*!",
+        "active": true
+      },
+      "connections": ["atendente"]
+    },
+    {
+      "id": "atendente",
+      "type": "human",
+      "position": { "x": 500, "y": 200 },
+      "data": {
+        "title": "Atendimento Humano",
+        "triggers": ["3", "atendente", "operador", "humano"],
+        "response": "👨‍💼 Vou conectar você com nosso atendente!\n\nEle pode ajudar com:\n• [SERVIÇO 1]\n• [SERVIÇO 2]\n• [SERVIÇO 3]\n\n⏰ *Horário de atendimento:*\n[SEUS HORÁRIOS]\n\nAguarde um momento! 📞",
+        "active": true
+      },
+      "connections": []
+    }
+  ],
+  "connections": [
+    { "id": "start-1-boas-vindas", "source": "start-1", "target": "boas-vindas" },
+    { "id": "boas-vindas-opcao-1", "source": "boas-vindas", "target": "opcao-1" },
+    { "id": "boas-vindas-opcao-2", "source": "boas-vindas", "target": "opcao-2" },
+    { "id": "boas-vindas-atendente", "source": "boas-vindas", "target": "atendente" },
+    { "id": "opcao-1-atendente", "source": "opcao-1", "target": "atendente" },
+    { "id": "opcao-2-atendente", "source": "opcao-2", "target": "atendente" }
+  ]
+}

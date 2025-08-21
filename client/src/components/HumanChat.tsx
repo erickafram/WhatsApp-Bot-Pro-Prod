@@ -491,19 +491,28 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   console.log('🔍 HumanChat - Socket recebido:', socket ? 'SIM' : 'NÃO')
   console.log('💾 Chats carregados do banco:', humanChats.length)
 
-  // Filtrar chats por status e busca
-  const filteredChats = humanChats.filter(chat => {
-    // Filtro por status
-    const statusMatch = statusFilter === 'all' || chat.status === statusFilter
+  // Filtrar e ordenar chats por status, busca e última atividade
+  const filteredChats = humanChats
+    .filter(chat => {
+      // Filtro por status
+      const statusMatch = statusFilter === 'all' || chat.status === statusFilter
 
-    // Filtro por busca
-    const searchMatch = !searchTerm ||
-      chat.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      chat.contactNumber.includes(searchTerm) ||
-      chat.messages.some(msg => msg.body.toLowerCase().includes(searchTerm.toLowerCase()))
+      // Filtro por busca
+      const searchMatch = !searchTerm ||
+        chat.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        chat.contactNumber.includes(searchTerm) ||
+        chat.messages.some(msg => msg.body.toLowerCase().includes(searchTerm.toLowerCase()))
 
-    return statusMatch && searchMatch
-  })
+      return statusMatch && searchMatch
+    })
+    .sort((a, b) => {
+      // Primeiro: chats com mensagens não lidas vão para o topo
+      if (a.unreadCount && !b.unreadCount) return -1
+      if (!a.unreadCount && b.unreadCount) return 1
+
+      // Segundo: ordenar por última atividade (mais recente primeiro)
+      return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
+    })
 
   // Contadores por status
   const statusCounts = {
@@ -515,14 +524,32 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     resolved: humanChats.filter(chat => chat.status === 'resolved').length,
   }
 
+  // Contador total de mensagens não lidas
+  const totalUnreadMessages = humanChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0)
+
+  // Contador de chats com mensagens não lidas
+  const chatsWithUnreadMessages = humanChats.filter(chat => (chat.unreadCount || 0) > 0).length
+
   // Função para marcar conversa como lida
   const markChatAsRead = (chatId: string) => {
-    setHumanChats(chats => chats.map(chat => 
-      chat.id === chatId 
+    setHumanChats(chats => chats.map(chat =>
+      chat.id === chatId
         ? { ...chat, hasNewMessage: false, unreadCount: 0 }
         : chat
     ))
   }
+
+  // Marcar chat como lido automaticamente quando selecionado
+  useEffect(() => {
+    if (selectedChat) {
+      // Pequeno delay para garantir que a UI foi atualizada
+      const timer = setTimeout(() => {
+        markChatAsRead(selectedChat)
+      }, 500)
+
+      return () => clearTimeout(timer)
+    }
+  }, [selectedChat])
 
   // Calcular total de mensagens não lidas
   useEffect(() => {
@@ -683,15 +710,16 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       
       if (existingChat) {
         // Atualizar mensagens do chat existente se houver novas
-        setHumanChats(chats => 
-          chats.map(chat => 
-            chat.contactNumber === data.customerPhone 
+        setHumanChats(chats =>
+          chats.map(chat =>
+            chat.contactNumber === data.customerPhone
               ? {
                   ...chat,
                   status: 'pending' as const,
                   lastActivity: new Date(data.timestamp),
                   hasNewMessage: true,
-                  unreadCount: (chat.unreadCount || 0) + 1,
+                  // Só incrementar se não for o chat atualmente selecionado
+                  unreadCount: selectedChat !== chat.id ? (chat.unreadCount || 0) + 1 : (chat.unreadCount || 0),
                   messages: data.messages?.length > 0 ? data.messages.map((msg: any) => ({
                     id: msg.id.toString(),
                     from: msg.sender_type === 'contact' ? data.chatId : 'bot',
@@ -787,19 +815,33 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
         isFromHuman: false
       }
       
-      setHumanChats(chats => 
+      setHumanChats(chats =>
         chats.map(chat => {
           if (chat.contactNumber === customerPhone) {
+            // Verificar se a mensagem já existe para evitar duplicatas
+            const messageExists = chat.messages.some(msg =>
+              msg.body === data.message &&
+              Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
+            )
+
+            if (messageExists) {
+              console.log('📝 Mensagem duplicada ignorada')
+              return chat
+            }
+
             // Se o chat estava encerrado, reativar automaticamente
             const updatedStatus = chat.status === 'resolved' || chat.status === 'finished' ? 'active' : chat.status
-            
+
+            // Só incrementar unreadCount se o chat não estiver selecionado atualmente
+            const shouldIncrementUnread = selectedChat !== chat.id
+
             return {
               ...chat,
               status: updatedStatus as any,
               messages: [...chat.messages, newMessage],
               lastActivity: new Date(data.timestamp),
               hasNewMessage: true,
-              unreadCount: (chat.unreadCount || 0) + 1
+              unreadCount: shouldIncrementUnread ? (chat.unreadCount || 0) + 1 : (chat.unreadCount || 0)
             }
           }
           return chat
@@ -873,7 +915,14 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
               </div>
               <div className="operator-details">
                 <div className="operator-name">{operatorName}</div>
-                <div className="operator-status">Online</div>
+                <div className="operator-status">
+                  Online
+                  {totalUnreadMessages > 0 && (
+                    <span className="unread-summary">
+                      • {totalUnreadMessages} não lidas em {chatsWithUnreadMessages} chat{chatsWithUnreadMessages !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="header-actions-compact">

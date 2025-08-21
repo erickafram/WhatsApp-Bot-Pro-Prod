@@ -28,6 +28,7 @@ import {
   Diamond,
   CheckCircle,
   Type,
+  FileText,
   Bot,
   List,
   Send,
@@ -183,6 +184,11 @@ function Templates({ }: TemplatesProps) {
     chatHistory: [],
     awaitingInput: false
   })
+
+  // Code View States
+  const [showCodeView, setShowCodeView] = useState(false)
+  const [flowCode, setFlowCode] = useState('')
+  const [codeError, setCodeError] = useState('')
   const [userInput, setUserInput] = useState('')
   const chatMessagesRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<{
@@ -991,6 +997,69 @@ Posso ajudar com algo mais? 😊`,
     return { nodes, connections }
   }
 
+  // Convert flow to code representation
+  const convertFlowToCode = (nodes: FlowNode[], connections: FlowConnection[]): string => {
+    const flowData = {
+      metadata: {
+        version: "1.0",
+        created: new Date().toISOString(),
+        description: "Fluxo de conversação automática"
+      },
+      nodes: nodes.map(node => ({
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: node.data,
+        connections: node.connections
+      })),
+      connections: connections.map(conn => ({
+        id: conn.id,
+        source: conn.source,
+        target: conn.target,
+        sourceHandle: conn.sourceHandle,
+        targetHandle: conn.targetHandle
+      }))
+    }
+
+    return JSON.stringify(flowData, null, 2)
+  }
+
+  // Convert code back to flow
+  const convertCodeToFlow = (code: string): { nodes: FlowNode[], connections: FlowConnection[] } | null => {
+    try {
+      const flowData = JSON.parse(code)
+
+      if (!flowData.nodes || !Array.isArray(flowData.nodes)) {
+        throw new Error('Formato inválido: propriedade "nodes" não encontrada ou não é um array')
+      }
+
+      if (!flowData.connections || !Array.isArray(flowData.connections)) {
+        throw new Error('Formato inválido: propriedade "connections" não encontrada ou não é um array')
+      }
+
+      const nodes: FlowNode[] = flowData.nodes.map((node: any) => ({
+        id: node.id || `node-${Date.now()}`,
+        type: node.type || 'message',
+        position: node.position || { x: 0, y: 0 },
+        data: node.data || { title: 'Novo Nó' },
+        connections: node.connections || []
+      }))
+
+      const connections: FlowConnection[] = flowData.connections.map((conn: any) => ({
+        id: conn.id || `conn-${Date.now()}`,
+        source: conn.source,
+        target: conn.target,
+        sourceHandle: conn.sourceHandle,
+        targetHandle: conn.targetHandle
+      }))
+
+      return { nodes, connections }
+    } catch (error) {
+      console.error('Erro ao converter código para fluxo:', error)
+      return null
+    }
+  }
+
   // Update flow when templates change or flow view is opened
   useEffect(() => {
     const currentTemplates = getCurrentTemplates()
@@ -1001,8 +1070,435 @@ Posso ajudar com algo mais? 😊`,
         nodes,
         connections
       }))
+
+      // Update code view if it's open
+      if (showCodeView) {
+        const code = convertFlowToCode(nodes, connections)
+        setFlowCode(code)
+      }
     }
-  }, [showFlowView, autoTemplates, templateProjects, selectedProject])
+  }, [showFlowView, autoTemplates, templateProjects, selectedProject, showCodeView])
+
+  // Handle code view toggle
+  const toggleCodeView = () => {
+    if (!showCodeView) {
+      // Switching to code view - generate code from current flow
+      const code = convertFlowToCode(flowState.nodes, flowState.connections)
+      setFlowCode(code)
+      setCodeError('')
+    }
+    setShowCodeView(!showCodeView)
+  }
+
+  // Handle code changes
+  const handleCodeChange = (newCode: string) => {
+    setFlowCode(newCode)
+    setCodeError('')
+  }
+
+  // Apply code changes to flow
+  const applyCodeChanges = async () => {
+    try {
+      console.log('🔄 Iniciando aplicação do código...')
+      console.log('📋 Projeto selecionado:', selectedProject)
+
+      const result = convertCodeToFlow(flowCode)
+      if (!result) {
+        setCodeError('Erro ao converter código. Verifique a sintaxe JSON.')
+        return
+      }
+
+      console.log('✅ Código convertido com sucesso')
+      console.log('📊 Nós encontrados:', result.nodes.length)
+
+      setFlowState(prev => ({
+        ...prev,
+        nodes: result.nodes,
+        connections: result.connections
+      }))
+      setCodeError('')
+
+      // Convert flow nodes to templates and save to database
+      console.log('🔄 Iniciando conversão para templates...')
+      await convertFlowNodesToTemplates(result.nodes)
+
+      alert('✅ Código aplicado com sucesso ao fluxo e salvo no banco de dados!')
+    } catch (error) {
+      console.error('❌ Erro ao aplicar código:', error)
+      setCodeError(`Erro ao aplicar código: ${error instanceof Error ? error.message : String(error)}`)
+      alert(`Erro ao aplicar código: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  // Convert flow nodes to individual templates and save to database
+  const convertFlowNodesToTemplates = async (nodes: FlowNode[]) => {
+    // Use the default project if no valid project is selected
+    let projectToUse = selectedProject
+
+    if (!selectedProject || selectedProject === 'default') {
+      // Find the default project
+      const defaultProject = templateProjects.find(p => p.templates.length > 0)
+      if (defaultProject) {
+        projectToUse = defaultProject.id
+        console.log('🔄 Usando projeto padrão:', defaultProject.name, 'ID:', projectToUse)
+      } else {
+        console.log('⚠️ Nenhum projeto válido encontrado')
+        alert('⚠️ Nenhum projeto válido encontrado. Crie um projeto primeiro!')
+        return
+      }
+    }
+
+    // Validate project exists in the list
+    const projectExists = templateProjects.find(p => p.id === projectToUse)
+    if (!projectExists) {
+      console.log('⚠️ Projeto selecionado não existe:', projectToUse)
+      // Use the first available project
+      const firstProject = templateProjects[0]
+      if (firstProject) {
+        projectToUse = firstProject.id
+        console.log('🔄 Usando primeiro projeto disponível:', firstProject.name, 'ID:', projectToUse)
+      } else {
+        alert('⚠️ Nenhum projeto disponível. Crie um projeto primeiro!')
+        return
+      }
+    }
+
+    try {
+      console.log('🔄 Convertendo nós do fluxo em templates...')
+      console.log('📊 Total de nós para processar:', nodes.length)
+      console.log('🎯 Usando projeto:', projectToUse)
+
+      // Clear existing templates first (skip deletion, just clear local state)
+      const currentProject = templateProjects.find(p => p.id === projectToUse)
+      if (currentProject && currentProject.templates.length > 0) {
+        console.log('🗑️ Limpando templates existentes localmente:', currentProject.templates.length)
+        // Just clear local state - new templates will override old ones
+        setTemplateProjects(projects =>
+          projects.map(project =>
+            project.id === projectToUse
+              ? { ...project, templates: [] }
+              : project
+          )
+        )
+      }
+
+      const newTemplates: AutoTemplate[] = []
+      let orderIndex = 0
+
+      // Convert each message node to a template
+      console.log('🔄 Processando nós...')
+      for (const node of nodes) {
+        console.log(`📝 Processando nó: ${node.id} (tipo: ${node.type})`)
+
+        if (node.type === 'message' || node.type === 'human') {
+          const template: AutoTemplate = {
+            id: `temp-${Date.now()}-${orderIndex}`, // Temporary ID
+            trigger: node.data.triggers || ['default'],
+            response: node.data.response || node.data.title || 'Resposta padrão',
+            active: node.data.active !== false
+          }
+
+          console.log(`📋 Template preparado:`, {
+            triggers: template.trigger,
+            response: template.response.substring(0, 50) + '...',
+            active: template.active
+          })
+
+          // Save to database
+          try {
+            console.log(`💾 Salvando template no banco...`)
+            const savedTemplate = await createAutoTemplateInDatabase(template, projectToUse || undefined)
+            console.log('📋 Resposta da API:', savedTemplate)
+
+            // Extract ID from response
+            const newId = savedTemplate.autoMessage?.id || savedTemplate.id
+            if (newId) {
+              template.id = newId.toString()
+              newTemplates.push(template)
+              orderIndex++
+              console.log(`✅ Template criado: ${node.data.title} (ID: ${template.id})`)
+            } else {
+              console.error('❌ ID não encontrado na resposta da API:', savedTemplate)
+              // Use temporary ID as fallback
+              template.id = `temp-${Date.now()}-${orderIndex}`
+              newTemplates.push(template)
+              orderIndex++
+              console.log(`⚠️ Template criado com ID temporário: ${node.data.title} (ID: ${template.id})`)
+            }
+          } catch (error) {
+            console.error(`❌ Erro ao criar template ${node.data.title}:`, error)
+            alert(`❌ Erro ao criar template "${node.data.title}": ${error instanceof Error ? error.message : String(error)}`)
+          }
+        } else {
+          console.log(`⏭️ Nó ${node.id} ignorado (tipo: ${node.type})`)
+        }
+      }
+
+      // Update local state
+      setTemplateProjects(projects =>
+        projects.map(project =>
+          project.id === projectToUse
+            ? { ...project, templates: newTemplates }
+            : project
+        )
+      )
+
+      // Reload templates from database to ensure consistency
+      if (projectToUse && !isNaN(Number(projectToUse))) {
+        await loadProjectTemplates(parseInt(projectToUse))
+      }
+
+      console.log(`✅ ${newTemplates.length} templates convertidos e salvos!`)
+
+    } catch (error) {
+      console.error('❌ Erro ao converter fluxo em templates:', error)
+      throw error
+    }
+  }
+
+  // Export flow code to file
+  const exportFlowCode = () => {
+    const code = convertFlowToCode(flowState.nodes, flowState.connections)
+    const blob = new Blob([code], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fluxo-${selectedProject || 'default'}-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // Import flow code from file
+  const importFlowCode = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const code = e.target?.result as string
+          const result = convertCodeToFlow(code)
+          if (result) {
+            setFlowState(prev => ({
+              ...prev,
+              nodes: result.nodes,
+              connections: result.connections
+            }))
+            alert('Fluxo importado com sucesso!')
+          } else {
+            alert('Erro ao importar fluxo. Verifique se o arquivo é um JSON válido.')
+          }
+        }
+        reader.readAsText(file)
+      }
+    }
+    input.click()
+  }
+
+  // Load template flow for any business
+  const loadTemplateFlow = () => {
+    const templateFlow = {
+      metadata: {
+        version: "1.0",
+        created: new Date().toISOString(),
+        description: "Template básico - Personalize para seu negócio"
+      },
+      nodes: [
+        {
+          id: "start-1",
+          type: "start",
+          position: { x: 50, y: 50 },
+          data: {
+            title: "Início",
+            description: "Usuário inicia conversa"
+          },
+          connections: ["boas-vindas"]
+        },
+        {
+          id: "boas-vindas",
+          type: "message",
+          position: { x: 200, y: 50 },
+          data: {
+            title: "Boas-vindas",
+            triggers: ["oi", "olá", "menu", "início"],
+            response: "👋 Olá! Bem-vindo ao *[SEU NEGÓCIO]*!\n\nComo posso ajudar você hoje?\n\n*1* - [OPÇÃO 1]\n*2* - [OPÇÃO 2]\n*3* - 👨‍💼 Falar com Atendente\n\nDigite o número da opção desejada!",
+            active: true
+          },
+          connections: ["opcao-1", "opcao-2", "atendente"]
+        },
+        {
+          id: "opcao-1",
+          type: "message",
+          position: { x: 100, y: 200 },
+          data: {
+            title: "Opção 1",
+            triggers: ["1", "primeira", "opcao1"],
+            response: "✅ Você escolheu a *Opção 1*!\n\n[COLOQUE AQUI SUA RESPOSTA]\n\nPara falar com atendente, digite *3*!",
+            active: true
+          },
+          connections: ["atendente"]
+        },
+        {
+          id: "opcao-2",
+          type: "message",
+          position: { x: 300, y: 200 },
+          data: {
+            title: "Opção 2",
+            triggers: ["2", "segunda", "opcao2"],
+            response: "✅ Você escolheu a *Opção 2*!\n\n[COLOQUE AQUI SUA RESPOSTA]\n\nPara falar com atendente, digite *3*!",
+            active: true
+          },
+          connections: ["atendente"]
+        },
+        {
+          id: "atendente",
+          type: "human",
+          position: { x: 500, y: 200 },
+          data: {
+            title: "Atendimento Humano",
+            triggers: ["3", "atendente", "operador", "humano"],
+            response: "👨‍💼 Vou conectar você com nosso atendente!\n\nEle pode ajudar com:\n• [SERVIÇO 1]\n• [SERVIÇO 2]\n• [SERVIÇO 3]\n\n⏰ *Horário de atendimento:*\n[SEUS HORÁRIOS]\n\nAguarde um momento! 📞",
+            active: true
+          },
+          connections: []
+        }
+      ],
+      connections: [
+        { id: "start-1-boas-vindas", source: "start-1", target: "boas-vindas" },
+        { id: "boas-vindas-opcao-1", source: "boas-vindas", target: "opcao-1" },
+        { id: "boas-vindas-opcao-2", source: "boas-vindas", target: "opcao-2" },
+        { id: "boas-vindas-atendente", source: "boas-vindas", target: "atendente" },
+        { id: "opcao-1-atendente", source: "opcao-1", target: "atendente" },
+        { id: "opcao-2-atendente", source: "opcao-2", target: "atendente" }
+      ]
+    }
+
+    const code = JSON.stringify(templateFlow, null, 2)
+    setFlowCode(code)
+    setCodeError('')
+  }
+
+  // Load corrected flow code (only message and human types)
+  const loadExampleFlow = () => {
+    const exampleFlow = {
+      metadata: {
+        version: "1.2",
+        created: new Date().toISOString(),
+        description: "Fluxo Viação Tocantins - Coleta sequencial (CORRIGIDO)"
+      },
+      nodes: [
+        {
+          id: "start-1",
+          type: "start",
+          position: { x: 50, y: 50 },
+          data: {
+            title: "Início",
+            description: "Usuário inicia conversa"
+          },
+          connections: ["template-41"]
+        },
+        {
+          id: "template-41",
+          type: "message",
+          position: { x: 50, y: 150 },
+          data: {
+            title: "Boas-vindas",
+            triggers: ["oi", "olá", "menu", "dia", "tarde", "noite", "bom dia", "boa tarde", "boa noite"],
+            response: "🚌 Olá! Bem-vindo à *Viação Tocantins*!\n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 👨‍💼 Falar com Operador\n\nDigite o número da opção desejada! 😊",
+            active: true
+          },
+          connections: ["template-42", "template-43", "template-44"]
+        },
+        {
+          id: "template-42",
+          type: "message",
+          position: { x: 300, y: 100 },
+          data: {
+            title: "Opção 1 - Comprar Passagem",
+            triggers: ["1", "comprar", "passagem", "bilhete"],
+            response: "🎫 *COMPRAR PASSAGEM*\n\nNossa origem é sempre: *Palmas - TO* 🏙️\n\nPara qual cidade você gostaria de viajar?\n\n*Cidades disponíveis:*\n• São Luís - MA\n• Imperatriz - MA\n• Brasília - DF\n• Goiânia - GO\n• Araguaína - TO\n• Gurupi - TO\n• Porto Nacional - TO\n• Paraíso do Tocantins - TO\n• Colinas do Tocantins - TO\n• Barreiras - BA\n• Luís Eduardo Magalhães - BA\n• Teresina - PI\n• Parnaíba - PI\n\nDigite o nome da cidade de destino! ✈️",
+            active: true
+          },
+          connections: ["template-45"]
+        },
+        {
+          id: "template-43",
+          type: "message",
+          position: { x: 500, y: 100 },
+          data: {
+            title: "Opção 2 - Ver Horários",
+            triggers: ["2", "horários", "horario", "hora"],
+            response: "🕐 *HORÁRIOS DE SAÍDA*\n\n*Saídas de Palmas - TO:*\n\n🌅 *Manhã*\n• 06:00 - Destinos: Brasília, Goiânia\n• 07:30 - Destinos: São Luís, Imperatriz\n• 08:00 - Destinos: Araguaína, Gurupi\n\n🌞 *Tarde*\n• 14:00 - Destinos: Teresina, Parnaíba\n• 15:30 - Destinos: Barreiras, L.E. Magalhães\n• 16:00 - Destinos: Porto Nacional, Paraíso\n\n🌙 *Noite*\n• 20:00 - Destinos: Brasília, Goiânia\n• 21:30 - Destinos: São Luís, Imperatriz\n• 22:00 - Destinos: Colinas do Tocantins\n\nPara comprar sua passagem, digite *1*! 🎫",
+            active: true
+          },
+          connections: ["end-1"]
+        },
+        {
+          id: "template-44",
+          type: "human",
+          position: { x: 50, y: 300 },
+          data: {
+            title: "Atendimento Humano",
+            triggers: ["3", "operador", "atendente", "humano", "pessoa"],
+            response: "👨‍💼 *FALAR COM OPERADOR*\n\n🙋‍♀️ Entendi que você gostaria de falar com um de nossos operadores!\n\nVou transferir você para nossa equipe de atendimento especializada em vendas de passagens.\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato!\n\nObrigado pela preferência! 🚌✨",
+            active: true
+          },
+          connections: []
+        },
+        {
+          id: "template-45",
+          type: "message",
+          position: { x: 50, y: 400 },
+          data: {
+            title: "Solicitar Nome",
+            triggers: ["teresina", "são luís", "sao luis", "imperatriz", "brasília", "brasilia", "goiânia", "goiania", "araguaína", "araguaina", "gurupi", "porto nacional", "paraíso", "paraiso", "colinas", "barreiras", "luís eduardo", "luis eduardo", "parnaíba", "parnaiba"],
+            response: "✅ Excelente escolha! Temos passagens para seu destino!\n\n🎫 *Informações da Viagem:*\n📍 Origem: Palmas - TO\n📍 Destino: {cidade_escolhida}\n\n👤 *PASSO 1 de 4*\n\nPor favor, digite seu *nome completo*:",
+            active: true
+          },
+          connections: ["collect-phone"]
+        },
+        {
+          id: "collect-phone",
+          type: "human",
+          position: { x: 250, y: 500 },
+          data: {
+            title: "Coletar Dados e Transferir",
+            triggers: ["*"],
+            response: "✅ Nome registrado com sucesso!\n\n📋 *COLETA DE DADOS COMPLETA*\n\nAgora vou transferir você para nosso operador que coletará:\n📱 Seu telefone para contato\n📅 Data da viagem desejada\n🆔 Seu CPF\n\nE finalizará sua compra com as informações de pagamento!\n\n⏰ *Em alguns instantes um operador especializado entrará em contato!*\n\nObrigado pela preferência na *Viação Tocantins*! 🚌✨",
+            active: true
+          },
+          connections: []
+        },
+        {
+          id: "end-1",
+          type: "end",
+          position: { x: 650, y: 250 },
+          data: {
+            title: "Fim",
+            description: "Conversa finalizada"
+          },
+          connections: []
+        }
+      ],
+      connections: [
+        { id: "start-1-template-41", source: "start-1", target: "template-41" },
+        { id: "template-41-template-42", source: "template-41", target: "template-42" },
+        { id: "template-41-template-43", source: "template-41", target: "template-43" },
+        { id: "template-41-template-44", source: "template-41", target: "template-44" },
+        { id: "template-42-template-45", source: "template-42", target: "template-45" },
+        { id: "template-43-end-1", source: "template-43", target: "end-1" },
+        { id: "template-45-collect-phone", source: "template-45", target: "collect-phone" }
+      ]
+    }
+
+    const code = JSON.stringify(exampleFlow, null, 2)
+    setFlowCode(code)
+    setCodeError('')
+  }
 
   // Auto-save message projects to database when they change
   useEffect(() => {
@@ -1260,22 +1756,24 @@ Posso ajudar com algo mais? 😊`,
   }
 
   // Function to create new template in database
-  const createAutoTemplateInDatabase = async (template: AutoTemplate) => {
+  const createAutoTemplateInDatabase = async (template: AutoTemplate, projectId?: string) => {
     try {
       const authToken = localStorage.getItem('authToken')
       if (!authToken) {
         throw new Error('Token de autenticação não encontrado')
       }
 
-      const response = await fetch('/api/messages/auto-messages', {
+      const targetProject = projectId || selectedProject
+      console.log('💾 Criando template no banco para projeto:', targetProject)
+
+      const response = await fetch(`/api/messages/projects/${targetProject}/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          project_id: selectedProject,
-          trigger_words: JSON.stringify(template.trigger),
+          trigger_words: Array.isArray(template.trigger) ? template.trigger : [template.trigger],
           response_text: template.response,
           is_active: template.active,
           order_index: 0
@@ -1283,13 +1781,21 @@ Posso ajudar com algo mais? 😊`,
       })
 
       if (!response.ok) {
-        throw new Error('Falha ao criar template no banco de dados')
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Erro na resposta do servidor:', errorData)
+        throw new Error(`Falha ao criar template no banco de dados: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('✅ Novo template criado no banco:', data.message)
-      return data
-      
+      console.log('✅ Novo template criado no banco:', data)
+
+      // Return the created message data with proper structure
+      // The API returns { success: true, autoMessage: { id: number, ... } }
+      return {
+        id: data.autoMessage?.id || data.id || Date.now(),
+        autoMessage: data.autoMessage || data
+      }
+
     } catch (error) {
       console.error('❌ Erro ao criar template no banco:', error)
       throw error
@@ -1306,7 +1812,7 @@ Posso ajudar com algo mais? 😊`,
 
       console.log(`🗑️ Iniciando exclusão do template ${templateId} no banco...`)
 
-      const response = await fetch(`/api/messages/auto-messages/${templateId}`, {
+      const response = await fetch(`/api/messages/messages/${templateId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -1909,21 +2415,36 @@ Posso ajudar com algo mais? 😊`,
                 </div>
 
                 <div className="toolbar-right">
-                  <button 
-                    className="toolbar-btn" 
+                  <button
+                    className={`toolbar-btn ${showCodeView ? 'active' : ''}`}
+                    title={showCodeView ? 'Voltar para visualização visual' : 'Ver código do fluxo'}
+                    onClick={toggleCodeView}
+                  >
+                    <FileText size={16} />
+                  </button>
+                  <button
+                    className="toolbar-btn"
                     title="Salvar Fluxo"
                     onClick={saveFlowToDatabase}
                   >
                     <Save size={16} />
                   </button>
-                  <button className="toolbar-btn" title="Exportar">
+                  <button
+                    className="toolbar-btn"
+                    title="Exportar fluxo como JSON"
+                    onClick={exportFlowCode}
+                  >
                     <Download size={16} />
                   </button>
-                  <button className="toolbar-btn" title="Importar">
+                  <button
+                    className="toolbar-btn"
+                    title="Importar fluxo de arquivo JSON"
+                    onClick={importFlowCode}
+                  >
                     <Upload size={16} />
                   </button>
-                  <button 
-                    className="toolbar-btn" 
+                  <button
+                    className="toolbar-btn"
                     title={isFullscreen ? 'Sair do fullscreen' : 'Fullscreen'}
                     onClick={() => setIsFullscreen(!isFullscreen)}
                   >
@@ -1934,16 +2455,158 @@ Posso ajudar com algo mais? 😊`,
 
               {/* Flow Main Area */}
               <div className="flow-main-area">
-                {/* Flow Canvas */}
-                <div className="flow-canvas-compact">
-                  <div 
-                    className="flow-canvas"
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                  >
-                    {/* Background Grid */}
-                    <div className="flow-grid"></div>
+                {/* Code View */}
+                {showCodeView ? (
+                  <div className="code-editor-container">
+                    <div className="code-editor-header">
+                      <h3>Código do Fluxo (JSON)</h3>
+                      <div className="code-actions">
+                        <button
+                          className="btn-modern btn-secondary"
+                          onClick={loadTemplateFlow}
+                          title="Carregar template básico para personalizar"
+                        >
+                          <FileText size={16} />
+                          Template
+                        </button>
+                        <button
+                          className="btn-modern btn-secondary"
+                          onClick={loadExampleFlow}
+                          title="Carregar exemplo de fluxo (Viação)"
+                        >
+                          <Sparkles size={16} />
+                          Exemplo
+                        </button>
+                        <button
+                          className="btn-modern btn-secondary"
+                          onClick={async () => {
+                            try {
+                              const testTemplate = {
+                                id: 'test-' + Date.now(),
+                                trigger: ['teste', 'debug'],
+                                response: 'Este é um template de teste criado via debug!',
+                                active: true
+                              }
+                              console.log('🧪 Testando criação de template:', testTemplate)
+                              const result = await createAutoTemplateInDatabase(testTemplate)
+                              console.log('✅ Resultado do teste:', result)
+                              alert('Template de teste criado com sucesso! Verifique o console.')
+                            } catch (error) {
+                              console.error('❌ Erro no teste:', error)
+                              alert('Erro no teste: ' + (error instanceof Error ? error.message : String(error)))
+                            }
+                          }}
+                          title="Testar criação de template"
+                        >
+                          🧪 Debug
+                        </button>
+                        <button
+                          className="btn-modern btn-success"
+                          onClick={applyCodeChanges}
+                          disabled={!flowCode.trim() || !selectedProject || selectedProject === 'default'}
+                          title={!selectedProject || selectedProject === 'default' ? 'Selecione um projeto para salvar' : 'Aplicar código e salvar no banco de dados'}
+                        >
+                          <Save size={16} />
+                          Aplicar e Salvar
+                        </button>
+                        <button
+                          className="btn-modern btn-primary"
+                          onClick={() => {
+                            const result = convertCodeToFlow(flowCode)
+                            if (result) {
+                              setFlowState(prev => ({
+                                ...prev,
+                                nodes: result.nodes,
+                                connections: result.connections
+                              }))
+                              setCodeError('')
+                              alert('Código aplicado ao fluxo visual!')
+                            } else {
+                              setCodeError('Erro ao converter código. Verifique a sintaxe JSON.')
+                            }
+                          }}
+                          disabled={!flowCode.trim()}
+                          title="Aplicar apenas na visualização (não salva no banco)"
+                        >
+                          <Check size={16} />
+                          Apenas Visualizar
+                        </button>
+                      </div>
+                    </div>
+
+                    {codeError && (
+                      <div className="code-error">
+                        <X size={16} />
+                        {codeError}
+                      </div>
+                    )}
+
+                    <div className="code-editor">
+                      <textarea
+                        value={flowCode}
+                        onChange={(e) => handleCodeChange(e.target.value)}
+                        placeholder="O código JSON do fluxo aparecerá aqui..."
+                        className="code-textarea"
+                        spellCheck={false}
+                      />
+                    </div>
+
+                    <div className="code-help">
+                      <h4>💡 Como criar/editar fluxos:</h4>
+                      <div className="code-help-sections">
+                        <div className="help-section">
+                          <h5>🏗️ Estrutura Básica:</h5>
+                          <ul>
+                            <li><strong>metadata:</strong> Informações do fluxo</li>
+                            <li><strong>nodes:</strong> Nós do fluxo (start, message, human, end)</li>
+                            <li><strong>connections:</strong> Ligações entre nós</li>
+                          </ul>
+                        </div>
+
+                        <div className="help-section">
+                          <h5>📝 Tipos de Nós:</h5>
+                          <ul>
+                            <li><strong>message:</strong> Resposta automática com triggers</li>
+                            <li><strong>human:</strong> Transfere para operador</li>
+                            <li><strong>start/end:</strong> Início e fim do fluxo</li>
+                          </ul>
+                        </div>
+
+                        <div className="help-section">
+                          <h5>🎯 Propriedades Importantes:</h5>
+                          <ul>
+                            <li><strong>triggers:</strong> Palavras que ativam o nó</li>
+                            <li><strong>response:</strong> Mensagem enviada ao cliente</li>
+                            <li><strong>active:</strong> true/false para ativar/desativar</li>
+                            <li><strong>connections:</strong> IDs dos próximos nós</li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="help-tips">
+                        <p><strong>💡 Dicas:</strong></p>
+                        <ul>
+                          <li>Use o botão "Template" para começar do zero</li>
+                          <li>Personalize [TEXTOS ENTRE COLCHETES] com seu negócio</li>
+                          <li>Teste sempre após fazer alterações</li>
+                          <li>Mantenha IDs únicos para cada nó</li>
+                        </ul>
+                      </div>
+
+                      <p><strong>⚠️ Atenção:</strong> Mantenha a estrutura JSON válida para evitar erros.</p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Flow Canvas */
+                  <div className="flow-canvas-compact">
+                    <div
+                      className="flow-canvas"
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                    >
+                      {/* Background Grid */}
+                      <div className="flow-grid"></div>
                     
                     {/* Connections */}
                     <svg className="flow-connections">
@@ -2046,6 +2709,7 @@ Posso ajudar com algo mais? 😊`,
                     })}
                   </div>
                 </div>
+                )}
 
                 {/* Right Sidebar - Node Palette */}
                 <div className="flow-sidebar">

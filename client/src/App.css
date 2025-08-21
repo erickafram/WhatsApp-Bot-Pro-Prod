@@ -2891,6 +2891,19 @@ body .app .main-content {
   transform: translateY(-1px);
 }
 
+.btn-modern.btn-success {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+}
+
+.btn-modern.btn-success:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+}
+
 /* Modern Form */
 .message-form-modern {
   background: white;
@@ -5538,26 +5551,40 @@ body .app .main-content {
 }
 
 .unread-badge {
-  background: #00a884;
+  background: #dc3545;
   color: white;
   border-radius: 50%;
-  min-width: 18px;
-  height: 18px;
+  min-width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 0 4px;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+  animation: unread-pulse 2s infinite;
+  border: 2px solid white;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+@keyframes unread-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
 }
 
 /* === NOTIFICAÇÃO DE MENSAGEM NOVA - ESTILO WHATSAPP === */
 .chat-item-compact.has-new-message {
-  background: #f0f2f5;
+  background: linear-gradient(90deg, #fff3cd 0%, #ffffff 100%);
+  border-left: 4px solid #dc3545;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1);
+  animation: new-message-highlight 3s ease-out;
 }
 
 .chat-item-compact.has-new-message .chat-name-compact {
-  font-weight: 600;
+  font-weight: 700;
   color: #111b21;
 }
 
@@ -5567,16 +5594,18 @@ body .app .main-content {
 }
 
 .chat-item-compact.has-new-message .chat-time-compact {
-  color: #00a884;
-  font-weight: 600;
+  color: #dc3545;
+  font-weight: 700;
 }
 
 .chat-item-compact.has-new-message:hover {
-  background: #e9edef;
+  background: linear-gradient(90deg, #fff3cd 0%, #f8f9fa 100%);
+  transform: translateX(2px);
 }
 
 .chat-item-compact.has-new-message.selected {
   background: #e7f3ff;
+  border-left: 4px solid #007bff;
 }
 
 /* Indicador de mensagem não lida (ponto verde) */
@@ -5602,14 +5631,33 @@ body .app .main-content {
   }
 }
 
-/* Notificação de nova conversa */
-.chat-item-compact.has-new-message {
-  background: #e8f5e8 !important;
-  border-left: 4px solid #25d366;
+@keyframes new-message-highlight {
+  0% {
+    background: linear-gradient(90deg, #ffebee 0%, #ffffff 100%);
+    transform: translateX(0px);
+  }
+  50% {
+    background: linear-gradient(90deg, #fff3cd 0%, #ffffff 100%);
+    transform: translateX(3px);
+  }
+  100% {
+    background: linear-gradient(90deg, #fff3cd 0%, #ffffff 100%);
+    transform: translateX(0px);
+  }
 }
 
-.chat-item-compact.has-new-message:hover {
-  background: #d4f4d4 !important;
+/* Resumo de mensagens não lidas no cabeçalho */
+.unread-summary {
+  color: #dc3545;
+  font-weight: 600;
+  font-size: 0.75rem;
+  margin-left: 8px;
+  animation: unread-blink 2s infinite;
+}
+
+@keyframes unread-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.7; }
 }
 
 .notification-badge {
@@ -8299,6 +8347,224 @@ body .app .main-content {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* ===== CODE EDITOR STYLES ===== */
+
+/* Code Editor Container */
+.code-editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin: 1rem;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.code-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.code-editor-header h3 {
+  margin: 0;
+  color: #2d3748;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.code-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.code-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #fed7d7;
+  color: #c53030;
+  border-bottom: 1px solid #feb2b2;
+  font-size: 0.875rem;
+}
+
+.code-editor {
+  flex: 1;
+  padding: 1rem;
+  background: #f8fafc;
+}
+
+.code-textarea {
+  width: 100%;
+  height: 400px;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #2d3748;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.code-textarea:focus {
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.code-help {
+  padding: 1rem 1.5rem;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+}
+
+.code-help h4 {
+  margin: 0 0 0.75rem 0;
+  color: #2d3748;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.code-help ul {
+  margin: 0 0 1rem 0;
+  padding-left: 1.5rem;
+  color: #4a5568;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.code-help li {
+  margin-bottom: 0.25rem;
+}
+
+.code-help li strong {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.code-help p {
+  margin: 0;
+  color: #e53e3e;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.code-help-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.help-section {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-left: 3px solid #4299e1;
+}
+
+.help-section h5 {
+  margin: 0 0 0.5rem 0;
+  color: #2d3748;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.help-section ul {
+  margin: 0;
+  padding-left: 1rem;
+  color: #4a5568;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.help-section li {
+  margin-bottom: 0.25rem;
+}
+
+.help-tips {
+  background: #fff5f5;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-left: 3px solid #f56565;
+  margin-bottom: 1rem;
+}
+
+.help-tips p {
+  margin: 0 0 0.5rem 0;
+  color: #2d3748;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.help-tips ul {
+  margin: 0;
+  padding-left: 1rem;
+  color: #4a5568;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.help-tips li {
+  margin-bottom: 0.25rem;
+}
+
+/* Toolbar button active state */
+.toolbar-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.toolbar-btn.active:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive adjustments for code editor */
+@media (max-width: 768px) {
+  .code-editor-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .code-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .code-textarea {
+    height: 300px;
+    font-size: 0.8rem;
+  }
+
+  .code-help {
+    padding: 0.75rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .code-textarea {
+    height: 250px;
+    padding: 0.75rem;
+  }
+
+  .code-editor-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .code-help {
+    padding: 0.5rem 0.75rem;
+  }
 }
 
 /* Instance List Simple */
