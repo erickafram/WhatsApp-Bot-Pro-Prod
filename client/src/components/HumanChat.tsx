@@ -646,11 +646,13 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     
     // Enviar via socket - a mensagem será adicionada via operator_message_saved
     if (socket) {
-      socket.emit('send_operator_message', {
+      const messageData = {
         chatId: currentChat.contactNumber + '@c.us',
         message: newChatMessage.trim(),
         operatorName: operatorName
-      })
+      };
+      console.log('📤 Enviando mensagem do operador via socket:', messageData);
+      socket.emit('send_operator_message', messageData);
     }
     
     setNewChatMessage('')
@@ -703,7 +705,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       timestamp: Date
       messages: any[]
     }) => {
-      console.log('🔔 Nova solicitação de chat humano:', data)
+      console.log('🔔 Nova solicitação de chat humano via socket:', data)
       
       // Verificar se o chat já existe localmente
       const existingChat = humanChats.find(chat => chat.contactNumber === data.customerPhone)
@@ -751,7 +753,13 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       timestamp: string,
       operatorName: string
     }) => {
-      console.log('💾 Mensagem do operador salva:', data)
+      console.log('💾 Mensagem do operador salva via socket:', data)
+      
+      // Adicionar erro handlers para debug
+      if (!data.chatId || !data.message) {
+        console.error('❌ Dados inválidos na mensagem do operador:', data);
+        return;
+      }
       
       // Encontrar o chat e adicionar a mensagem (verificar se não existe)
       const phoneNumber = data.chatId.replace('@c.us', '')
@@ -794,7 +802,8 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       timestamp: Date
       customerName: string
     }) => {
-      console.log('📩 Mensagem do cliente recebida:', data)
+      console.log('📩 Mensagem do cliente recebida via socket:', data)
+      console.log('📩 Chats atuais:', humanChats.map(c => ({id: c.id, contactNumber: c.contactNumber})))
       
       // Mostrar notificação para nova mensagem do cliente
       showNotification(
@@ -893,12 +902,30 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       }
     })
 
+    // Listener para erros de mensagens do operador
+    socket.on('operator_message_error', (error: any) => {
+      console.error('❌ Erro ao enviar mensagem do operador:', error);
+      alert(`Erro ao enviar mensagem: ${error.error}`);
+    });
+
+    socket.on('message_send_error', (error: any) => {
+      console.error('❌ Erro no envio da mensagem:', error);
+      alert(`Erro no envio: ${error.error}`);
+    });
+
+    socket.on('message_sent_confirmation', (data: any) => {
+      console.log('✅ Confirmação de envio de mensagem:', data);
+    });
+
     return () => {
       socket.off('human_chat_requested')
       socket.off('customer_message')
       socket.off('operator_message_saved')
       socket.off('chat_transferred')
       socket.off('dashboard_chat_update')
+      socket.off('operator_message_error')
+      socket.off('message_send_error')
+      socket.off('message_sent_confirmation')
     }
   }, [socket, humanChats, loadChatsFromDatabase])
 

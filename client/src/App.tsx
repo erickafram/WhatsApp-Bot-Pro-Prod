@@ -34,12 +34,82 @@ import './styles/ManagerDashboard.css'
 type PageType = 'landing' | 'login' | 'register' | 'dashboard'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<PageType>(() => {
-    // Verificar se o usuário já estava logado com token válido
-    const authToken = localStorage.getItem('authToken')
-    const userData = localStorage.getItem('user')
-    return (authToken && userData) ? 'dashboard' : 'landing'
-  })
+  const [currentPage, setCurrentPage] = useState<PageType>('landing')
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  // Função global para lidar com logout automático
+  const handleGlobalLogout = () => {
+    console.log('🚪 Fazendo logout automático devido a token expirado')
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setCurrentPage('landing')
+    if (socket) {
+      socket.disconnect()
+      setSocket(null)
+    }
+  }
+
+  // Interceptador global para requisições fetch
+  useEffect(() => {
+    const originalFetch = window.fetch
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args)
+
+      // Se receber 401 e estiver no dashboard, fazer logout automático
+      if (response.status === 401 && currentPage === 'dashboard') {
+        console.error('❌ Token expirado detectado globalmente - fazendo logout')
+        handleGlobalLogout()
+      }
+
+      return response
+    }
+
+    // Cleanup: restaurar fetch original
+    return () => {
+      window.fetch = originalFetch
+    }
+  }, [currentPage])
+
+  // Verificar token válido no início da aplicação
+  useEffect(() => {
+    const checkAuthToken = async () => {
+      const authToken = localStorage.getItem('authToken')
+      const userData = localStorage.getItem('user')
+
+      if (authToken && userData) {
+        try {
+          // Fazer uma requisição simples para verificar se o token ainda é válido
+          const response = await fetch('/api/messages/projects', {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (response.ok) {
+            // Token válido, ir para dashboard
+            setCurrentPage('dashboard')
+          } else if (response.status === 401) {
+            // Token inválido, limpar e ir para landing
+            console.log('🚪 Token inválido detectado no início - limpando sessão')
+            localStorage.removeItem('authToken')
+            localStorage.removeItem('user')
+            setCurrentPage('landing')
+          }
+        } catch (error) {
+          console.error('❌ Erro ao verificar token:', error)
+          setCurrentPage('landing')
+        }
+      } else {
+        setCurrentPage('landing')
+      }
+
+      setIsCheckingAuth(false)
+    }
+
+    checkAuthToken()
+  }, [])
+
   const [socket, setSocket] = useState<any | null>(null)
   const [activeMenu, setActiveMenu] = useState(() => {
     // Definir menu inicial baseado no papel do usuário
@@ -136,7 +206,12 @@ function App() {
     
     // Conectar ao socket apenas se estiver autenticado
     const authToken = localStorage.getItem('authToken')
+    console.log('🔍 Debug - authToken do localStorage:', authToken ? authToken.substring(0, 20) + '...' : 'null');
+    console.log('🔍 Debug - currentPage:', currentPage);
+    console.log('🔍 Debug - Condição para conectar socket:', authToken && currentPage === 'dashboard');
+    
     if (authToken && currentPage === 'dashboard') {
+      console.log('🔍 Conectando socket com token:', authToken ? 'Token presente' : 'Sem token');
       const newSocket = io('http://localhost:3000', {
         forceNew: true,
         transports: ['websocket', 'polling'],
@@ -148,6 +223,19 @@ function App() {
           token: authToken
         }
       })
+      
+      // Log de eventos de conexão
+      newSocket.on('connect', () => {
+        console.log('✅ Socket conectado:', newSocket.id);
+      });
+      
+      newSocket.on('connect_error', (error: any) => {
+        console.error('❌ Erro de conexão do socket:', error);
+      });
+      
+      newSocket.on('disconnect', (reason: any) => {
+        console.log('❌ Socket desconectado:', reason);
+      });
       
       setSocket(newSocket)
       
@@ -414,6 +502,18 @@ function App() {
   }
 
   // Render current page
+  // Mostrar loading enquanto verifica autenticação
+  if (isCheckingAuth) {
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>Verificando autenticação...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (currentPage === 'landing') {
     return <LandingPage onNavigate={handleNavigate} />
   }

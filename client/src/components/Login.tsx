@@ -81,11 +81,14 @@ export default function Login({ onNavigate }: LoginProps) {
       const data = await response.json()
 
       if (response.ok) {
-        // Login bem-sucedido - usar sessionToken
-        localStorage.setItem('authToken', data.sessionToken || data.token)
+        // Login bem-sucedido - usar JWT token para socket
+        const authToken = data.token || data.sessionToken; // Priorizar JWT token
+        localStorage.setItem('authToken', authToken)
         localStorage.setItem('user', JSON.stringify(data.user))
-
-        console.log('✅ Login realizado com sucesso, token salvo:', data.sessionToken?.substring(0, 20) + '...')
+        
+        console.log('✅ Login realizado com sucesso, token salvo:', authToken?.substring(0, 20) + '...')
+        console.log('🔍 Debug Login - sessionToken:', data.sessionToken ? 'presente' : 'ausente');
+        console.log('🔍 Debug Login - token:', data.token ? 'presente' : 'ausente');
 
         // Redirecionar para dashboard independente do role
         onNavigate('dashboard')

@@ -203,6 +203,28 @@ function Templates({ }: TemplatesProps) {
     startPosition: { x: 0, y: 0 }
   })
 
+  // Função para lidar com erros de autenticação
+  const handleAuthError = (response: Response) => {
+    if (response.status === 401) {
+      console.error('❌ Token expirado ou inválido - fazendo logout automático')
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+
+      // Mostrar modal de sessão expirada ao invés de alert
+      const shouldReload = confirm(
+        '🔒 Sua sessão expirou!\n\n' +
+        'Por motivos de segurança, você precisa fazer login novamente.\n\n' +
+        'Clique em OK para ir para a tela de login.'
+      )
+
+      if (shouldReload) {
+        window.location.reload() // Força reload para voltar ao login
+      }
+      return true
+    }
+    return false
+  }
+
   // Função para carregar projetos do banco de dados
   const loadProjectsFromDatabase = async () => {
     try {
@@ -213,7 +235,7 @@ function Templates({ }: TemplatesProps) {
       }
 
       console.log('🔍 Carregando projetos do banco de dados...')
-      
+
       // Buscar projetos do banco
       const response = await fetch('/api/messages/projects', {
         headers: {
@@ -221,6 +243,11 @@ function Templates({ }: TemplatesProps) {
           'Content-Type': 'application/json'
         }
       })
+
+      // Verificar se é erro de autenticação
+      if (handleAuthError(response)) {
+        return
+      }
 
       if (response.ok) {
         const data = await response.json()
@@ -230,7 +257,9 @@ function Templates({ }: TemplatesProps) {
         if (data.projects.length === 0) {
           console.log('🚌 Nenhum projeto encontrado, criando projeto padrão de ônibus...')
           await createDefaultBusProject()
-          return // Recarregará após criar
+          // Recarregar projetos após criar
+          await loadProjectsFromDatabase()
+          return
         }
         
         // Converter formato do banco para formato do frontend
@@ -273,6 +302,25 @@ function Templates({ }: TemplatesProps) {
     try {
       const authToken = localStorage.getItem('authToken')
       if (!authToken) return
+
+      // Verificar se já existe um projeto de ônibus para evitar duplicação
+      const existingCheck = await fetch('/api/messages/projects', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (existingCheck.ok) {
+        const existingData = await existingCheck.json()
+        const busProject = existingData.projects.find((p: any) =>
+          p.name === 'Vendas de Passagem de Ônibus'
+        )
+        if (busProject) {
+          console.log('⚠️ Projeto de ônibus já existe, não criando duplicata')
+          return
+        }
+      }
 
       console.log('🚌 Criando projeto padrão de Vendas de Passagem de Ônibus...')
       
@@ -353,9 +401,8 @@ function Templates({ }: TemplatesProps) {
         }
 
         console.log('🎉 Projeto de ônibus completo criado com sucesso!')
-        
-        // Recarregar projetos para atualizar a interface
-        await loadProjectsFromDatabase()
+
+        // Não recarregar aqui para evitar loop - será recarregado pelo chamador
         
       } else {
         console.error('❌ Erro ao criar projeto de ônibus:', projectResponse.statusText)
@@ -379,6 +426,11 @@ function Templates({ }: TemplatesProps) {
           'Content-Type': 'application/json'
         }
       })
+
+      // Verificar se é erro de autenticação
+      if (handleAuthError(response)) {
+        return
+      }
 
       if (response.ok) {
         const data = await response.json()
@@ -486,8 +538,13 @@ function Templates({ }: TemplatesProps) {
         return
       }
 
+      // Validate template ID
+      if (!updatedTemplate.id || isNaN(Number(updatedTemplate.id))) {
+        throw new Error(`ID do template inválido: ${updatedTemplate.id}`)
+      }
+
       console.log('💾 Salvando alterações do template no banco:', updatedTemplate.id)
-      
+
       const response = await fetch(`/api/messages/messages/${updatedTemplate.id}`, {
         method: 'PUT',
         headers: {
@@ -501,6 +558,11 @@ function Templates({ }: TemplatesProps) {
           order_index: 0 // You may want to track this properly
         })
       })
+
+      // Verificar se é erro de autenticação
+      if (handleAuthError(response)) {
+        throw new Error('Sessão expirada')
+      }
 
       if (response.ok) {
         const data = await response.json()
@@ -1111,6 +1173,7 @@ Posso ajudar com algo mais? 😊`,
       console.log('✅ Código convertido com sucesso')
       console.log('📊 Nós encontrados:', result.nodes.length)
 
+      // First, apply to visual flow
       setFlowState(prev => ({
         ...prev,
         nodes: result.nodes,
@@ -1118,11 +1181,22 @@ Posso ajudar com algo mais? 😊`,
       }))
       setCodeError('')
 
-      // Convert flow nodes to templates and save to database
-      console.log('🔄 Iniciando conversão para templates...')
-      await convertFlowNodesToTemplates(result.nodes)
+      // Ask user if they want to save to database
+      const shouldSave = confirm(
+        '✅ Código aplicado ao fluxo visual!\n\n' +
+        'Deseja salvar as alterações no banco de dados?\n\n' +
+        '⚠️ ATENÇÃO: Isso irá sincronizar os templates com o banco de dados.\n' +
+        'Templates existentes serão atualizados e novos templates serão criados.'
+      )
 
-      alert('✅ Código aplicado com sucesso ao fluxo e salvo no banco de dados!')
+      if (shouldSave) {
+        // Convert flow nodes to templates and save to database
+        console.log('🔄 Sincronizando templates com o banco de dados...')
+        await convertFlowNodesToTemplates(result.nodes)
+        alert('✅ Código aplicado e sincronizado com o banco de dados!')
+      } else {
+        alert('✅ Código aplicado apenas ao fluxo visual!')
+      }
     } catch (error) {
       console.error('❌ Erro ao aplicar código:', error)
       setCodeError(`Erro ao aplicar código: ${error instanceof Error ? error.message : String(error)}`)
@@ -1168,21 +1242,14 @@ Posso ajudar com algo mais? 😊`,
       console.log('📊 Total de nós para processar:', nodes.length)
       console.log('🎯 Usando projeto:', projectToUse)
 
-      // Clear existing templates first (skip deletion, just clear local state)
+      // Get current project templates to check for existing ones
       const currentProject = templateProjects.find(p => p.id === projectToUse)
-      if (currentProject && currentProject.templates.length > 0) {
-        console.log('🗑️ Limpando templates existentes localmente:', currentProject.templates.length)
-        // Just clear local state - new templates will override old ones
-        setTemplateProjects(projects =>
-          projects.map(project =>
-            project.id === projectToUse
-              ? { ...project, templates: [] }
-              : project
-          )
-        )
-      }
+      const existingTemplates = currentProject?.templates || []
+
+      console.log('📋 Templates existentes:', existingTemplates.length)
 
       const newTemplates: AutoTemplate[] = []
+      const updatedTemplates: AutoTemplate[] = []
       let orderIndex = 0
 
       // Convert each message node to a template
@@ -1191,64 +1258,84 @@ Posso ajudar com algo mais? 😊`,
         console.log(`📝 Processando nó: ${node.id} (tipo: ${node.type})`)
 
         if (node.type === 'message' || node.type === 'human') {
-          const template: AutoTemplate = {
-            id: `temp-${Date.now()}-${orderIndex}`, // Temporary ID
-            trigger: node.data.triggers || ['default'],
-            response: node.data.response || node.data.title || 'Resposta padrão',
-            active: node.data.active !== false
-          }
+          // Check if this template already exists by checking node ID or triggers
+          const nodeIdMatch = node.id.replace('template-', '')
+          const existingTemplate = existingTemplates.find(t =>
+            t.id === nodeIdMatch ||
+            (Array.isArray(node.data.triggers) && Array.isArray(t.trigger) &&
+             node.data.triggers.some(trigger => t.trigger.includes(trigger)))
+          )
 
-          console.log(`📋 Template preparado:`, {
-            triggers: template.trigger,
-            response: template.response.substring(0, 50) + '...',
-            active: template.active
-          })
-
-          // Save to database
-          try {
-            console.log(`💾 Salvando template no banco...`)
-            const savedTemplate = await createAutoTemplateInDatabase(template, projectToUse || undefined)
-            console.log('📋 Resposta da API:', savedTemplate)
-
-            // Extract ID from response
-            const newId = savedTemplate.autoMessage?.id || savedTemplate.id
-            if (newId) {
-              template.id = newId.toString()
-              newTemplates.push(template)
-              orderIndex++
-              console.log(`✅ Template criado: ${node.data.title} (ID: ${template.id})`)
-            } else {
-              console.error('❌ ID não encontrado na resposta da API:', savedTemplate)
-              // Use temporary ID as fallback
-              template.id = `temp-${Date.now()}-${orderIndex}`
-              newTemplates.push(template)
-              orderIndex++
-              console.log(`⚠️ Template criado com ID temporário: ${node.data.title} (ID: ${template.id})`)
+          if (existingTemplate) {
+            // Update existing template
+            console.log(`🔄 Atualizando template existente: ${existingTemplate.id}`)
+            const updatedTemplate: AutoTemplate = {
+              ...existingTemplate,
+              trigger: node.data.triggers || existingTemplate.trigger,
+              response: node.data.response || node.data.title || existingTemplate.response,
+              active: node.data.active !== false
             }
-          } catch (error) {
-            console.error(`❌ Erro ao criar template ${node.data.title}:`, error)
-            alert(`❌ Erro ao criar template "${node.data.title}": ${error instanceof Error ? error.message : String(error)}`)
+
+            try {
+              await updateAutoTemplateInDatabase(updatedTemplate)
+              updatedTemplates.push(updatedTemplate)
+              console.log(`✅ Template atualizado: ${existingTemplate.id}`)
+            } catch (error) {
+              console.error(`❌ Erro ao atualizar template ${existingTemplate.id}:`, error)
+            }
+          } else {
+            // Create new template only if it doesn't exist
+            console.log(`➕ Criando novo template para nó: ${node.id}`)
+            const template: AutoTemplate = {
+              id: `temp-${Date.now()}-${orderIndex}`, // Temporary ID
+              trigger: node.data.triggers || ['default'],
+              response: node.data.response || node.data.title || 'Resposta padrão',
+              active: node.data.active !== false
+            }
+
+            console.log(`📋 Template preparado:`, {
+              triggers: template.trigger,
+              response: template.response.substring(0, 50) + '...',
+              active: template.active
+            })
+
+            // Save to database
+            try {
+              console.log(`💾 Salvando novo template no banco...`)
+              const savedTemplate = await createAutoTemplateInDatabase(template, projectToUse || undefined)
+              console.log('📋 Resposta da API:', savedTemplate)
+
+              // Extract ID from response
+              const newId = savedTemplate.autoMessage?.id || savedTemplate.id
+              if (newId) {
+                template.id = newId.toString()
+                newTemplates.push(template)
+                orderIndex++
+                console.log(`✅ Template criado: ${node.data.title} (ID: ${template.id})`)
+              } else {
+                console.error('❌ ID não encontrado na resposta da API:', savedTemplate)
+                // Use temporary ID as fallback
+                template.id = `temp-${Date.now()}-${orderIndex}`
+                newTemplates.push(template)
+                orderIndex++
+                console.log(`⚠️ Template criado com ID temporário: ${node.data.title} (ID: ${template.id})`)
+              }
+            } catch (error) {
+              console.error(`❌ Erro ao criar template ${node.data.title}:`, error)
+              alert(`❌ Erro ao criar template "${node.data.title}": ${error instanceof Error ? error.message : String(error)}`)
+            }
           }
         } else {
           console.log(`⏭️ Nó ${node.id} ignorado (tipo: ${node.type})`)
         }
       }
 
-      // Update local state
-      setTemplateProjects(projects =>
-        projects.map(project =>
-          project.id === projectToUse
-            ? { ...project, templates: newTemplates }
-            : project
-        )
-      )
-
       // Reload templates from database to ensure consistency
       if (projectToUse && !isNaN(Number(projectToUse))) {
         await loadProjectTemplates(parseInt(projectToUse))
       }
 
-      console.log(`✅ ${newTemplates.length} templates convertidos e salvos!`)
+      console.log(`✅ ${newTemplates.length} novos templates criados, ${updatedTemplates.length} templates atualizados!`)
 
     } catch (error) {
       console.error('❌ Erro ao converter fluxo em templates:', error)
@@ -1382,157 +1469,265 @@ Posso ajudar com algo mais? 😊`,
     setCodeError('')
   }
 
-  // Load corrected flow code (only message and human types)
+  // Load Bus Ticket Sales Flow - Exact structure as requested
   const loadExampleFlow = () => {
-    const exampleFlow = {
-      metadata: {
-        version: "1.2",
-        created: new Date().toISOString(),
-        description: "Fluxo Viação Tocantins - Coleta sequencial (CORRIGIDO)"
+    const busFlow = {
+      "metadata": {
+        "version": "1.0",
+        "created": new Date().toISOString(),
+        "description": "Fluxo de conversação automática"
       },
-      nodes: [
+      "nodes": [
         {
-          id: "start-1",
-          type: "start",
-          position: { x: 50, y: 50 },
-          data: {
-            title: "Início",
-            description: "Usuário inicia conversa"
+          "id": "start-1",
+          "type": "start",
+          "position": {
+            "x": 50,
+            "y": 50
           },
-          connections: ["template-41"]
+          "data": {
+            "title": "Início",
+            "description": "Usuário inicia conversa"
+          },
+          "connections": [
+            "template-bus-welcome"
+          ]
         },
         {
-          id: "template-41",
-          type: "message",
-          position: { x: 50, y: 150 },
-          data: {
-            title: "Boas-vindas",
-            triggers: ["oi", "olá", "menu", "dia", "tarde", "noite", "bom dia", "boa tarde", "boa noite"],
-            response: "🚌 Olá! Bem-vindo à *Viação Tocantins*!\n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 👨‍💼 Falar com Operador\n\nDigite o número da opção desejada! 😊",
-            active: true
+          "id": "template-bus-welcome",
+          "type": "message",
+          "position": {
+            "x": 50,
+            "y": 150
           },
-          connections: ["template-42", "template-43", "template-44"]
+          "data": {
+            "title": "Boas-vindas",
+            "triggers": [
+              "oi",
+              "olá",
+              "menu",
+              "dia",
+              "tarde",
+              "noite",
+              "bom dia",
+              "boa tarde",
+              "boa noite"
+            ],
+            "response": "🚌 Olá! {name} Bem-vindo à *Viação Palmas*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários  \n*3* - 👨‍💼 Falar com Operador\n\nDigite o número da opção desejada! 😊",
+            "active": true
+          },
+          "connections": [
+            "template-bus-buy-ticket",
+            "template-bus-schedules",
+            "template-bus-operator"
+          ]
         },
         {
-          id: "template-42",
-          type: "message",
-          position: { x: 300, y: 100 },
-          data: {
-            title: "Opção 1 - Comprar Passagem",
-            triggers: ["1", "comprar", "passagem", "bilhete"],
-            response: "🎫 *COMPRAR PASSAGEM*\n\nNossa origem é sempre: *Palmas - TO* 🏙️\n\nPara qual cidade você gostaria de viajar?\n\n*Cidades disponíveis:*\n• São Luís - MA\n• Imperatriz - MA\n• Brasília - DF\n• Goiânia - GO\n• Araguaína - TO\n• Gurupi - TO\n• Porto Nacional - TO\n• Paraíso do Tocantins - TO\n• Colinas do Tocantins - TO\n• Barreiras - BA\n• Luís Eduardo Magalhães - BA\n• Teresina - PI\n• Parnaíba - PI\n\nDigite o nome da cidade de destino! ✈️",
-            active: true
+          "id": "template-bus-buy-ticket",
+          "type": "message",
+          "position": {
+            "x": 300,
+            "y": 100
           },
-          connections: ["template-45"]
+          "data": {
+            "title": "Opção 1 - Comprar Passagem",
+            "triggers": [
+              "1",
+              "comprar",
+              "passagem",
+              "bilhete"
+            ],
+            "response": "🎫 *COMPRAR PASSAGEM*\n\nNossa origem é sempre: *Palmas - TO* 🏙️\n\nPara qual cidade você gostaria de viajar?\n\n*Cidades disponíveis:*\n• São Luís - MA\n• Imperatriz - MA  \n• Brasília - DF\n• Goiânia - GO\n• Araguaína - TO\n• Gurupi - TO\n• Porto Nacional - TO\n• Paraíso do Tocantins - TO\n• Colinas do Tocantins - TO\n• Barreiras - BA\n• Luís Eduardo Magalhães - BA\n• Teresina - PI\n• Parnaíba - PI\n\nDigite o nome da cidade de destino! ✈️",
+            "active": true
+          },
+          "connections": [
+            "template-bus-city-available",
+            "template-bus-city-not-available"
+          ]
         },
         {
-          id: "template-43",
-          type: "message",
-          position: { x: 500, y: 100 },
-          data: {
-            title: "Opção 2 - Ver Horários",
-            triggers: ["2", "horários", "horario", "hora"],
-            response: "🕐 *HORÁRIOS DE SAÍDA*\n\n*Saídas de Palmas - TO:*\n\n🌅 *Manhã*\n• 06:00 - Destinos: Brasília, Goiânia\n• 07:30 - Destinos: São Luís, Imperatriz\n• 08:00 - Destinos: Araguaína, Gurupi\n\n🌞 *Tarde*\n• 14:00 - Destinos: Teresina, Parnaíba\n• 15:30 - Destinos: Barreiras, L.E. Magalhães\n• 16:00 - Destinos: Porto Nacional, Paraíso\n\n🌙 *Noite*\n• 20:00 - Destinos: Brasília, Goiânia\n• 21:30 - Destinos: São Luís, Imperatriz\n• 22:00 - Destinos: Colinas do Tocantins\n\nPara comprar sua passagem, digite *1*! 🎫",
-            active: true
+          "id": "template-bus-schedules",
+          "type": "message",
+          "position": {
+            "x": 500,
+            "y": 100
           },
-          connections: ["end-1"]
+          "data": {
+            "title": "Opção 2 - Ver Horários",
+            "triggers": [
+              "2",
+              "horários",
+              "horario",
+              "hora"
+            ],
+            "response": "🕐 *HORÁRIOS DE SAÍDA*\n\n*Saídas de Palmas - TO:*\n\n🌅 *Manhã*\n• 06:00 - Destinos: Brasília, Goiânia\n• 07:30 - Destinos: São Luís, Imperatriz  \n• 08:00 - Destinos: Araguaína, Gurupi\n\n🌞 *Tarde*  \n• 14:00 - Destinos: Teresina, Parnaíba\n• 15:30 - Destinos: Barreiras, L.E. Magalhães\n• 16:00 - Destinos: Porto Nacional, Paraíso\n\n🌙 *Noite*\n• 20:00 - Destinos: Brasília, Goiânia\n• 21:30 - Destinos: São Luís, Imperatriz\n• 22:00 - Destinos: Colinas do Tocantins\n\nPara comprar sua passagem, digite *1*! 🎫",
+            "active": true
+          },
+          "connections": [
+            "end-1"
+          ]
         },
         {
-          id: "template-44",
-          type: "human",
-          position: { x: 50, y: 300 },
-          data: {
-            title: "Atendimento Humano",
-            triggers: ["3", "operador", "atendente", "humano", "pessoa"],
-            response: "👨‍💼 *FALAR COM OPERADOR*\n\n🙋‍♀️ Entendi que você gostaria de falar com um de nossos operadores!\n\nVou transferir você para nossa equipe de atendimento especializada em vendas de passagens.\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato!\n\nObrigado pela preferência! 🚌✨",
-            active: true
+          "id": "template-bus-operator",
+          "type": "human",
+          "position": {
+            "x": 50,
+            "y": 300
           },
-          connections: []
+          "data": {
+            "title": "Atendimento Humano",
+            "triggers": [
+              "3",
+              "operador",
+              "atendente",
+              "humano",
+              "pessoa"
+            ],
+            "response": "👨‍💼 *FALAR COM OPERADOR*\n\n🙋‍♀️ Entendi que você gostaria de falar com um de nossos operadores!\n\nVou transferir você para nossa equipe de atendimento especializada em vendas de passagens.\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h  \nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato! \n\nObrigado pela preferência! 🚌✨",
+            "active": true
+          },
+          "connections": []
         },
         {
-          id: "template-45",
-          type: "message",
-          position: { x: 50, y: 400 },
-          data: {
-            title: "Solicitar Nome",
-            triggers: ["teresina", "são luís", "sao luis", "imperatriz", "brasília", "brasilia", "goiânia", "goiania", "araguaína", "araguaina", "gurupi", "porto nacional", "paraíso", "paraiso", "colinas", "barreiras", "luís eduardo", "luis eduardo", "parnaíba", "parnaiba"],
-            response: "✅ Excelente escolha! Temos passagens para seu destino!\n\n🎫 *Informações da Viagem:*\n📍 Origem: Palmas - TO\n📍 Destino: {cidade_escolhida}\n\n👤 *PASSO 1 de 4*\n\nPor favor, digite seu *nome completo*:",
-            active: true
+          "id": "template-bus-city-available",
+          "type": "condition",
+          "position": {
+            "x": 50,
+            "y": 400
           },
-          connections: ["collect-phone"]
+          "data": {
+            "title": "Cidade Disponível",
+            "triggers": [
+              "CIDADE_DISPONIVEL"
+            ],
+            "response": "✅ *Excelente escolha! Temos passagens para {CIDADE_NOME}!*\n\n🎫 *Informações da Viagem:*\n📍 Origem: Palmas - TO\n📍 Destino: {CIDADE_NOME}\n🕐 Horários disponíveis: Consulte digitando *2*\n\nPara finalizar sua compra, preciso de algumas informações:\n\n👤 *Nome completo*\n📱 *Telefone para contato*  \n📅 *Data da viagem desejada*\n🆔 *CPF*\n\nOu se preferir, fale com nosso operador digitando *3*! \n\nVamos prosseguir? 😊🚌",
+            "active": true
+          },
+          "connections": [
+            "end-1"
+          ]
         },
         {
-          id: "collect-phone",
-          type: "human",
-          position: { x: 250, y: 500 },
-          data: {
-            title: "Coletar Dados e Transferir",
-            triggers: ["*"],
-            response: "✅ Nome registrado com sucesso!\n\n📋 *COLETA DE DADOS COMPLETA*\n\nAgora vou transferir você para nosso operador que coletará:\n📱 Seu telefone para contato\n📅 Data da viagem desejada\n🆔 Seu CPF\n\nE finalizará sua compra com as informações de pagamento!\n\n⏰ *Em alguns instantes um operador especializado entrará em contato!*\n\nObrigado pela preferência na *Viação Tocantins*! 🚌✨",
-            active: true
+          "id": "template-bus-city-not-available",
+          "type": "condition",
+          "position": {
+            "x": 300,
+            "y": 400
           },
-          connections: []
+          "data": {
+            "title": "Cidade Não Disponível",
+            "triggers": [
+              "CIDADE_NAO_DISPONIVEL"
+            ],
+            "response": "❌ *Infelizmente não temos passagens para {CIDADE_NOME}*\n\nMas não se preocupe! Você pode adquirir passagens para essa cidade através de outras viações parceiras:\n\n🚌 *Viações Recomendadas:*\n• Expresso Guanabara\n• Viação Útil  \n• Real Expresso\n• Eucatur\n\nOu consulte nossos destinos disponíveis digitando *1*! \n\n*Destinos que atendemos:*\nSão Luís, Imperatriz, Brasília, Goiânia, Araguaína, Gurupi, Porto Nacional, Paraíso do Tocantins, Colinas do Tocantins, Barreiras, Luís Eduardo Magalhães, Teresina e Parnaíba! \n\nPosso ajudar com algo mais? 😊",
+            "active": true
+          },
+          "connections": [
+            "end-1"
+          ]
         },
         {
-          id: "end-1",
-          type: "end",
-          position: { x: 650, y: 250 },
-          data: {
-            title: "Fim",
-            description: "Conversa finalizada"
+          "id": "end-1",
+          "type": "end",
+          "position": {
+            "x": 650,
+            "y": 250
           },
-          connections: []
+          "data": {
+            "title": "Fim",
+            "description": "Conversa finalizada"
+          },
+          "connections": []
         }
       ],
-      connections: [
-        { id: "start-1-template-41", source: "start-1", target: "template-41" },
-        { id: "template-41-template-42", source: "template-41", target: "template-42" },
-        { id: "template-41-template-43", source: "template-41", target: "template-43" },
-        { id: "template-41-template-44", source: "template-41", target: "template-44" },
-        { id: "template-42-template-45", source: "template-42", target: "template-45" },
-        { id: "template-43-end-1", source: "template-43", target: "end-1" },
-        { id: "template-45-collect-phone", source: "template-45", target: "collect-phone" }
+      "connections": [
+        {
+          "id": "start-1-template-bus-welcome",
+          "source": "start-1",
+          "target": "template-bus-welcome"
+        },
+        {
+          "id": "template-bus-welcome-template-bus-buy-ticket",
+          "source": "template-bus-welcome",
+          "target": "template-bus-buy-ticket"
+        },
+        {
+          "id": "template-bus-welcome-template-bus-schedules",
+          "source": "template-bus-welcome",
+          "target": "template-bus-schedules"
+        },
+        {
+          "id": "template-bus-welcome-template-bus-operator",
+          "source": "template-bus-welcome",
+          "target": "template-bus-operator"
+        },
+        {
+          "id": "template-bus-buy-ticket-template-bus-city-available",
+          "source": "template-bus-buy-ticket",
+          "target": "template-bus-city-available"
+        },
+        {
+          "id": "template-bus-buy-ticket-template-bus-city-not-available",
+          "source": "template-bus-buy-ticket",
+          "target": "template-bus-city-not-available"
+        },
+        {
+          "id": "template-bus-schedules-end-1",
+          "source": "template-bus-schedules",
+          "target": "end-1"
+        },
+        {
+          "id": "template-bus-city-available-end-1",
+          "source": "template-bus-city-available",
+          "target": "end-1"
+        },
+        {
+          "id": "template-bus-city-not-available-end-1",
+          "source": "template-bus-city-not-available",
+          "target": "end-1"
+        }
       ]
     }
 
-    const code = JSON.stringify(exampleFlow, null, 2)
+    const code = JSON.stringify(busFlow, null, 2)
     setFlowCode(code)
     setCodeError('')
   }
 
+  // DISABLED: Auto-save was causing template duplication on page refresh
   // Auto-save message projects to database when they change
-  useEffect(() => {
-    const saveProjectsToDatabase = async () => {
-      // Only save if we have projects and a selected project that's not default
-      if (templateProjects.length > 0 && selectedProject && selectedProject !== 'default') {
-        const currentProject = templateProjects.find((p: TemplateProject) => p.id === selectedProject)
-        if (currentProject && currentProject.templates.length > 0) {
-          try {
-            console.log('💾 Salvamento automático do projeto:', currentProject.name)
-            
-            // Save each template that might have been modified
-            for (const template of currentProject.templates) {
-              // Check if template exists in database (has numeric ID)
-              if (!isNaN(Number(template.id))) {
-                await updateAutoTemplateInDatabase(template)
-              }
-            }
-            
-            console.log('✅ Salvamento automático concluído')
-          } catch (error) {
-            console.error('❌ Erro no salvamento automático:', error)
-          }
-        }
-      }
-    }
+  // useEffect(() => {
+  //   const saveProjectsToDatabase = async () => {
+  //     // Only save if we have projects and a selected project that's not default
+  //     if (templateProjects.length > 0 && selectedProject && selectedProject !== 'default') {
+  //       const currentProject = templateProjects.find((p: TemplateProject) => p.id === selectedProject)
+  //       if (currentProject && currentProject.templates.length > 0) {
+  //         try {
+  //           console.log('💾 Salvamento automático do projeto:', currentProject.name)
+  //
+  //           // Save each template that might have been modified
+  //           for (const template of currentProject.templates) {
+  //             // Check if template exists in database (has numeric ID)
+  //             if (!isNaN(Number(template.id))) {
+  //               await updateAutoTemplateInDatabase(template)
+  //             }
+  //           }
+  //
+  //           console.log('✅ Salvamento automático concluído')
+  //         } catch (error) {
+  //           console.error('❌ Erro no salvamento automático:', error)
+  //         }
+  //       }
+  //     }
+  //   }
 
-    // Debounce the save operation to avoid too many requests
-    const timeoutId = setTimeout(() => {
-      saveProjectsToDatabase()
-    }, 2000) // Save 2 seconds after the last change
+  //   // Debounce the save operation to avoid too many requests
+  //   const timeoutId = setTimeout(() => {
+  //     saveProjectsToDatabase()
+  //   }, 2000) // Save 2 seconds after the last change
 
-    return () => clearTimeout(timeoutId)
-      }, [templateProjects, selectedProject])
+  //   return () => clearTimeout(timeoutId)
+  //     }, [templateProjects, selectedProject])
 
   // Auto scroll to bottom when new messages are added
   useEffect(() => {
@@ -1764,6 +1959,12 @@ Posso ajudar com algo mais? 😊`,
       }
 
       const targetProject = projectId || selectedProject
+
+      // Validate project ID
+      if (!targetProject || targetProject === 'default' || isNaN(Number(targetProject))) {
+        throw new Error(`ID do projeto inválido: ${targetProject}`)
+      }
+
       console.log('💾 Criando template no banco para projeto:', targetProject)
 
       const response = await fetch(`/api/messages/projects/${targetProject}/messages`, {
@@ -1779,6 +1980,11 @@ Posso ajudar com algo mais? 😊`,
           order_index: 0
         })
       })
+
+      // Verificar se é erro de autenticação
+      if (handleAuthError(response)) {
+        throw new Error('Sessão expirada')
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -2477,29 +2683,7 @@ Posso ajudar com algo mais? 😊`,
                           <Sparkles size={16} />
                           Exemplo
                         </button>
-                        <button
-                          className="btn-modern btn-secondary"
-                          onClick={async () => {
-                            try {
-                              const testTemplate = {
-                                id: 'test-' + Date.now(),
-                                trigger: ['teste', 'debug'],
-                                response: 'Este é um template de teste criado via debug!',
-                                active: true
-                              }
-                              console.log('🧪 Testando criação de template:', testTemplate)
-                              const result = await createAutoTemplateInDatabase(testTemplate)
-                              console.log('✅ Resultado do teste:', result)
-                              alert('Template de teste criado com sucesso! Verifique o console.')
-                            } catch (error) {
-                              console.error('❌ Erro no teste:', error)
-                              alert('Erro no teste: ' + (error instanceof Error ? error.message : String(error)))
-                            }
-                          }}
-                          title="Testar criação de template"
-                        >
-                          🧪 Debug
-                        </button>
+
                         <button
                           className="btn-modern btn-success"
                           onClick={applyCodeChanges}
