@@ -20,6 +20,7 @@ const User_1 = require("./models/User");
 const WhatsAppInstance_1 = require("./models/WhatsAppInstance");
 const MessageProject_1 = require("./models/MessageProject");
 const Message_1 = require("./models/Message");
+const UserSession_1 = require("./models/UserSession");
 // Importar rotas
 const auth_1 = __importDefault(require("./routes/auth"));
 const users_1 = __importDefault(require("./routes/users"));
@@ -216,8 +217,30 @@ async function initializeWhatsAppClient(managerId, instanceId) {
                     phone_number: phoneNumber,
                     name: contactName
                 });
-                // Verificar se existe chat humano ativo
-                const activeChat = await Message_1.HumanChatModel.findActiveByContact(dbContact.id);
+                // Verificar se existe chat humano para este contato (qualquer status)
+                let activeChat = await Message_1.HumanChatModel.findAnyByContact(dbContact.id);
+                // Se existe chat encerrado/resolvido, reabrir como pendente
+                if (activeChat && (activeChat.status === 'finished' || activeChat.status === 'resolved')) {
+                    const updateQuery = `
+                        UPDATE human_chats 
+                        SET status = 'pending', updated_at = NOW(), operator_id = NULL, assigned_to = NULL
+                        WHERE id = ?
+                    `;
+                    await (0, database_1.executeQuery)(updateQuery, [activeChat.id]);
+                    activeChat.status = 'pending';
+                    activeChat.operator_id = null;
+                    activeChat.assigned_to = null;
+                    console.log(`🔄 Chat ${activeChat.id} REABERTO automaticamente - Status: finished/resolved → pending`);
+                    // Emitir evento para dashboard sobre conversa reaberta
+                    io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
+                        type: 'chat_reopened',
+                        chatId: activeChat.id,
+                        customerName: contactName,
+                        customerPhone: phoneNumber,
+                        message: 'Conversa reaberta - cliente enviou nova mensagem',
+                        timestamp: new Date()
+                    });
+                }
                 // Salvar mensagem recebida no banco
                 const savedMessage = await Message_1.MessageModel.create({
                     manager_id: managerId,
@@ -237,9 +260,12 @@ async function initializeWhatsAppClient(managerId, instanceId) {
                     contact_name: contactName,
                     message_id: savedMessage.id
                 });
-                // Se existe chat humano ativo, não processar mensagens automáticas
-                if (activeChat) {
-                    console.log(`👤 Mensagem redirecionada para chat humano - ID: ${activeChat.id}`);
+                // Verificar se chat está ativo (não encerrado) para desativar bot
+                const isChatActive = activeChat && ['pending', 'active', 'waiting_payment', 'transfer_pending'].includes(activeChat.status);
+                // Se existe chat ativo, não processar mensagens automáticas
+                if (isChatActive) {
+                    console.log(`👤 Mensagem redirecionada para chat humano - ID: ${activeChat.id} (Status: ${activeChat.status})`);
+                    console.log(`🤖 CHATBOT DESATIVADO - Operador/Gestor está no controle`);
                     // Emitir mensagem para o chat humano
                     const customerMessageData = {
                         chatId: phoneNumber + '@c.us',
@@ -261,7 +287,7 @@ async function initializeWhatsAppClient(managerId, instanceId) {
                         timestamp: new Date()
                     });
                     console.log(`📊 Evento dashboard_chat_update emitido para gestor ${managerId}`);
-                    return; // Não processar mensagens automáticas
+                    return; // 🚨 NÃO PROCESSAR MENSAGENS AUTOMÁTICAS - BOT DESATIVADO
                 }
                 // Buscar projeto padrão do gestor no banco de dados
                 console.log(`🔍 Buscando projeto padrão para gestor ${managerId}`);
@@ -710,6 +736,30 @@ Aguarde um momento... 🚌✨`;
         if (messageProcessed) {
             console.log(`🏙️ Mensagem de cidade processada para ${msg.from}`);
         }
+        else {
+            // 🚨 FALLBACK AUTOMÁTICO: Se não há correspondência, transferir para operador
+            console.log(`🔄 Nenhuma correspondência encontrada para "${msg.body}". Transferindo automaticamente para operador...`);
+            const fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
+
+🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe de atendimento poderá ajudá-lo melhor.
+
+⏰ *Horário de Atendimento:*
+Segunda a Sexta: 6h às 22h
+Sábado: 6h às 18h  
+Domingo: 8h às 20h
+
+Em alguns instantes um operador entrará em contato! 
+
+Obrigado pela preferência! 🚌✨`;
+            // Enviar mensagem de fallback e transferir automaticamente
+            if (client && instanceData.isReady) {
+                await client.sendMessage(msg.from, fallbackResponse);
+                await delay(1000);
+                console.log(`🤖 Resposta de fallback enviada para ${msg.from}`);
+                // Transferir automaticamente para atendimento humano
+                await transferToHuman(managerId, msg, fallbackResponse);
+            }
+        }
     }
 }
 // Função para transferir conversa para atendimento humano
@@ -726,14 +776,58 @@ async function transferToHuman(managerId, msg, botResponse) {
             phone_number: phoneNumber,
             name: contactName
         });
-        // 🗄️ CRIAR CHAT HUMANO NO BANCO
-        const humanChat = await Message_1.HumanChatModel.create({
-            manager_id: managerId,
-            contact_id: dbContact.id,
-            status: 'pending',
-            transfer_reason: 'Solicitação do cliente'
-        });
-        console.log(`💾 Chat humano criado no banco - ID: ${humanChat.id}`);
+        // 🔍 VERIFICAR SE JÁ EXISTE CHAT HUMANO PARA ESTE CONTATO (QUALQUER STATUS)
+        let humanChat;
+        try {
+            const existingChatQuery = `
+                SELECT * FROM human_chats 
+                WHERE contact_id = ? AND manager_id = ? 
+                ORDER BY created_at DESC 
+                LIMIT 1
+            `;
+            const [existingChats] = await (0, database_1.executeQuery)(existingChatQuery, [dbContact.id, managerId]);
+            if (existingChats && existingChats.length > 0) {
+                // Reutilizar chat existente (SEMPRE)
+                humanChat = existingChats[0];
+                // Se chat estava encerrado/resolvido, reabrir como pendente
+                if (humanChat.status === 'finished' || humanChat.status === 'resolved') {
+                    const updateQuery = `
+                        UPDATE human_chats 
+                        SET status = 'pending', updated_at = NOW(), operator_id = NULL, assigned_to = NULL
+                        WHERE id = ?
+                    `;
+                    await (0, database_1.executeQuery)(updateQuery, [humanChat.id]);
+                    humanChat.status = 'pending';
+                    humanChat.operator_id = null;
+                    humanChat.assigned_to = null;
+                    console.log(`🔄 Chat ${humanChat.id} REABERTO - Status: ${humanChat.status} → pending`);
+                }
+                else {
+                    console.log(`♻️ Reutilizando chat humano existente - ID: ${humanChat.id} (Status: ${humanChat.status})`);
+                }
+            }
+            else {
+                // Criar novo chat humano apenas se não existir nenhum
+                humanChat = await Message_1.HumanChatModel.create({
+                    manager_id: managerId,
+                    contact_id: dbContact.id,
+                    status: 'pending',
+                    transfer_reason: 'Solicitação do cliente'
+                });
+                console.log(`💾 Novo chat humano criado no banco - ID: ${humanChat.id}`);
+            }
+        }
+        catch (error) {
+            console.error('❌ Erro ao verificar/criar chat humano:', error);
+            // Fallback: criar novo chat
+            humanChat = await Message_1.HumanChatModel.create({
+                manager_id: managerId,
+                contact_id: dbContact.id,
+                status: 'pending',
+                transfer_reason: 'Solicitação do cliente'
+            });
+            console.log(`💾 Chat humano criado (fallback) - ID: ${humanChat.id}`);
+        }
         // 🔗 VINCULAR MENSAGENS ANTERIORES AO CHAT HUMANO
         try {
             const updateQuery = `
@@ -793,6 +887,30 @@ async function transferToHuman(managerId, msg, botResponse) {
         console.log(`📤 Emitindo evento human_chat_requested para gestor ${managerId}:`, eventData);
         // Emitir para o gestor específico
         io.to(`manager_${managerId}`).emit('human_chat_requested', eventData);
+        // 🚨 ALERTAS INSTANTÂNEOS PARA DASHBOARD
+        // Enviar alerta para dashboard do gestor
+        io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
+            type: 'new_conversation',
+            title: '🔔 Nova Conversa Pendente',
+            message: `${contactName} solicitou atendimento`,
+            priority: 'high',
+            chatId: humanChat.id,
+            customerName: contactName,
+            customerPhone: phoneNumber,
+            timestamp: new Date()
+        });
+        // Enviar alerta para todos os operadores do gestor
+        io.to(`manager_${managerId}`).emit('operator_instant_alert', {
+            type: 'new_pending_chat',
+            title: '🔔 Nova Conversa Disponível',
+            message: `${contactName} precisa de atendimento`,
+            priority: 'high',
+            chatId: humanChat.id,
+            customerName: contactName,
+            customerPhone: phoneNumber,
+            timestamp: new Date()
+        });
+        console.log(`🚨 Alertas instantâneos enviados para dashboards do gestor ${managerId}`);
         // Emitir evento para atualizar dashboard com nova conversa
         io.to(`manager_${managerId}`).emit('dashboard_chat_update', {
             type: 'new_chat',
@@ -903,20 +1021,38 @@ io.on('connection', async (socket) => {
         console.log(`🔍 Debug Token - Token recebido: ${token ? 'Sim' : 'Não'}`);
         console.log(`🔍 Debug Token - Token completo (primeiros 20 chars): ${token ? token.substring(0, 20) + '...' : 'null'}`);
         if (token) {
-            const payload = User_1.UserModel.verifyToken(token);
-            console.log(`🔍 Debug Token - Payload decodificado:`, payload);
-            if (payload && payload.id) {
-                authenticatedUser = await User_1.UserModel.findById(payload.id);
+            // Primeiro, tentar como session token (novo sistema)
+            const session = await UserSession_1.UserSessionModel.findByToken(token);
+            if (session && await UserSession_1.UserSessionModel.isValidSession(token)) {
+                // Token de sessão válido - buscar usuário
+                authenticatedUser = await User_1.UserModel.findById(session.user_id);
                 if (authenticatedUser) {
-                    console.log(`🔑 Socket autenticado para usuário: ${authenticatedUser.name} (ID: ${authenticatedUser.id}, Role: ${authenticatedUser.role})`);
+                    console.log(`🔑 Socket autenticado via SESSION TOKEN para usuário: ${authenticatedUser.name} (ID: ${authenticatedUser.id}, Role: ${authenticatedUser.role})`);
+                    // Atualizar timestamp da sessão
+                    await UserSession_1.UserSessionModel.updateActivity(token);
                 }
                 else {
-                    console.log(`❌ Usuário não encontrado no banco: ID ${payload.id}`);
+                    console.log(`❌ Usuário não encontrado no banco: ID ${session.user_id}`);
                 }
             }
             else {
-                console.log(`❌ Token inválido ou expirado`);
-                console.log(`🔍 Payload retornado:`, payload);
+                // Se não for session token, tentar como JWT (sistema antigo/fallback)
+                const payload = User_1.UserModel.verifyToken(token);
+                console.log(`🔍 Debug Token - Tentando como JWT - Payload decodificado:`, payload);
+                if (payload && payload.id) {
+                    authenticatedUser = await User_1.UserModel.findById(payload.id);
+                    if (authenticatedUser) {
+                        console.log(`🔑 Socket autenticado via JWT TOKEN para usuário: ${authenticatedUser.name} (ID: ${authenticatedUser.id}, Role: ${authenticatedUser.role})`);
+                    }
+                    else {
+                        console.log(`❌ Usuário não encontrado no banco: ID ${payload.id}`);
+                    }
+                }
+                else {
+                    console.log(`❌ Token inválido (nem session nem JWT válido)`);
+                    console.log(`🔍 Session encontrada:`, session ? 'Sim' : 'Não');
+                    console.log(`🔍 Session válida:`, session ? await UserSession_1.UserSessionModel.isValidSession(token) : 'N/A');
+                }
             }
         }
         else {
@@ -926,7 +1062,6 @@ io.on('connection', async (socket) => {
     }
     catch (error) {
         console.error('❌ Erro na autenticação do socket:', error);
-        console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'Stack não disponível');
     }
     // Evento para entrar em sala do gestor
     socket.on('join_manager_room', (managerId) => {

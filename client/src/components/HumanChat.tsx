@@ -145,6 +145,20 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
   }
 
+  // Função para obter texto amigável do status
+  const getStatusText = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'pending': 'Pendente',
+      'active': 'Ativo',
+      'waiting_payment': 'Aguardando Pagamento',
+      'paid': 'Pago',
+      'finished': 'Encerrado',
+      'resolved': 'Resolvido',
+      'transfer_pending': 'Transferência Pendente'
+    }
+    return statusMap[status] || status
+  }
+
   // Função para carregar chats do banco de dados
   const loadChatsFromDatabase = async () => {
     try {
@@ -705,7 +719,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       timestamp: Date
       messages: any[]
     }) => {
-      console.log('🔔 Nova solicitação de chat humano via socket:', data)
+      
       
       // Verificar se o chat já existe localmente
       const existingChat = humanChats.find(chat => chat.contactNumber === data.customerPhone)
@@ -741,8 +755,50 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
         loadChatsFromDatabase()
       }
       
-      // Notificação sonora ou visual
+      // Notificações instantâneas e alertas visuais
       console.log('🔔 Nova solicitação de atendimento humano:', data.customerName)
+      
+      // Som de notificação (se disponível)
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOJ=')
+        audio.volume = 0.3
+        audio.play().catch(() => {})
+      } catch (error) {
+        // Ignorar erro do som
+      }
+      
+      // Alerta visual instantâneo - Notificação do browser
+      if (!existingChat) {
+        // Nova conversa
+        showNotification(
+          '🔔 Nova Conversa!',
+          `${data.customerName} solicitou atendimento`,
+          data.chatId
+        )
+        
+        // Fazer a página piscar ou chamar atenção
+        if (document.title.indexOf('🔔') === -1) {
+          document.title = '🔔 Nova Conversa! - ' + document.title
+          
+          // Remover o indicador após 10 segundos
+          setTimeout(() => {
+            document.title = document.title.replace('🔔 Nova Conversa! - ', '')
+          }, 10000)
+        }
+      } else {
+        // Conversa existente com nova mensagem
+        showNotification(
+          '💬 Nova Mensagem',
+          `${data.customerName}: nova atividade`,
+          existingChat.id
+        )
+      }
+      
+      // Alerta de callback para o dashboard (se existir)
+      if (onUnreadCountChange) {
+        const totalUnread = humanChats.reduce((total, chat) => total + (chat.unreadCount || 0), 0) + 1
+        onUnreadCountChange(totalUnread)
+      }
     })
 
     // Listener para mensagens do operador salvas
@@ -1088,6 +1144,8 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 >
                   <div className="chat-avatar-compact">
                     <Users size={14} />
+                    {/* Status indicator circle */}
+                    <div className={`status-circle status-${chat.status}`} title={getStatusText(chat.status)}></div>
                   </div>
                   <div className="chat-info-compact">
                     <div className="chat-header-row">
@@ -1374,12 +1432,22 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     ))}
                   </select>
                 ) : (
-                  <input
-                    type="text"
-                    value={transferOperator}
-                    onChange={(e) => setTransferOperator(e.target.value)}
-                    placeholder="Nome do operador... (Nenhum operador ativo encontrado)"
-                  />
+                  <div style={{
+                    padding: '0.75rem',
+                    border: '1px solid #fed7d7',
+                    borderRadius: '8px',
+                    backgroundColor: '#fef5e7',
+                    color: '#c53030',
+                    fontSize: '0.875rem',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      ⚠️ Nenhum operador cadastrado disponível para transferência
+                    </div>
+                    <small style={{ color: '#975a16' }}>
+                      Entre em contato com o administrador para cadastrar operadores
+                    </small>
+                  </div>
                 )}
               </div>
               
@@ -1408,7 +1476,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
               <button 
                 className="btn-confirm"
                 onClick={async () => {
-                  if (transferOperator.trim() && showTransferModal) {
+                  if (transferOperator.trim() && showTransferModal && operators.length > 0) {
                     // Encontrar o operador selecionado pelo nome
                     const selectedOperator = operators.find(op => op.name === transferOperator)
                     
@@ -1430,12 +1498,18 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     } else {
                       alert('Operador não encontrado')
                     }
+                  } else if (operators.length === 0) {
+                    alert('Não há operadores disponíveis para transferência')
                   }
                 }}
-                disabled={!transferOperator.trim()}
+                disabled={!transferOperator.trim() || operators.length === 0}
+                style={{
+                  opacity: (!transferOperator.trim() || operators.length === 0) ? 0.5 : 1,
+                  cursor: (!transferOperator.trim() || operators.length === 0) ? 'not-allowed' : 'pointer'
+                }}
               >
                 <ArrowRightLeft size={16} />
-                Transferir
+                {operators.length === 0 ? 'Sem Operadores' : 'Transferir'}
               </button>
             </div>
           </div>

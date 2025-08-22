@@ -83,37 +83,95 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
 
   // Socket listeners para atualizações em tempo real
   useEffect(() => {
-    if (socket) {
-      // Join manager room for real-time updates
+    if (!socket) return
+
+    console.log('🔌 Configurando listeners do socket para ManagerDashboard')
+
+    // Join manager room for real-time updates
+    try {
+      const userData = localStorage.getItem('user')
+      if (userData) {
+        const user = JSON.parse(userData)
+        const managerId = user.id
+        
+        console.log(`👥 ManagerDashboard entrando na sala do manager ${managerId}`)
+        socket.emit('join_manager_room', managerId)
+      }
+    } catch (error) {
+      console.error('Erro ao entrar na sala do manager:', error)
+    }
+
+    socket.on('human_chat_requested', handleNewPendingChat)
+    socket.on('chat_resolved', handleChatResolved)
+    socket.on('customer_message', handleNewMessage)
+    socket.on('operator_status_change', handleOperatorStatusChange)
+    socket.on('dashboard_update', handleDashboardUpdate)
+    socket.on('manager_notification', handleManagerNotification)
+
+    // 🚨 LISTENERS PARA ALERTAS INSTANTÂNEOS
+    socket.on('dashboard_instant_alert', (data: {
+      type: string
+      title: string
+      message: string
+      priority: 'low' | 'medium' | 'high'
+      chatId?: number
+      customerName?: string
+      customerPhone?: string
+      timestamp: Date
+    }) => {
+      console.log('🚨 Alerta instantâneo recebido no ManagerDashboard:', data)
+      
+      // Criar alerta visual
+      const alert: Alert = {
+        id: `instant_${data.type}_${Date.now()}`,
+        type: data.type as any,
+        title: data.title,
+        message: data.message,
+        timestamp: new Date().toISOString(),
+        priority: data.priority,
+        read: false,
+        chatId: data.chatId
+      }
+      
+      // Adicionar aos alertas existentes
+      setAlerts(prev => [alert, ...prev])
+      
+      // Notificação sonora
       try {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-          const user = JSON.parse(userData)
-          const managerId = user.id
-          
-          console.log(`👥 Manager Dashboard entrando na sala do manager ${managerId}`)
-          socket.emit('join_manager_room', managerId)
-        }
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOL0t2IbBDmS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+D2u2wdBDuZ2/LDcSQEL4TO8diJOQcZarnr45xKDgtOqOJ=')
+        audio.volume = 0.5
+        audio.play().catch(() => {})
       } catch (error) {
-        console.error('Erro ao entrar na sala do manager:', error)
+        // Ignorar erro do som
       }
-
-      // Socket event listeners
-      socket.on('new_pending_chat', handleNewPendingChat)
-      socket.on('chat_resolved', handleChatResolved)
-      socket.on('new_customer_message', handleNewMessage)
-      socket.on('operator_status_change', handleOperatorStatusChange)
-      socket.on('dashboard_update', handleDashboardUpdate)
-      socket.on('manager_notification', handleManagerNotification)
-
-      return () => {
-        socket.off('new_pending_chat', handleNewPendingChat)
-        socket.off('chat_resolved', handleChatResolved)
-        socket.off('new_customer_message', handleNewMessage)
-        socket.off('operator_status_change', handleOperatorStatusChange)
-        socket.off('dashboard_update', handleDashboardUpdate)
-        socket.off('manager_notification', handleManagerNotification)
+      
+      // Mostrar notificação do browser
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(data.title, {
+          body: data.message,
+          icon: '/vite.svg',
+          tag: `manager-alert-${data.chatId || Date.now()}`,
+          requireInteraction: true
+        })
       }
+      
+      // Fazer a página chamar atenção
+      if (document.title.indexOf('🔔') === -1) {
+        document.title = '🔔 Novo Alerta! - ' + document.title
+        setTimeout(() => {
+          document.title = document.title.replace('🔔 Novo Alerta! - ', '')
+        }, 8000)
+      }
+    })
+
+    return () => {
+      socket.off('human_chat_requested', handleNewPendingChat)
+      socket.off('chat_resolved', handleChatResolved)
+      socket.off('customer_message', handleNewMessage)
+      socket.off('operator_status_change', handleOperatorStatusChange)
+      socket.off('dashboard_update', handleDashboardUpdate)
+      socket.off('manager_notification', handleManagerNotification)
+      socket.off('dashboard_instant_alert')
     }
   }, [socket])
 

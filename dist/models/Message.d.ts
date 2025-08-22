@@ -91,6 +91,7 @@ export declare class HumanChatModel {
     static findById(id: number): Promise<HumanChat | null>;
     static findByManager(managerId: number, userId?: number, userRole?: string): Promise<any[]>;
     static findActiveByContact(contactId: number): Promise<HumanChat | null>;
+    static findAnyByContact(contactId: number): Promise<HumanChat | null>;
     static updateStatus(id: number, status: HumanChat['status']): Promise<HumanChat | null>;
     static assignOperator(id: number, operatorId: number): Promise<HumanChat | null>;
     static assignToUser(id: number, userId: number): Promise<HumanChat | null>;

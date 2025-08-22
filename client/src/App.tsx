@@ -42,6 +42,7 @@ function App() {
     console.log('🚪 Fazendo logout automático devido a token expirado')
     localStorage.removeItem('authToken')
     localStorage.removeItem('user')
+    setAuthToken(null)
     setCurrentPage('landing')
     if (socket) {
       socket.disconnect()
@@ -111,6 +112,9 @@ function App() {
   }, [])
 
   const [socket, setSocket] = useState<any | null>(null)
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return localStorage.getItem('authToken')
+  })
   const [activeMenu, setActiveMenu] = useState(() => {
     // Definir menu inicial baseado no papel do usuário
     const userData = localStorage.getItem('user')
@@ -205,8 +209,7 @@ function App() {
     }
     
     // Conectar ao socket apenas se estiver autenticado
-    const authToken = localStorage.getItem('authToken')
-    console.log('🔍 Debug - authToken do localStorage:', authToken ? authToken.substring(0, 20) + '...' : 'null');
+    console.log('🔍 Debug - authToken do state:', authToken ? authToken.substring(0, 20) + '...' : 'null');
     console.log('🔍 Debug - currentPage:', currentPage);
     console.log('🔍 Debug - Condição para conectar socket:', authToken && currentPage === 'dashboard');
     
@@ -237,13 +240,27 @@ function App() {
         console.log('❌ Socket desconectado:', reason);
       });
       
+      // Listen for authentication errors
+      newSocket.on('operator_message_error', (data: any) => {
+        console.error('❌ Erro de autenticação no socket:', data);
+        if (data.error && data.error.includes('não autenticado')) {
+          console.log('🔄 Token pode ter expirado, tentando renovar...');
+          handleGlobalLogout();
+        }
+      });
+      
       setSocket(newSocket)
       
       return () => {
         newSocket.close()
       }
+    } else if (socket && (!authToken || currentPage !== 'dashboard')) {
+      // Desconectar se não há token ou não está no dashboard
+      console.log('🔄 Desconectando socket (sem token ou fora do dashboard)');
+      socket.close();
+      setSocket(null);
     }
-  }, [currentPage])
+  }, [currentPage, authToken])
 
 
 
@@ -415,11 +432,18 @@ function App() {
   const handleNavigate = (page: PageType) => {
     setCurrentPage(page)
     
+    // Sincronizar token state quando navegar para dashboard
+    if (page === 'dashboard') {
+      const token = localStorage.getItem('authToken')
+      setAuthToken(token)
+    }
+    
     // Limpar tokens quando sair do dashboard
     if (page === 'landing') {
       localStorage.removeItem('authToken')
       localStorage.removeItem('user')
       localStorage.removeItem('userSession') // compatibilidade
+      setAuthToken(null)
     }
   }
 

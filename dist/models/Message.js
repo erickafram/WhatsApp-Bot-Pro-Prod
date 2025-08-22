@@ -352,7 +352,31 @@ class HumanChatModel {
     static async findActiveByContact(contactId) {
         const query = `
       SELECT * FROM human_chats 
-      WHERE contact_id = ? AND status IN ('pending', 'active') 
+      WHERE contact_id = ? AND status IN ('pending', 'active', 'waiting_payment', 'transfer_pending') 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `;
+        const result = await (0, database_1.executeQuery)(query, [contactId]);
+        if (!Array.isArray(result) || result.length === 0) {
+            return null;
+        }
+        const chat = result[0];
+        // Parse tags JSON
+        if (chat.tags && typeof chat.tags === 'string') {
+            try {
+                chat.tags = JSON.parse(chat.tags);
+            }
+            catch (e) {
+                chat.tags = null;
+            }
+        }
+        return chat;
+    }
+    // Buscar qualquer chat por contato (incluindo encerrados)
+    static async findAnyByContact(contactId) {
+        const query = `
+      SELECT * FROM human_chats 
+      WHERE contact_id = ? 
       ORDER BY created_at DESC 
       LIMIT 1
     `;

@@ -311,15 +311,22 @@ router.put('/human-chats/:id/status', auth_1.authenticate, async (req, res) => {
         if (!chat) {
             return res.status(404).json({ error: 'Chat não encontrado' });
         }
-        // Verificar permissão - operadores podem alterar status dos chats atribuídos a eles
+        // Verificar permissão - operadores podem alterar status dos chats atribuídos a eles OU não atribuídos do mesmo manager
         const hasPermission = req.user.role === 'admin' ||
             chat.manager_id === req.user.id ||
-            (req.user.role === 'operator' && chat.assigned_to === req.user.id);
+            (req.user.role === 'operator' &&
+                (chat.assigned_to === req.user.id ||
+                    (chat.assigned_to === null && chat.manager_id === req.user.manager_id)));
         console.log('🔍 Debug permissão status:', {
             userRole: req.user.role,
             userId: req.user.id,
+            userManagerId: req.user.manager_id,
             chatManagerId: chat.manager_id,
             chatAssignedTo: chat.assigned_to,
+            isAdmin: req.user.role === 'admin',
+            isManager: chat.manager_id === req.user.id,
+            isAssignedOperator: req.user.role === 'operator' && chat.assigned_to === req.user.id,
+            isUnassignedSameManager: req.user.role === 'operator' && chat.assigned_to === null && chat.manager_id === req.user.manager_id,
             hasPermission
         });
         if (!hasPermission) {
@@ -340,6 +347,10 @@ router.put('/human-chats/:id/status', auth_1.authenticate, async (req, res) => {
             contact_id: chatBefore?.contact_id
         });
         const updatedChat = await Message_1.HumanChatModel.updateStatus(chatId, status);
+        // 🤖 REATIVAR CHATBOT quando conversa é encerrada/resolvida
+        if (status === 'finished' || status === 'resolved') {
+            console.log(`🤖 Chatbot REATIVADO para o contato do chat ${chatId} - Conversa ${status}`);
+        }
         console.log('✅ Status atualizado - Resposta:', {
             id: updatedChat?.id,
             status: updatedChat?.status,

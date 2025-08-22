@@ -771,6 +771,8 @@ router.post('/chats/:chatId/attend', auth_1.authenticate, requireOperatorAccess,
        SET operator_id = ?, assigned_to = ?, status = 'active', updated_at = NOW()
        WHERE id = ?`, [operatorId, operatorId, chatId]);
         console.log(`✅ Conversa ${chatId} atribuída ao operador ${operatorId}`);
+        // 🚨 DESATIVAR CHATBOT para este contato
+        console.log(`🤖 Chatbot DESATIVADO para o contato do chat ${chatId} - Operador assumiu controle`);
         res.json({
             success: true,
             message: 'Conversa atribuída com sucesso',

@@ -970,9 +970,127 @@ Posso ajudar com algo mais? 😊`,
       }
     })
 
+    // Find template with * trigger (captures any city name)
+    const wildcardTpl = templates.find(tpl =>
+      tpl.trigger.includes('*')
+    )
+
+    if (wildcardTpl) {
+      const wildcardNode: FlowNode = {
+        id: `template-${wildcardTpl.id}`,
+        type: 'message',
+        position: { x: 550, y: 200 },
+        data: {
+          title: 'Verificar Disponibilidade',
+          triggers: wildcardTpl.trigger,
+          response: wildcardTpl.response,
+          active: wildcardTpl.active
+        },
+        connections: []
+      }
+      nodes.push(wildcardNode)
+
+      // Connect from comprar passagem option
+      const comprarOption = menuOptions.find(opt =>
+        opt.trigger.some(t => ['comprar', 'passagem', '1'].includes(t.toLowerCase()))
+      )
+      if (comprarOption) {
+        const comprarNodeId = `template-${comprarOption.id}`
+        connections.push({
+          id: `${comprarNodeId}-${wildcardNode.id}`,
+          source: comprarNodeId,
+          target: wildcardNode.id
+        })
+        const comprarFlowNode = nodes.find(n => n.id === comprarNodeId)
+        if (comprarFlowNode) {
+          comprarFlowNode.connections.push(wildcardNode.id)
+        }
+      }
+    }
+
+    // Find CIDADE_NAO_ENCONTRADA template
+    const cidadeNaoEncontradaTpl = templates.find(tpl =>
+      tpl.trigger.includes('CIDADE_NAO_ENCONTRADA')
+    )
+
+    if (cidadeNaoEncontradaTpl) {
+      const cidadeNaoNode: FlowNode = {
+        id: `template-${cidadeNaoEncontradaTpl.id}`,
+        type: 'condition',
+        position: { x: 750, y: 300 },
+        data: {
+          title: 'Cidade Não Encontrada',
+          triggers: cidadeNaoEncontradaTpl.trigger,
+          response: cidadeNaoEncontradaTpl.response,
+          active: cidadeNaoEncontradaTpl.active
+        },
+        connections: []
+      }
+      nodes.push(cidadeNaoNode)
+
+      // Connect from wildcard node if it exists
+      if (wildcardTpl) {
+        const wildcardNodeId = `template-${wildcardTpl.id}`
+        connections.push({
+          id: `${wildcardNodeId}-${cidadeNaoNode.id}`,
+          source: wildcardNodeId,
+          target: cidadeNaoNode.id
+        })
+        const wildcardFlowNode = nodes.find(n => n.id === wildcardNodeId)
+        if (wildcardFlowNode) {
+          wildcardFlowNode.connections.push(cidadeNaoNode.id)
+        }
+      }
+    }
+
+    // Find all default templates (multiple ones)
+    const defaultTemplates = templates.filter(tpl =>
+      tpl.trigger.includes('default')
+    )
+
+    defaultTemplates.forEach((template, index) => {
+      let nodeTitle = `Default ${index + 1}`
+      
+      // Determine title based on content
+      if (template.response.includes('Excelente escolha')) {
+        nodeTitle = 'Cidade Disponível'
+      } else if (template.response.includes('não temos passagens')) {
+        nodeTitle = 'Cidade Indisponível'
+      }
+
+      const defaultNode: FlowNode = {
+        id: `template-${template.id}`,
+        type: 'condition',
+        position: { x: 400 + (index * 200), y: 400 + (index * 100) },
+        data: {
+          title: nodeTitle,
+          triggers: template.trigger,
+          response: template.response,
+          active: template.active
+        },
+        connections: []
+      }
+      nodes.push(defaultNode)
+
+      // Connect from wildcard node if it exists
+      if (wildcardTpl) {
+        const wildcardNodeId = `template-${wildcardTpl.id}`
+        connections.push({
+          id: `${wildcardNodeId}-${defaultNode.id}`,
+          source: wildcardNodeId,
+          target: defaultNode.id
+        })
+        const wildcardFlowNode = nodes.find(n => n.id === wildcardNodeId)
+        if (wildcardFlowNode) {
+          wildcardFlowNode.connections.push(defaultNode.id)
+        }
+      }
+    })
+
     // Find special templates (CIDADE_DISPONIVEL, CIDADE_NAO_DISPONIVEL, etc.)
     const specialTemplates = templates.filter(tpl =>
-      tpl.trigger.some(t => t.includes('CIDADE_') || t.includes('_DISPONIVEL') || t.includes('_NAO_DISPONIVEL'))
+      tpl.trigger.some(t => t.includes('CIDADE_') || t.includes('_DISPONIVEL') || t.includes('_NAO_DISPONIVEL')) &&
+      !tpl.trigger.includes('CIDADE_NAO_ENCONTRADA') // Já processado acima
     )
 
     // Add special templates as separate nodes
@@ -987,7 +1105,7 @@ Posso ajudar com algo mais? 😊`,
       const specialNode: FlowNode = {
         id: `template-${template.id}`,
         type: 'condition',
-        position: { x: 50 + (index * 250), y: 400 },
+        position: { x: 50 + (index * 250), y: 500 },
         data: {
           title: nodeTitle,
           triggers: template.trigger,
@@ -1030,6 +1148,36 @@ Posso ajudar com algo mais? 😊`,
         nodes[humanNodeIndex].position = { x: 50, y: 300 }
       }
     }
+
+    // Add fallback node for unmatched messages
+    const fallbackNode: FlowNode = {
+      id: 'fallback-auto',
+      type: 'human',
+      position: { x: 300, y: 600 },
+      data: { 
+        title: 'Fallback Automático',
+        description: 'Transfere automaticamente para operador quando não há correspondência',
+        response: '👨‍💼 Vou transferir você para nosso atendimento especializado!\n\n🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe poderá ajudá-lo melhor.\n\nEm alguns instantes um operador entrará em contato!'
+      },
+      connections: []
+    }
+    nodes.push(fallbackNode)
+
+    // Connect all main nodes to fallback (to represent that any unmatched input goes to fallback)
+    const mainNodes = nodes.filter(n => 
+      n.type === 'message' && 
+      n.id !== fallbackNode.id && 
+      n.id !== startNode.id
+    )
+    
+    mainNodes.forEach(node => {
+      connections.push({
+        id: `${node.id}-${fallbackNode.id}`,
+        source: node.id,
+        target: fallbackNode.id
+      })
+      node.connections.push(fallbackNode.id)
+    })
 
     // Add end node
     const endNode: FlowNode = {

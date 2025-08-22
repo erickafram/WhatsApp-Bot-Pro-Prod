@@ -272,7 +272,7 @@ input::placeholder, textarea::placeholder {
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 500px;
-  width: 1400px;
+  width: 800px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -5486,6 +5486,7 @@ body .app .main-content {
   font-weight: 500;
   font-size: 18px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .chat-info-compact {
@@ -7083,7 +7084,7 @@ body .app .main-content {
   background: white;
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  max-width: 600px;
+  max-width: 500px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -7909,7 +7910,6 @@ body .app .main-content {
 .modal-content {
   background: white;
   border-radius: 12px;
- max-width: 1600px !important;
   max-width: 500px;
   max-height: 90vh;
   overflow: hidden;
@@ -8603,3 +8603,74 @@ body .app .main-content {
 }
 
 /* Instance List Simple */
+.chat-avatar-compact {
+  width: 49px;
+  height: 49px;
+  border-radius: 50%;
+  background: #00a884;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+  font-size: 18px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Status indicator circle on chat avatar */
+.status-circle {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Status colors */
+.status-circle.status-pending {
+  background-color: #f59e0b; /* Amarelo/Orange para pendente */
+}
+
+.status-circle.status-active {
+  background-color: #10b981; /* Verde para ativo */
+}
+
+.status-circle.status-waiting_payment {
+  background-color: #f97316; /* Laranja para aguardando pagamento */
+}
+
+.status-circle.status-paid {
+  background-color: #3b82f6; /* Azul para pago */
+}
+
+.status-circle.status-finished {
+  background-color: #ef4444; /* Vermelho para encerrado */
+}
+
+.status-circle.status-resolved {
+  background-color: #8b5cf6; /* Roxo para resolvido */
+}
+
+.status-circle.status-transfer_pending {
+  background-color: #f59e0b; /* Amarelo para transferência pendente */
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

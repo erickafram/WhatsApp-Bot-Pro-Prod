@@ -111,6 +111,48 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
       socket.on('new_customer_message', handleNewMessage)
       socket.on('dashboard_update', handleDashboardUpdate)
       
+      // 🚨 LISTENER ESPECÍFICO PARA NOVAS CONVERSAS INSTANTÂNEAS
+      socket.on('human_chat_requested', (data: {
+        chatId: string
+        customerName: string
+        customerPhone: string
+        lastMessage: string
+        timestamp: Date
+        managerId: number
+        humanChatId: number
+        contactId: number
+      }) => {
+        console.log('🔔 Nova conversa recebida no OperatorDashboard:', data)
+        
+        // Adicionar à lista de conversas pendentes
+        const newChat: PendingChat = {
+          id: data.humanChatId,
+          customerName: data.customerName,
+          lastMessage: 'Solicitou atendimento humano',
+          waitingTime: 0,
+          priority: 'high'
+        }
+        setPendingChats(prev => [newChat, ...prev])
+        
+        // Atualizar estatísticas
+        setStats(prev => ({
+          ...prev,
+          pendingChats: prev.pendingChats + 1
+        }))
+        
+        // Adicionar alerta
+        const newAlert: Alert = {
+          id: `alert_${Date.now()}`,
+          type: 'pending_chat',
+          title: '🔔 Nova Conversa',
+          message: `${data.customerName} solicitou atendimento`,
+          timestamp: new Date().toISOString(),
+          priority: 'high',
+          read: false
+        }
+        setAlerts(prev => [newAlert, ...prev])
+      })
+      
       // Listener para atualizações dinâmicas da dashboard
       socket.on('dashboard_chat_update', (data: {
         type: 'new_chat' | 'new_message' | 'transfer_created' | 'transfer_accepted' | 'status_changed'
@@ -189,11 +231,12 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
       })
 
       return () => {
-        socket.off('new_pending_chat', handleNewPendingChat)
-        socket.off('chat_resolved', handleChatResolved)
-        socket.off('new_customer_message', handleNewMessage)
-        socket.off('dashboard_update', handleDashboardUpdate)
-        socket.off('dashboard_chat_update')
+              socket.off('new_pending_chat', handleNewPendingChat)
+      socket.off('chat_resolved', handleChatResolved)
+      socket.off('new_customer_message', handleNewMessage)
+      socket.off('dashboard_update', handleDashboardUpdate)
+      socket.off('dashboard_chat_update')
+      socket.off('human_chat_requested')
       }
     }
   }, [socket])
