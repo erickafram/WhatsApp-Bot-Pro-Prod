@@ -304,6 +304,29 @@ async function initializeWhatsAppClient(managerId: number, instanceId: number): 
                     });
                 }
                 
+                // Mapear tipos do WhatsApp para tipos do banco
+                const mapMessageType = (whatsappType: string): 'text' | 'image' | 'audio' | 'video' | 'document' | 'location' => {
+                    switch (whatsappType) {
+                        case 'chat':
+                        case 'text':
+                            return 'text';
+                        case 'image':
+                        case 'sticker':
+                            return 'image';
+                        case 'audio':
+                        case 'ptt': // Push to talk
+                            return 'audio';
+                        case 'video':
+                            return 'video';
+                        case 'document':
+                            return 'document';
+                        case 'location':
+                            return 'location';
+                        default:
+                            return 'text';
+                    }
+                };
+
                 // Salvar mensagem recebida no banco
                 const savedMessage = await MessageModel.create({
                     manager_id: managerId,
@@ -312,7 +335,7 @@ async function initializeWhatsAppClient(managerId: number, instanceId: number): 
                     whatsapp_message_id: msg.id._serialized || null,
                     sender_type: 'contact',
                     content: msg.body,
-                    message_type: msg.type || 'text'
+                    message_type: mapMessageType(msg.type || 'text')
                 });
 
                 console.log(`✅ Mensagem recebida salva no banco - ID: ${savedMessage.id}`);

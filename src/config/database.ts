@@ -77,8 +77,15 @@ export async function executeQuery(query: string, params?: any[]): Promise<any> 
       // Substituir ? por valores reais (escape manual)
       if (safeParams.length > 0) {
         safeParams.forEach((param, index) => {
-          const escapedParam = typeof param === 'string' ? `'${param.replace(/'/g, "''")}'` : param;
-          simpleQuery = simpleQuery.replace('?', escapedParam.toString());
+          let escapedParam;
+          if (param === null || param === undefined) {
+            escapedParam = 'NULL';
+          } else if (typeof param === 'string') {
+            escapedParam = `'${param.replace(/'/g, "''")}'`;
+          } else {
+            escapedParam = param.toString();
+          }
+          simpleQuery = simpleQuery.replace('?', escapedParam);
         });
       }
       

@@ -215,7 +215,7 @@ function App() {
     
     if (authToken && currentPage === 'dashboard') {
       console.log('🔍 Conectando socket com token:', authToken ? 'Token presente' : 'Sem token');
-      const newSocket = io('http://localhost:3000', {
+      const newSocket = io(window.location.origin, {
         forceNew: true,
         transports: ['websocket', 'polling'],
         timeout: 5000,

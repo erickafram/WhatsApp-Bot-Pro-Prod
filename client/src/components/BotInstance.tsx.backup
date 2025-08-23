@@ -85,7 +85,7 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
     // Conectar ao socket se não existir
     if (!socket) {
       console.log('🔌 Criando novo socket no BotInstance')
-      const newSocket = io(window.location.origin, {
+      const newSocket = io('http://localhost:3000', {
         forceNew: true,
         transports: ['websocket', 'polling'],
         timeout: 5000,
