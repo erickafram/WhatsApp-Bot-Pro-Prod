@@ -1,4 +1,4 @@
-/* Landing Page Styles */
+/* Landing Page Styles - Dark Theme */
 
 html {
   scroll-behavior: smooth;
@@ -6,7 +6,24 @@ html {
 
 .landing-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  background: radial-gradient(ellipse at top, #0a1b0a 0%, #0d2818 50%, #040c04 100%);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.landing-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(34, 197, 94, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 40% 80%, rgba(5, 150, 105, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Header & Navigation */
@@ -16,14 +33,14 @@ html {
   left: 0;
   right: 0;
   z-index: 1000;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(4, 12, 4, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(34, 197, 94, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .landing-nav {
   padding: 1rem 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .nav-container {
@@ -33,6 +50,8 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  z-index: 1;
 }
 
 .nav-brand {
@@ -41,11 +60,13 @@ html {
   gap: 0.75rem;
   font-weight: 700;
   font-size: 1.25rem;
-  color: #1a202c;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
 }
 
 .brand-icon {
-  color: #25D366;
+  color: #22c55e;
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.5));
 }
 
 .desktop-menu {
@@ -57,18 +78,19 @@ html {
   background: none;
   border: none;
   text-decoration: none;
-  color: #4a5568;
+  color: #a0aec0;
   font-weight: 500;
   cursor: pointer;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
+  border: 1px solid transparent;
 }
 
 .nav-link::before {
@@ -78,8 +100,8 @@ html {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(37, 211, 102, 0.2), transparent);
-  transition: left 0.5s;
+  background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.3), transparent);
+  transition: left 0.6s ease;
 }
 
 .nav-link:hover::before {
@@ -87,10 +109,12 @@ html {
 }
 
 .nav-link:hover {
-  color: #25D366;
-  background: rgba(37, 211, 102, 0.1);
+  color: #ffffff;
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.2);
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
+  text-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
 }
 
 .desktop-actions {
@@ -100,16 +124,17 @@ html {
 }
 
 .btn-outline {
-  padding: 0.5rem 1.5rem;
-  border: 2px solid #25D366;
-  background: transparent;
-  color: #25D366;
-  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  border: 2px solid rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .btn-outline::before {
@@ -119,8 +144,8 @@ html {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-  transition: left 0.3s ease;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  transition: left 0.4s ease;
   z-index: -1;
 }
 
@@ -130,22 +155,25 @@ html {
 
 .btn-outline:hover {
   color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(37, 211, 102, 0.3);
+  border-color: #22c55e;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(34, 197, 94, 0.4);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 .btn-primary {
-  padding: 0.5rem 1.5rem;
-  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #22c55e 0%, #059669 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.2);
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .btn-primary::before {
@@ -156,7 +184,7 @@ html {
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
-  transition: left 0.5s ease;
+  transition: left 0.6s ease;
 }
 
 .btn-primary:hover::before {
@@ -164,8 +192,9 @@ html {
 }
 
 .btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(37, 211, 102, 0.4);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 15px 40px rgba(34, 197, 94, 0.5);
+  background: linear-gradient(135deg, #16a34a 0%, #047857 100%);
 }
 
 .mobile-menu-btn {
@@ -247,10 +276,11 @@ html {
 /* Hero Section */
 .hero-section {
   padding: 8rem 0 4rem;
-  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  background: transparent;
   color: white;
   overflow: hidden;
   position: relative;
+  z-index: 1;
 }
 
 .hero-section::before {
@@ -260,9 +290,25 @@ html {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.05"><circle cx="30" cy="30" r="2"/></g></svg>');
-  opacity: 0.3;
+  background: 
+    radial-gradient(circle at 30% 40%, rgba(34, 197, 94, 0.25) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(16, 185, 129, 0.2) 0%, transparent 50%);
+  opacity: 0.6;
   animation: float 20s ease-in-out infinite;
+  z-index: -1;
+}
+
+.hero-section::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.03"><circle cx="30" cy="30" r="1"/></g></svg>');
+  opacity: 0.4;
+  animation: float 25s ease-in-out infinite reverse;
+  z-index: -1;
 }
 
 @keyframes float {
@@ -302,29 +348,37 @@ html {
 }
 
 .hero-title {
-  font-size: 3rem;
-  font-weight: 800;
+  font-size: 3.5rem;
+  font-weight: 900;
   line-height: 1.1;
   margin-bottom: 1.5rem;
   color: #ffffff;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0 30px rgba(34, 197, 94, 0.5), 0 0 60px rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 50%, #cbd5e0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
 }
 
 .hero-highlight {
-  color: #FFD700;
-  text-shadow: 
-    2px 2px 4px rgba(0, 0, 0, 0.3),
-    0 0 10px rgba(255, 215, 0, 0.3);
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
   font-weight: 900;
+  filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.5)) drop-shadow(0 0 40px rgba(16, 185, 129, 0.3));
 }
 
 .hero-description {
-  font-size: 1.25rem;
-  line-height: 1.6;
-  margin-bottom: 2rem;
-  color: #ffffff;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  font-weight: 500;
+  font-size: 1.35rem;
+  line-height: 1.7;
+  margin-bottom: 2.5rem;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  font-weight: 400;
+  letter-spacing: 0.5px;
 }
 
 .hero-actions {
@@ -336,19 +390,20 @@ html {
 .btn-hero-primary {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 2rem;
-  background: white;
-  color: #25D366;
+  gap: 0.75rem;
+  padding: 1.25rem 2.5rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+  color: #1a1a2e;
   border: none;
-  border-radius: 12px;
+  border-radius: 16px;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .btn-hero-primary::before {
@@ -358,8 +413,8 @@ html {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(37, 211, 102, 0.1), rgba(18, 140, 126, 0.1));
-  transition: left 0.5s ease;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
+  transition: left 0.6s ease;
 }
 
 .btn-hero-primary:hover::before {
@@ -367,26 +422,34 @@ html {
 }
 
 .btn-hero-primary:hover {
-  transform: translateY(-5px) scale(1.02);
-  box-shadow: 0 20px 40px rgba(37, 211, 102, 0.3);
+  transform: translateY(-6px) scale(1.05);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, #f7fafc 0%, #ffffff 100%);
 }
 
 .btn-hero-secondary {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 2rem;
-  background: rgba(255, 255, 255, 0.1);
+  gap: 0.75rem;
+  padding: 1.25rem 2.5rem;
+  background: rgba(34, 197, 94, 0.2);
   color: white;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  border: 2px solid rgba(34, 197, 94, 0.4);
+  border-radius: 16px;
   font-weight: 600;
+  font-size: 1.1rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .btn-hero-secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(34, 197, 94, 0.3);
+  border-color: rgba(34, 197, 94, 0.6);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 15px 35px rgba(34, 197, 94, 0.3);
 }
 
 .hero-stats {

@@ -389,37 +389,7 @@ export default function Register({ onNavigate }: RegisterProps) {
         </div>
 
         {/* Security Info */}
-        <div className="security-info">
-          <div className="security-header">
-            <Shield size={20} />
-            <h4>100% Seguro</h4>
-          </div>
-          <p>Seus dados são protegidos com criptografia de nível bancário</p>
-          <div className="security-features">
-            <span>🔒 SSL 256-bit</span>
-            <span>🛡️ LGPD Compliant</span>
-            <span>🔐 2FA Disponível</span>
-          </div>
-        </div>
-
         {/* Trust Indicators */}
-        <div className="trust-indicators">
-          <h4>Empresas que confiam:</h4>
-          <div className="trust-stats">
-            <div className="trust-stat">
-              <span className="trust-number">10.000+</span>
-              <span className="trust-label">Empresas</span>
-            </div>
-            <div className="trust-stat">
-              <span className="trust-number">1M+</span>
-              <span className="trust-label">Mensagens/dia</span>
-            </div>
-            <div className="trust-stat">
-              <span className="trust-number">98%</span>
-              <span className="trust-label">Satisfação</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
