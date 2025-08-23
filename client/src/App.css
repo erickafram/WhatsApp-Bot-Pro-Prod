@@ -725,7 +725,7 @@ input::placeholder, textarea::placeholder {
 /* Main Content */
 .main-content {
   flex: 1;
-  max-width: 1600px !important;
+  max-width: 100% !important;
   margin: 0 auto;
   padding: 2rem;
   width: 100%;
@@ -733,18 +733,18 @@ input::placeholder, textarea::placeholder {
 
 /* Force main-content width override */
 .app .main-content {
-  max-width: 1600px !important;
+  max-width: 100% !important;
 }
 
 /* Ultimate override for main-content width */
 div.main-content,
 .main-content {
-  max-width: 1600px !important;
+  max-width: 100% !important;
 }
 
 /* Specific override with higher specificity */
 body .app .main-content {
-  max-width: 1600px !important;
+  max-width: 100% !important;
 }
 
 
@@ -1416,7 +1416,7 @@ body .app .main-content {
 .qr-popup {
   background: white;
   border-radius: 20px;
- max-width: 1600px !important;
+ max-width: 100% !important;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
@@ -1613,7 +1613,7 @@ body .app .main-content {
 
 /* Bot Instance Simple Layout */
 .bot-instance-simple {
-  max-width: 1600px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 1.5rem;
   display: flex;
@@ -2536,7 +2536,7 @@ body .app .main-content {
 /* Messages Management Styles */
 .messages-container {
   padding: 2rem;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
   width: 100%;
 }
@@ -4169,7 +4169,7 @@ body .app .main-content {
   padding: 1.5rem;
   margin: 1rem 0;
   width: 100%;
-  max-width: 1400px;
+  max-width: 100%;
 }
 
 .options-header {
@@ -6618,7 +6618,7 @@ body .app .main-content {
 
 .operator-management {
   padding: 1rem;
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -7778,7 +7778,7 @@ body .app .main-content {
   .message.customer .message-content,
   .message.human .message-content,
   .message.bot .message-content {
-    max-width: 1600px !important;
+    max-width: 100% !important;
     font-size: 13px;
     padding: 6px 10px;
   }
@@ -8693,7 +8693,7 @@ body .app .main-content {
 .subscription-modal {
   background: white;
   border-radius: 16px;
-  max-width: 1200px;
+  max-width: 100%;
   width: 95%;
   max-height: 95vh;
   overflow-y: auto;
