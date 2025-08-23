@@ -155,7 +155,7 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
       
       // Listener para atualizações dinâmicas da dashboard
       socket.on('dashboard_chat_update', (data: {
-        type: 'new_chat' | 'new_message' | 'transfer_created' | 'transfer_accepted' | 'status_changed'
+        type: 'new_chat' | 'new_message' | 'transfer_created' | 'transfer_accepted' | 'status_changed' | 'chat_reopened'
         chatId: number
         customerName: string
         customerPhone: string
@@ -226,6 +226,27 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
           setStats(prev => ({
             ...prev,
             newMessagesCount: prev.newMessagesCount + 1
+          }))
+        }
+        
+        if (data.type === 'chat_reopened') {
+          // Adicionar de volta às conversas pendentes
+          const reopenedChat = {
+            id: data.chatId,
+            customerName: data.customerName,
+            lastMessage: 'Conversa reaberta pelo cliente',
+            waitingTime: 0,
+            priority: 'high' as const
+          }
+          
+          setPendingChats(prev => {
+            const exists = prev.some(chat => chat.id === data.chatId)
+            return exists ? prev : [reopenedChat, ...prev]
+          })
+          
+          setStats(prev => ({
+            ...prev,
+            pendingChats: prev.pendingChats + 1
           }))
         }
       })

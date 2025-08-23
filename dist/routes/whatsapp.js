@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const WhatsAppInstance_1 = require("../models/WhatsAppInstance");
 const auth_1 = require("../middleware/auth");
+const User_1 = require("../models/User");
 const database_1 = __importDefault(require("../config/database"));
 const router = express_1.default.Router();
 // Listar instâncias do gestor
@@ -52,6 +53,14 @@ router.post('/instances', auth_1.authenticate, auth_1.requireManager, (0, auth_1
         }
         if (!instance_name || instance_name.trim().length < 3) {
             return res.status(400).json({ error: 'Nome da instância deve ter pelo menos 3 caracteres' });
+        }
+        // Verificar se o usuário pode criar instâncias (assinatura ativa)
+        const canCreate = await User_1.UserModel.canCreateInstance(req.user.id);
+        if (!canCreate) {
+            return res.status(403).json({
+                error: 'Você precisa de uma assinatura ativa para criar instâncias do WhatsApp.',
+                code: 'SUBSCRIPTION_REQUIRED'
+            });
         }
         // Verificar limitação de instâncias baseada no role do usuário
         if (req.user.role !== 'admin') {

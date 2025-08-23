@@ -508,8 +508,10 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   // Filtrar e ordenar chats por status, busca e última atividade
   const filteredChats = humanChats
     .filter(chat => {
-      // Filtro por status
-      const statusMatch = statusFilter === 'all' || chat.status === statusFilter
+      // Filtro por status - "Todos" exclui conversas encerradas
+      const statusMatch = statusFilter === 'all' 
+        ? !['finished', 'resolved'].includes(chat.status) 
+        : chat.status === statusFilter
 
       // Filtro por busca
       const searchMatch = !searchTerm ||
@@ -927,7 +929,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
 
     // Listener para atualizações da dashboard
     socket.on('dashboard_chat_update', (data: {
-      type: 'new_chat' | 'new_message' | 'transfer_created' | 'transfer_accepted' | 'status_changed'
+      type: 'new_chat' | 'new_message' | 'transfer_created' | 'transfer_accepted' | 'status_changed' | 'chat_reopened'
       chatId: number
       customerName: string
       customerPhone: string
@@ -938,7 +940,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       console.log('📊 Atualização da dashboard:', data)
       
       // Recarregar lista de chats para refletir mudanças
-      if (data.type === 'new_chat' || data.type === 'transfer_created' || data.type === 'transfer_accepted') {
+      if (data.type === 'new_chat' || data.type === 'transfer_created' || data.type === 'transfer_accepted' || data.type === 'chat_reopened') {
         console.log('🔄 Recarregando chats devido a:', data.type)
         loadChatsFromDatabase()
       }
@@ -955,6 +957,12 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
               }
             : chat
         ))
+      }
+      
+      // Mostrar notificação específica para chat reaberto
+      if (data.type === 'chat_reopened') {
+        console.log(`🔄 Chat ${data.chatId} foi reaberto por ${data.customerName}`)
+        // Aqui você pode adicionar uma notificação toast se desejar
       }
     })
 
@@ -1069,7 +1077,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 data-icon="📋"
                 title="Todos"
               >
-                {!isSidebarCollapsed && `Todos (${humanChats.length})`}
+                {!isSidebarCollapsed && `Todos (${humanChats.filter(chat => !['finished', 'resolved'].includes(chat.status)).length})`}
               </button>
               <button 
                 className={`filter-btn-compact ${statusFilter === 'pending' ? 'active' : ''}`}

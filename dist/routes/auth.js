@@ -69,7 +69,12 @@ router.post('/login', (0, auth_1.logAction)('user_login'), async (req, res) => {
                 role: result.user.role,
                 manager_id: result.user.manager_id,
                 phone: result.user.phone,
-                avatar: result.user.avatar
+                avatar: result.user.avatar,
+                subscription_status: result.user.subscription_status || 'free',
+                subscription_plan: result.user.subscription_plan,
+                subscription_start_date: result.user.subscription_start_date,
+                subscription_end_date: result.user.subscription_end_date,
+                subscription_amount: result.user.subscription_amount
             },
             token: result.sessionToken, // Usar sessionToken em vez de JWT
             sessionToken: result.sessionToken
@@ -200,6 +205,40 @@ router.post('/logout', auth_1.authenticate, (0, auth_1.logAction)('user_logout')
     }
     catch (error) {
         console.error('Erro no logout:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Rota para obter dados completos do usuário atual
+router.get('/me', auth_1.authenticate, async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        // Buscar dados completos do usuário, incluindo assinatura
+        const user = await User_1.UserModel.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ error: 'Usuário não encontrado' });
+        }
+        res.json({
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                manager_id: user.manager_id,
+                phone: user.phone,
+                avatar: user.avatar,
+                created_at: user.created_at,
+                subscription_status: user.subscription_status || 'free',
+                subscription_plan: user.subscription_plan,
+                subscription_start_date: user.subscription_start_date,
+                subscription_end_date: user.subscription_end_date,
+                subscription_amount: user.subscription_amount
+            }
+        });
+    }
+    catch (error) {
+        console.error('Erro ao buscar dados do usuário:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });

@@ -11,6 +11,13 @@ export interface User {
     email_verified_at?: Date;
     created_at: Date;
     updated_at: Date;
+    last_login?: Date;
+    subscription_status?: 'free' | 'active' | 'expired' | 'cancelled';
+    subscription_plan?: string;
+    subscription_start_date?: Date;
+    subscription_end_date?: Date;
+    subscription_payment_method?: string;
+    subscription_amount?: number;
 }
 export interface CreateUserData {
     name: string;
@@ -62,5 +69,16 @@ export declare class UserModel {
         operator: number;
     }>;
     static createDefaultAdmin(): Promise<User | null>;
+    static canCreateInstance(userId: number): Promise<boolean>;
+    static updateSubscription(userId: number, subscriptionData: {
+        status: 'free' | 'active' | 'expired' | 'cancelled';
+        plan?: string;
+        start_date?: Date;
+        end_date?: Date;
+        payment_method?: string;
+        amount?: number;
+    }): Promise<User | null>;
+    static getExpiringSubscriptions(daysBeforeExpiry?: number): Promise<User[]>;
+    static expireSubscriptions(): Promise<number>;
 }
 //# sourceMappingURL=User.d.ts.map

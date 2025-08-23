@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticate } from '../middleware/auth';
 import { MessageProjectModel, AutoMessageModel } from '../models/MessageProject';
 import { ContactModel, MessageModel, HumanChatModel } from '../models/Message';
+import { UserModel } from '../models/User';
 import { executeQuery } from '../config/database';
 
 const router = express.Router();
@@ -414,6 +415,95 @@ router.put('/human-chats/:id/status', authenticate, async (req, res) => {
     // 🤖 REATIVAR CHATBOT quando conversa é encerrada/resolvida
     if (status === 'finished' || status === 'resolved') {
       console.log(`🤖 Chatbot REATIVADO para o contato do chat ${chatId} - Conversa ${status}`)
+    console.log(`📱 INICIANDO PROCESSO DE PÓS-ENCERRAMENTO...`)
+      
+      // 📱 ENVIAR MENSAGEM DE PÓS-ENCERRAMENTO PARA O WHATSAPP
+      try {
+        // Buscar dados do chat e contato
+        if (!updatedChat) {
+          console.error('❌ Chat não encontrado após atualização');
+          return;
+        }
+        
+        const contact = await ContactModel.findById(updatedChat.contact_id);
+        const operatorId = updatedChat.assigned_to || updatedChat.operator_id;
+        const operator = operatorId ? await UserModel.findById(operatorId) : null;
+        
+        console.log(`🔍 Dados do chat:`, {
+          chatId: updatedChat.id,
+          managerId: updatedChat.manager_id,
+          contactId: updatedChat.contact_id,
+          operatorId: operatorId,
+          operatorName: operator?.name
+        });
+        console.log(`📋 Contato encontrado:`, contact ? {id: contact.id, phone: contact.phone_number, name: contact.name} : 'NULL');
+        
+        if (contact) {
+          // Buscar instância do WhatsApp do gestor
+          const whatsappInstances = (global as any).whatsappInstances;
+          console.log(`🔍 whatsappInstances disponível:`, !!whatsappInstances);
+          console.log(`🔍 Instâncias ativas:`, whatsappInstances ? Array.from(whatsappInstances.keys()) : 'NENHUMA');
+          
+          const instance = whatsappInstances?.get(updatedChat.manager_id);
+          console.log(`🔍 Instância para manager ${updatedChat.manager_id}:`, {
+            exists: !!instance,
+            clientExists: !!instance?.client,
+            isReady: instance?.isReady
+          });
+          
+          if (instance?.client && instance.isReady) {
+            const operatorName = operator ? operator.name : 'operador';
+            const phoneNumber = contact.phone_number + '@c.us';
+            
+            // Mensagem de encerramento com opções
+            const endMessage = `✅ *CONVERSA ENCERRADA*
+
+Sua conversa com o operador ${operatorName} foi finalizada.
+
+Você pode a qualquer momento:
+
+*1* - 👨‍💼 Voltar a falar com o operador ${operatorName}
+*2* - 🏠 Ir para o Menu Principal  
+*3* - 👥 Falar com outro operador
+
+Digite o número da opção desejada! 😊`;
+
+            console.log(`📤 Enviando mensagem de pós-encerramento para ${phoneNumber}...`);
+            await instance.client.sendMessage(phoneNumber, endMessage);
+            console.log(`✅ Mensagem de pós-encerramento enviada com sucesso para ${contact.phone_number}`);
+            
+            // 💾 SALVAR MENSAGEM DO SISTEMA NO BANCO
+            await MessageModel.create({
+              manager_id: updatedChat.manager_id,
+              chat_id: chatId,
+              contact_id: contact.id,
+              sender_type: 'bot',
+              content: endMessage,
+              message_type: 'text'
+            });
+            
+            // 🔄 MARCAR CONTATO COMO EM ESTADO DE PÓS-ENCERRAMENTO
+            // Isso permite que o bot reconheça as opções 1, 2, 3
+            const io = (global as any).io;
+            if (io) {
+              io.to(`manager_${updatedChat.manager_id}`).emit('chat_post_end_state', {
+                contactPhone: contact.phone_number,
+                operatorName: operatorName,
+                chatId: chatId,
+                timestamp: new Date()
+              });
+            }
+            
+          } else {
+            console.error(`❌ Instância WhatsApp não disponível para gestor ${updatedChat.manager_id}`);
+            console.error(`   - Instância existe: ${!!instance}`);
+            console.error(`   - Cliente existe: ${!!instance?.client}`);
+            console.error(`   - IsReady: ${instance?.isReady}`);
+          }
+        }
+      } catch (endChatError) {
+        console.error('❌ Erro ao enviar mensagem de pós-encerramento:', endChatError);
+      }
     }
 
     console.log('✅ Status atualizado - Resposta:', {

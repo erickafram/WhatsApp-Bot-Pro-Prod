@@ -1,6 +1,7 @@
 import express from 'express';
 import { WhatsAppInstanceModel } from '../models/WhatsAppInstance';
 import { authenticate, requireManager, requireManagerAccess, logAction } from '../middleware/auth';
+import { UserModel } from '../models/User';
 import pool from '../config/database';
 import { RowDataPacket } from 'mysql2';
 
@@ -58,6 +59,15 @@ router.post('/instances', authenticate, requireManager, logAction('create_whatsa
       return res.status(400).json({ error: 'Nome da instância deve ter pelo menos 3 caracteres' });
     }
     
+    // Verificar se o usuário pode criar instâncias (assinatura ativa)
+    const canCreate = await UserModel.canCreateInstance(req.user.id);
+    if (!canCreate) {
+      return res.status(403).json({ 
+        error: 'Você precisa de uma assinatura ativa para criar instâncias do WhatsApp.',
+        code: 'SUBSCRIPTION_REQUIRED'
+      });
+    }
+
     // Verificar limitação de instâncias baseada no role do usuário
     if (req.user.role !== 'admin') {
       // Usuários não-admin (managers) podem ter apenas 1 instância ativa

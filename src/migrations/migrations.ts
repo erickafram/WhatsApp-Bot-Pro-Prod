@@ -557,6 +557,77 @@ const migration011: Migration = {
   }
 };
 
+// Migration 012: Adicionar campos de assinatura para controle de acesso
+const migration012: Migration = {
+  id: '012_add_subscription_fields',
+  description: 'Adicionar campos de assinatura para controle de acesso a instâncias',
+  up: async () => {
+    const alterQueries = [
+      // Adicionar campos de assinatura
+      'ALTER TABLE users ADD COLUMN subscription_status ENUM("free", "active", "expired", "cancelled") DEFAULT "free" AFTER last_login',
+      'ALTER TABLE users ADD COLUMN subscription_plan VARCHAR(50) NULL AFTER subscription_status',
+      'ALTER TABLE users ADD COLUMN subscription_start_date TIMESTAMP NULL AFTER subscription_plan',
+      'ALTER TABLE users ADD COLUMN subscription_end_date TIMESTAMP NULL AFTER subscription_start_date',
+      'ALTER TABLE users ADD COLUMN subscription_payment_method VARCHAR(50) NULL AFTER subscription_end_date',
+      'ALTER TABLE users ADD COLUMN subscription_amount DECIMAL(10,2) NULL AFTER subscription_payment_method',
+      
+      // Adicionar índices para melhor performance
+      'ALTER TABLE users ADD INDEX idx_subscription_status (subscription_status)',
+      'ALTER TABLE users ADD INDEX idx_subscription_end_date (subscription_end_date)'
+    ];
+    
+    for (const query of alterQueries) {
+      try {
+        await executeQuery(query);
+        console.log(`✅ Migration 012: ${query}`);
+      } catch (error: any) {
+        if (!error.message.includes('Duplicate column name') && 
+            !error.message.includes('Duplicate key name')) {
+          console.error(`❌ Migration 012 erro: ${error.message}`);
+          throw error;
+        } else {
+          console.log(`⚠️ Migration 012: ${query} - já existe`);
+        }
+      }
+    }
+    
+    // Atualizar usuários admin para ter assinatura ativa
+    try {
+      await executeQuery(`
+        UPDATE users SET 
+          subscription_status = 'active',
+          subscription_plan = 'admin_unlimited',
+          subscription_start_date = NOW(),
+          subscription_end_date = DATE_ADD(NOW(), INTERVAL 1 YEAR)
+        WHERE role = 'admin'
+      `);
+      console.log(`✅ Migration 012: Usuários admin atualizados com assinatura ativa`);
+    } catch (error: any) {
+      console.log(`⚠️ Migration 012: Erro ao atualizar admins: ${error.message}`);
+    }
+  },
+  down: async () => {
+    const queries = [
+      'ALTER TABLE users DROP INDEX idx_subscription_status',
+      'ALTER TABLE users DROP INDEX idx_subscription_end_date',
+      'ALTER TABLE users DROP COLUMN subscription_status',
+      'ALTER TABLE users DROP COLUMN subscription_plan',
+      'ALTER TABLE users DROP COLUMN subscription_start_date',
+      'ALTER TABLE users DROP COLUMN subscription_end_date',
+      'ALTER TABLE users DROP COLUMN subscription_payment_method',
+      'ALTER TABLE users DROP COLUMN subscription_amount'
+    ];
+    
+    for (const query of queries) {
+      try {
+        await executeQuery(query);
+      } catch (error: any) {
+        console.log(`⚠️ Migration 012 down: ${error.message}`);
+      }
+    }
+  }
+};
+
 export const migrations: Migration[] = [
   migration001,
   migration002,
@@ -568,7 +639,8 @@ export const migrations: Migration[] = [
   migration008,
   migration009,
   migration010,
-  migration011
+  migration011,
+  migration012
 ];
 
 // Função para verificar se uma migration já foi executada

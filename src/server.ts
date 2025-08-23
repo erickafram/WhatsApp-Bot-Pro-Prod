@@ -6,6 +6,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import QRCode from 'qrcode';
 import { Client } from 'whatsapp-web.js';
+import * as fs from 'fs';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -27,6 +28,7 @@ import messageRoutes from './routes/messages';
 import deviceRoutes from './routes/devices';
 import operatorRoutes from './routes/operators';
 import managerRoutes from './routes/managers';
+import subscriptionRoutes from './routes/subscription';
 
 const app = express();
 const server = http.createServer(app);
@@ -69,6 +71,82 @@ const whatsappInstances = new Map<number, {
     messageCount: number;
     startTime: Date;
 }>();
+
+// Disponibilizar instâncias globalmente para uso em outros módulos
+(global as any).whatsappInstances = whatsappInstances;
+(global as any).io = io;
+
+// ===== SISTEMA DE FLUXO JSON =====
+
+interface FlowNode {
+    id: string;
+    type: string;
+    data: {
+        title: string;
+        triggers?: string[];
+        response?: string;
+        active?: number;
+    };
+    connections: string[];
+}
+
+interface FlowData {
+    metadata: any;
+    nodes: FlowNode[];
+    connections: any[];
+    settings: any;
+}
+
+let cachedFlow: FlowData | null = null;
+
+// Função para carregar fluxo JSON
+function loadFlowFromJSON(): FlowData | null {
+    try {
+        if (cachedFlow) return cachedFlow;
+        
+        const flowPath = path.join(__dirname, '..', 'fluxo-kleiber-passagens-tocantins.json');
+        if (!fs.existsSync(flowPath)) {
+            console.log('⚠️ Arquivo de fluxo JSON não encontrado:', flowPath);
+            return null;
+        }
+        
+        const flowContent = fs.readFileSync(flowPath, 'utf8');
+        cachedFlow = JSON.parse(flowContent);
+        console.log('✅ Fluxo JSON carregado com sucesso!');
+        return cachedFlow;
+    } catch (error) {
+        console.error('❌ Erro ao carregar fluxo JSON:', error);
+        return null;
+    }
+}
+
+// Função para processar mensagem usando fluxo JSON
+function processMessageWithFlow(message: string, flowData: FlowData): { node: FlowNode | null, response: string | null } {
+    if (!flowData) return { node: null, response: null };
+    
+    const messageText = message.toLowerCase().trim();
+    
+    // Buscar nó que corresponde à mensagem
+    for (const node of flowData.nodes) {
+        if (node.data.triggers) {
+            // Verificar se algum trigger corresponde
+            const triggerMatch = node.data.triggers.some(trigger => 
+                messageText.includes(trigger.toLowerCase()) || 
+                messageText === trigger.toLowerCase()
+            );
+            
+            if (triggerMatch && node.data.active === 1) {
+                console.log(`🎯 Nó encontrado no fluxo JSON: ${node.id} - ${node.data.title}`);
+                return { 
+                    node, 
+                    response: node.data.response || null 
+                };
+            }
+        }
+    }
+    
+    return { node: null, response: null };
+}
 
 // ===== INICIALIZAÇÃO DO SISTEMA =====
 
@@ -280,28 +358,160 @@ async function initializeWhatsAppClient(managerId: number, instanceId: number): 
                 // Verificar se existe chat humano para este contato (qualquer status)
                 let activeChat = await HumanChatModel.findAnyByContact(dbContact.id);
                 
-                // Se existe chat encerrado/resolvido, reabrir como pendente
+                // Se existe chat encerrado/resolvido, verificar se é opção pós-encerramento
                 if (activeChat && (activeChat.status === 'finished' || activeChat.status === 'resolved')) {
-                    const updateQuery = `
-                        UPDATE human_chats 
-                        SET status = 'pending', updated_at = NOW(), operator_id = NULL, assigned_to = NULL
-                        WHERE id = ?
-                    `;
-                    await executeQuery(updateQuery, [activeChat.id]);
-                    activeChat.status = 'pending';
-                    activeChat.operator_id = null;
-                    activeChat.assigned_to = null;
-                    console.log(`🔄 Chat ${activeChat.id} REABERTO automaticamente - Status: finished/resolved → pending`);
+                    // Verificar se mensagem é uma das opções pós-encerramento (1, 2, 3)
+                    const messageText = msg.body.trim();
                     
-                    // Emitir evento para dashboard sobre conversa reaberta
-                    io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
-                        type: 'chat_reopened',
-                        chatId: activeChat.id,
-                        customerName: contactName,
-                        customerPhone: phoneNumber,
-                        message: 'Conversa reaberta - cliente enviou nova mensagem',
-                        timestamp: new Date()
-                    });
+                    if (['1', '2', '3'].includes(messageText)) {
+                        console.log(`🔄 Processando opção pós-encerramento: ${messageText}`);
+                        
+                        // Buscar operador do chat anterior
+                        const operatorId = activeChat.assigned_to || activeChat.operator_id;
+                        const previousOperator = operatorId ? await UserModel.findById(operatorId) : null;
+                        const operatorName = previousOperator ? previousOperator.name : 'operador';
+                        
+                        let response = '';
+                        
+                        if (messageText === '1') {
+                            // Reconectar com mesmo operador
+                            console.log(`🔄 OPÇÃO 1 DETECTADA: Reconectando com operador ${operatorName} (Chat ID: ${activeChat.id})`);
+                            response = `👨‍💼 *RECONECTANDO COM OPERADOR*\n\nPerfeito! Estou reconectando você com o operador ${operatorName}.\n\n⏰ *Status:* Aguardando operador disponível\n\nEm alguns instantes ${operatorName} retornará para continuar o atendimento!\n\n*Observação:* Se o operador não estiver disponível, outro membro da equipe poderá ajudá-lo.`;
+                            
+                            // Reabrir chat mantendo operador original
+                            const updateQuery = `
+                                UPDATE human_chats 
+                                SET status = 'pending', updated_at = NOW()
+                                WHERE id = ?
+                            `;
+                            console.log(`📋 Atualizando status do chat ${activeChat.id}: ${activeChat.status} → pending`);
+                            await executeQuery(updateQuery, [activeChat.id]);
+                            activeChat.status = 'pending';
+                            console.log(`✅ Chat ${activeChat.id} reaberto com sucesso - Status: pending`);
+                            
+                            // 📡 NOTIFICAR DASHBOARD SOBRE CHAT REABERTO
+                            io.to(`manager_${managerId}`).emit('dashboard_chat_update', {
+                                type: 'chat_reopened',
+                                chatId: activeChat.id,
+                                customerName: contactName,
+                                customerPhone: phoneNumber,
+                                status: 'pending',
+                                operatorName: operatorName,
+                                timestamp: new Date()
+                            });
+                            console.log(`📊 Dashboard notificado sobre chat ${activeChat.id} reaberto`);
+                            
+                        } else if (messageText === '2') {
+                            // Ir para menu principal - usar fluxo JSON
+                            console.log(`🏠 Usuário escolheu opção 2 - Buscando menu no fluxo JSON`);
+                            
+                            const flowData = loadFlowFromJSON();
+                            if (flowData) {
+                                const welcomeNode = flowData.nodes.find(node => node.id === 'welcome-message');
+                                if (welcomeNode && welcomeNode.data.response) {
+                                    const contact = await msg.getContact();
+                                    const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+                                    response = welcomeNode.data.response.replace('{name}', name);
+                                }
+                            }
+                            
+                            if (!response) {
+                                // Fallback se não conseguir carregar do JSON
+                                const contact = await msg.getContact();
+                                const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+                                response = `🚌 Olá! ${name} Bem-vindo à *Kleiber Passagens/ Tocantins*! 
+
+Como posso ajudá-lo hoje?
+
+*1* - 🎫 Comprar Passagem
+*2* - 🕐 Ver Horários
+*3* - 📦 Encomendas e Cargas
+*4* - 🚐 Turismo/Locação
+*5* - 🚌 Atendimento Real Expresso
+
+Digite o número da opção desejada! 😊`;
+                            }
+                            
+                        } else if (messageText === '3') {
+                            // Novo operador
+                            response = `👥 *NOVO ATENDIMENTO*\n\nEntendi! Vou direcioná-lo para um novo atendimento.\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato para ajudá-lo!\n\nObrigado pela preferência! 🚌✨`;
+                            
+                            // Reabrir como novo chat (sem operador específico)
+                            const updateQuery = `
+                                UPDATE human_chats 
+                                SET status = 'pending', updated_at = NOW(), operator_id = NULL, assigned_to = NULL
+                                WHERE id = ?
+                            `;
+                            await executeQuery(updateQuery, [activeChat.id]);
+                            activeChat.status = 'pending';
+                            activeChat.operator_id = null;
+                            activeChat.assigned_to = null;
+                        }
+                        
+                        // Enviar resposta se não for opção 2 (menu)
+                        if (messageText !== '2' && response) {
+                            await client.sendMessage(msg.from, response);
+                            await delay(1000);
+                            console.log(`✅ Resposta pós-encerramento enviada: Opção ${messageText}`);
+                            
+                            // Salvar resposta no banco
+                            const botMessage = await MessageModel.create({
+                                manager_id: managerId,
+                                chat_id: activeChat.id,
+                                contact_id: dbContact.id,
+                                sender_type: 'bot',
+                                content: response,
+                                message_type: 'text'
+                            });
+                            
+                            // Emitir evento para dashboard sobre conversa reaberta
+                            io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
+                                type: 'chat_reopened',
+                                chatId: activeChat.id,
+                                customerName: contactName,
+                                customerPhone: phoneNumber,
+                                message: `Cliente escolheu opção ${messageText} - Conversa reaberta`,
+                                timestamp: new Date()
+                            });
+                            
+                            return; // Não processar mais nada
+                        }
+                        
+                        // Se for opção 2, continuar processamento normal (não fazer return)
+                        if (messageText === '2') {
+                            // Resetar status para permitir processamento do menu
+                            const updateQuery = `
+                                UPDATE human_chats 
+                                SET status = 'resolved', updated_at = NOW()
+                                WHERE id = ?
+                            `;
+                            await executeQuery(updateQuery, [activeChat.id]);
+                            // Continuar para processamento de mensagem automática
+                        }
+                        
+                    } else {
+                        // Mensagem normal após encerramento - reabrir como pendente
+                        const updateQuery = `
+                            UPDATE human_chats 
+                            SET status = 'pending', updated_at = NOW(), operator_id = NULL, assigned_to = NULL
+                            WHERE id = ?
+                        `;
+                        await executeQuery(updateQuery, [activeChat.id]);
+                        activeChat.status = 'pending';
+                        activeChat.operator_id = null;
+                        activeChat.assigned_to = null;
+                        console.log(`🔄 Chat ${activeChat.id} REABERTO automaticamente - Status: finished/resolved → pending`);
+                        
+                        // Emitir evento para dashboard sobre conversa reaberta
+                        io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
+                            type: 'chat_reopened',
+                            chatId: activeChat.id,
+                            customerName: contactName,
+                            customerPhone: phoneNumber,
+                            message: 'Conversa reaberta - cliente enviou nova mensagem',
+                            timestamp: new Date()
+                        });
+                    }
                 }
                 
                 // Mapear tipos do WhatsApp para tipos do banco
@@ -348,6 +558,31 @@ async function initializeWhatsAppClient(managerId: number, instanceId: number): 
                     contact_name: contactName,
                     message_id: savedMessage.id
                 } as MessageEvent);
+
+                // 🆕 EMITIR EVENTO PARA CONVERSAS INICIADAS NO DASHBOARD DO GESTOR
+                // Se é a primeira mensagem do contato (nova conversa iniciada)
+                if (!activeChat) {
+                    io.to(`manager_${managerId}`).emit('conversation_initiated', {
+                        id: `conv_${dbContact.id}`,
+                        customerName: contactName,
+                        customerPhone: phoneNumber,
+                        lastMessage: msg.body,
+                        timestamp: new Date(),
+                        status: 'bot_only',
+                        messageCount: 1
+                    });
+                    
+                    console.log(`🆕 Evento conversation_initiated emitido para gestor ${managerId} - Cliente: ${contactName}`);
+                } else {
+                    // Atualizar conversa existente
+                    io.to(`manager_${managerId}`).emit('conversation_updated', {
+                        id: `conv_${dbContact.id}`,
+                        lastMessage: msg.body,
+                        timestamp: new Date(),
+                        status: activeChat.status || 'bot_only',
+                        messageCount: 1 // Incrementar conforme necessário
+                    });
+                }
 
                 // Verificar se chat está ativo (não encerrado) para desativar bot
                 const isChatActive = activeChat && ['pending', 'active', 'waiting_payment', 'transfer_pending'].includes(activeChat.status);
@@ -492,6 +727,139 @@ async function processAutoMessages(
         msg.trigger_words.some((trigger: string) => trigger === "*")
     );
 
+    // 🚫 VERIFICAR PALAVRAS-CHAVE BLOQUEADAS PRIMEIRO
+    const userMessage = msg.body.trim().toLowerCase();
+    const blockedKeywords = [
+        'idoso', 'idosa', 'passe livre', 'id jovem', 'meia entrada', 
+        'gratuidade', 'isento', 'desconto especial'
+    ];
+    
+    // Verificar se a mensagem contém alguma palavra bloqueada
+    const hasBlockedKeyword = blockedKeywords.some(keyword => 
+        userMessage.includes(keyword.toLowerCase())
+    );
+    
+    if (hasBlockedKeyword) {
+        console.log(`🚫 Palavra-chave bloqueada detectada: "${msg.body}"`);
+        
+        const chat = await msg.getChat();
+        await delay(2000);
+        await chat.sendStateTyping();
+        await delay(2000);
+        
+        const blockedResponse = `🏢 *ATENDIMENTO PRESENCIAL NECESSÁRIO*
+
+Para benefícios especiais como:
+• Passe Livre
+• ID Jovem
+• Gratuidade para Idosos
+• Outros descontos especiais
+
+📍 *É necessário comparecer pessoalmente na agência mais próxima* com a documentação exigida.
+
+
+Obrigado pela compreensão! 🚌`;
+        
+        if (client && instanceData.isReady) {
+            await client.sendMessage(msg.from, blockedResponse);
+            await delay(1000);
+            console.log(`✅ Resposta de palavra bloqueada enviada para ${msg.from}`);
+            
+            // Salvar resposta no banco
+            try {
+                const phoneNumber = msg.from.replace('@c.us', '');
+                const dbContact = await ContactModel.findByPhoneAndManager(phoneNumber, managerId);
+                
+                if (dbContact) {
+                    const activeChat = await HumanChatModel.findActiveByContact(dbContact.id);
+                    
+                    await MessageModel.create({
+                        manager_id: managerId,
+                        chat_id: activeChat?.id || null,
+                        contact_id: dbContact.id,
+                        sender_type: 'bot',
+                        content: blockedResponse,
+                        message_type: 'text'
+                    });
+                }
+            } catch (error) {
+                console.error('❌ Erro ao salvar resposta de palavra bloqueada:', error);
+            }
+        }
+        
+        messageProcessed = true;
+        return; // Sair da função após processar palavra bloqueada
+    }
+
+    // 🙏 VERIFICAR SE É AGRADECIMENTO E ENCERRAR CONVERSA GRACIOSAMENTE
+    const thankYouKeywords = ['obrigado', 'obrigada', 'valeu', 'brigado', 'ok', 'certo', 'entendi', 'tá bom', 'beleza'];
+    if (thankYouKeywords.some(keyword => userMessage.includes(keyword))) {
+        console.log(`🙏 Agradecimento detectado: "${msg.body}" - Não processando`);
+        messageProcessed = true;
+        return;
+    }
+
+    // 🏠 VERIFICAR SEMPRE SE É "0" PARA VOLTAR AO MENU PRINCIPAL
+    if (msg.body.trim() === '0') {
+        console.log(`🏠 Usuário digitou "0" - Buscando menu principal no fluxo JSON`);
+        
+        const chat = await msg.getChat();
+        await delay(2000);
+        await chat.sendStateTyping();
+        await delay(2000);
+        
+        const contact = await msg.getContact();
+        const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+        
+        let menuResponse = '';
+        
+        // Tentar carregar do fluxo JSON
+        const flowData = loadFlowFromJSON();
+        if (flowData) {
+            const welcomeNode = flowData.nodes.find(node => node.id === 'welcome-message');
+            if (welcomeNode && welcomeNode.data.response) {
+                menuResponse = welcomeNode.data.response.replace('{name}', name);
+                console.log(`✅ Menu "0" carregado do fluxo JSON: welcome-message`);
+            }
+        }
+        
+        // Fallback se não conseguir carregar do JSON
+        if (!menuResponse) {
+            console.log(`⚠️ Usando menu "0" fallback - JSON não disponível`);
+            menuResponse = `🚌 Olá! ${name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊`;
+        }
+        
+        if (client && instanceData.isReady) {
+            await client.sendMessage(msg.from, menuResponse);
+            await delay(1000);
+            console.log(`✅ Menu principal enviado para ${msg.from}`);
+            
+            // Salvar resposta no banco
+            try {
+                const phoneNumber = msg.from.replace('@c.us', '');
+                const dbContact = await ContactModel.findByPhoneAndManager(phoneNumber, managerId);
+                
+                if (dbContact) {
+                    const activeChat = await HumanChatModel.findActiveByContact(dbContact.id);
+                    
+                    await MessageModel.create({
+                        manager_id: managerId,
+                        chat_id: activeChat?.id || null,
+                        contact_id: dbContact.id,
+                        sender_type: 'bot',
+                        content: menuResponse,
+                        message_type: 'text'
+                    });
+                }
+            } catch (error) {
+                console.error('❌ Erro ao salvar menu principal:', error);
+            }
+        }
+        
+        messageProcessed = true;
+        return; // Sair da função após processar o "0"
+    }
+    
     // Processar primeiro os templates específicos
     for (const autoMessage of specificTemplates) {
         // Verificar se alguma palavra-chave corresponde (EXACT MATCH apenas)
@@ -907,10 +1275,83 @@ Aguarde um momento... 🚌✨`;
         if (messageProcessed) {
             console.log(`🏙️ Mensagem de cidade processada para ${msg.from}`);
         } else {
-            // 🚨 FALLBACK AUTOMÁTICO: Se não há correspondência, transferir para operador
-            console.log(`🔄 Nenhuma correspondência encontrada para "${msg.body}". Transferindo automaticamente para operador...`);
+            // 🚨 FALLBACK AUTOMÁTICO: Verificar se é primeira conversa
+            console.log(`🔄 Nenhuma correspondência encontrada para "${msg.body}"`);
             
-            const fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
+            // 🔍 VERIFICAR SE É PRIMEIRA CONVERSA DO USUÁRIO
+            const contact = await msg.getContact();
+            const phoneNumber = msg.from.replace('@c.us', '');
+            const dbContact = await ContactModel.findByPhoneAndManager(phoneNumber, managerId);
+            
+            let isFirstConversation = false;
+            if (dbContact) {
+                // Verificar se há chats anteriores para este contato
+                const existingChatsQuery = `
+                    SELECT COUNT(*) as chatCount 
+                    FROM human_chats 
+                    WHERE contact_id = ? AND manager_id = ?
+                `;
+                try {
+                    const chatCountResult = await executeQuery(existingChatsQuery, [dbContact.id, managerId]) as any[];
+                    const chatCount = chatCountResult?.[0]?.chatCount || 0;
+                    isFirstConversation = chatCount === 0;
+                    console.log(`📊 Contato ${dbContact.id} tem ${chatCount} chats anteriores`);
+                } catch (error) {
+                    console.error('❌ Erro ao verificar chats anteriores:', error);
+                    // Em caso de erro, assumir que é primeira conversa para dar melhor experiência
+                    isFirstConversation = true;
+                }
+            } else {
+                // Se não existe contato no banco, é primeira conversa
+                isFirstConversation = true;
+            }
+            
+            console.log(`👤 Primeira conversa do usuário: ${isFirstConversation ? 'SIM' : 'NÃO'}`);
+            
+            if (isFirstConversation) {
+                // 🏠 PRIMEIRA CONVERSA: Mostrar menu principal do fluxo JSON
+                console.log(`🏠 Primeira conversa - Buscando menu principal no fluxo JSON`);
+                
+                const contactName = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+                let menuResponse = '';
+                
+                // Tentar carregar do fluxo JSON
+                const flowData = loadFlowFromJSON();
+                if (flowData) {
+                    const welcomeNode = flowData.nodes.find(node => node.id === 'welcome-message');
+                    if (welcomeNode && welcomeNode.data.response) {
+                        menuResponse = welcomeNode.data.response.replace('{name}', contactName);
+                        console.log(`✅ Menu carregado do fluxo JSON: welcome-message`);
+                    }
+                }
+                
+                // Fallback se não conseguir carregar do JSON
+                if (!menuResponse) {
+                    console.log(`⚠️ Usando menu fallback - JSON não disponível`);
+                    menuResponse = `🚌 Olá! ${contactName} Bem-vindo à *Kleiber Passagens/ Tocantins*! 
+
+Como posso ajudá-lo hoje?
+
+*1* - 🎫 Comprar Passagem
+*2* - 🕐 Ver Horários
+*3* - 📦 Encomendas e Cargas
+*4* - 🚐 Turismo/Locação
+*5* - 🚌 Atendimento Real Expresso
+
+Digite o número da opção desejada! 😊`;
+                }
+
+                if (client && instanceData.isReady) {
+                    await delay(2000);
+                    await client.sendMessage(msg.from, menuResponse);
+                    await delay(1000);
+                    console.log(`🏠 Menu principal enviado para primeira conversa: ${msg.from}`);
+                }
+            } else {
+                // 👨‍💼 CONVERSA EXISTENTE: Transferir para operador
+                console.log(`👨‍💼 Conversa existente - Transferindo para operador`);
+                
+                const fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
 
 🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe de atendimento poderá ajudá-lo melhor.
 
@@ -923,14 +1364,15 @@ Em alguns instantes um operador entrará em contato!
 
 Obrigado pela preferência! 🚌✨`;
 
-            // Enviar mensagem de fallback e transferir automaticamente
-            if (client && instanceData.isReady) {
-                await client.sendMessage(msg.from, fallbackResponse);
-                await delay(1000);
-                console.log(`🤖 Resposta de fallback enviada para ${msg.from}`);
-                
-                // Transferir automaticamente para atendimento humano
-                await transferToHuman(managerId, msg, fallbackResponse);
+                // Enviar mensagem de fallback e transferir automaticamente
+                if (client && instanceData.isReady) {
+                    await client.sendMessage(msg.from, fallbackResponse);
+                    await delay(1000);
+                    console.log(`🤖 Resposta de fallback enviada para ${msg.from}`);
+                    
+                    // Transferir automaticamente para atendimento humano
+                    await transferToHuman(managerId, msg, fallbackResponse);
+                }
             }
         }
     }
@@ -1073,6 +1515,15 @@ async function transferToHuman(managerId: number, msg: any, botResponse: string)
         // Emitir para o gestor específico
         io.to(`manager_${managerId}`).emit('human_chat_requested', eventData);
         
+        // 🔄 ATUALIZAR CONVERSA INICIADA - mudou de bot_only para pending
+        io.to(`manager_${managerId}`).emit('conversation_updated', {
+            id: `conv_${dbContact.id}`,
+            lastMessage: 'Solicitou atendimento humano',
+            timestamp: new Date(),
+            status: 'pending',
+            messageCount: 0 // Será atualizado pelo contador real se necessário
+        });
+        
         // 🚨 ALERTAS INSTANTÂNEOS PARA DASHBOARD
         // Enviar alerta para dashboard do gestor
         io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
@@ -1189,6 +1640,9 @@ app.use('/api/operators', operatorRoutes);
 
 // Rotas de gestores
 app.use('/api/managers', managerRoutes);
+
+// Rotas de assinatura
+app.use('/api/subscription', subscriptionRoutes);
 
 // Rota de status do sistema
 app.get('/api/status', async (req, res) => {

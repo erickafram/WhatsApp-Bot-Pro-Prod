@@ -12,7 +12,9 @@ import {
   ArrowDown,
   Bell,
   X,
-  MessageCircle
+  MessageCircle,
+  Users,
+  Play
 } from 'lucide-react'
 
 interface ManagerStats {
@@ -27,6 +29,7 @@ interface ManagerStats {
   customerSatisfaction: number
   botInteractions: number
   humanInteractions: number
+  conversationsInitiated: number
 }
 
 interface Alert {
@@ -49,6 +52,16 @@ interface RecentActivity {
   customerName?: string
 }
 
+interface InitiatedConversation {
+  id: string
+  customerName: string
+  customerPhone: string
+  lastMessage: string
+  timestamp: string
+  status: 'bot_only' | 'pending' | 'active'
+  messageCount: number
+}
+
 interface ManagerDashboardProps {
   socket: any
   onNavigate?: (page: string, chatId?: number) => void
@@ -66,12 +79,15 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
     avgResponseTime: 0,
     customerSatisfaction: 0,
     botInteractions: 0,
-    humanInteractions: 0
+    humanInteractions: 0,
+    conversationsInitiated: 0
   })
 
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [initiatedConversations, setInitiatedConversations] = useState<InitiatedConversation[]>([])
   const [showAlerts, setShowAlerts] = useState(false)
+  const [showInitiatedConversations, setShowInitiatedConversations] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   // Carregar dados iniciais
@@ -79,6 +95,7 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
     loadDashboardData()
     loadAlerts()
     loadRecentActivity()
+    loadInitiatedConversations()
   }, [])
 
   // Socket listeners para atualizações em tempo real
@@ -107,6 +124,8 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
     socket.on('operator_status_change', handleOperatorStatusChange)
     socket.on('dashboard_update', handleDashboardUpdate)
     socket.on('manager_notification', handleManagerNotification)
+    socket.on('conversation_initiated', handleConversationInitiated)
+    socket.on('conversation_updated', handleConversationUpdated)
 
     // 🚨 LISTENERS PARA ALERTAS INSTANTÂNEOS
     socket.on('dashboard_instant_alert', (data: {
@@ -171,6 +190,8 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
       socket.off('operator_status_change', handleOperatorStatusChange)
       socket.off('dashboard_update', handleDashboardUpdate)
       socket.off('manager_notification', handleManagerNotification)
+      socket.off('conversation_initiated', handleConversationInitiated)
+      socket.off('conversation_updated', handleConversationUpdated)
       socket.off('dashboard_instant_alert')
     }
   }, [socket])
@@ -264,6 +285,58 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
       }
     } catch (error) {
       console.error('Erro ao carregar atividades recentes:', error)
+    }
+  }
+
+  const loadInitiatedConversations = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      
+      const response = await fetch('/api/managers/initiated-conversations', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setInitiatedConversations(data)
+        
+        // Atualizar contador
+        setStats(prev => ({
+          ...prev,
+          conversationsInitiated: data.length
+        }))
+      } else {
+        // Mock data para desenvolvimento
+        const mockData = [
+          {
+            id: 'conv_1',
+            customerName: 'Erick Vinicius',
+            customerPhone: '63999999999',
+            lastMessage: 'Olá, gostaria de comprar uma passagem',
+            timestamp: new Date().toISOString(),
+            status: 'bot_only' as const,
+            messageCount: 3
+          },
+          {
+            id: 'conv_2',
+            customerName: 'Maria Silva',
+            customerPhone: '63888888888',
+            lastMessage: '2',
+            timestamp: new Date(Date.now() - 180000).toISOString(),
+            status: 'bot_only' as const,
+            messageCount: 2
+          }
+        ]
+        setInitiatedConversations(mockData)
+        setStats(prev => ({
+          ...prev,
+          conversationsInitiated: mockData.length
+        }))
+      }
+    } catch (error) {
+      console.error('Erro ao carregar conversas iniciadas:', error)
     }
   }
 
@@ -386,6 +459,74 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
     setAlerts(prev => [alert, ...prev])
   }
 
+  const handleConversationInitiated = (data: any) => {
+    console.log('🆕 Nova conversa iniciada recebida no ManagerDashboard:', data)
+    
+    const newConversation: InitiatedConversation = {
+      id: data.id || `conv_${Date.now()}`,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      lastMessage: data.lastMessage,
+      timestamp: new Date().toISOString(),
+      status: data.status || 'bot_only',
+      messageCount: data.messageCount || 1
+    }
+
+    setInitiatedConversations(prev => {
+      const existing = prev.find(conv => conv.id === newConversation.id)
+      if (existing) {
+        return prev.map(conv => 
+          conv.id === newConversation.id ? newConversation : conv
+        )
+      }
+      return [newConversation, ...prev]
+    })
+
+    setStats(prev => ({
+      ...prev,
+      conversationsInitiated: prev.conversationsInitiated + 1
+    }))
+
+    // Adicionar à atividade recente apenas se for primeira conversa
+    if (data.status === 'bot_only') {
+      const activity: RecentActivity = {
+        id: `activity_${Date.now()}`,
+        type: 'chat_created',
+        description: `${data.customerName} iniciou uma conversa com o bot`,
+        timestamp: new Date().toISOString(),
+        customerName: data.customerName
+      }
+
+      setRecentActivity(prev => [activity, ...prev.slice(0, 9)])
+    }
+  }
+
+  const handleConversationUpdated = (data: any) => {
+    console.log('🔄 Conversa atualizada recebida no ManagerDashboard:', data)
+    
+    setInitiatedConversations(prev => prev.map(conv => 
+      conv.id === data.id ? {
+        ...conv,
+        lastMessage: data.lastMessage,
+        timestamp: new Date().toISOString(),
+        status: data.status,
+        messageCount: data.messageCount
+      } : conv
+    ))
+
+    // Se a conversa foi transferida para operador, remover da lista
+    if (data.status === 'pending' || data.status === 'active') {
+      setInitiatedConversations(prev => {
+        const filtered = prev.filter(conv => conv.id !== data.id)
+        setStats(prevStats => ({
+          ...prevStats,
+          conversationsInitiated: filtered.length
+        }))
+        return filtered
+      })
+    }
+  }
+
   const markAlertAsRead = (alertId: string) => {
     setAlerts(prev => prev.map(alert => 
       alert.id === alertId ? { ...alert, read: true } : alert
@@ -506,6 +647,91 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
         </div>
       )}
 
+      {/* Modal de conversas iniciadas */}
+      {showInitiatedConversations && (
+        <div className="modal-overlay" onClick={() => setShowInitiatedConversations(false)}>
+          <div className="modal-content conversations-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>💬 Conversas Iniciadas</h2>
+              <p className="modal-subtitle">
+                {stats.conversationsInitiated} {stats.conversationsInitiated === 1 ? 'conversa' : 'conversas'} em andamento
+              </p>
+              <button 
+                onClick={() => setShowInitiatedConversations(false)} 
+                className="modal-close-btn"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {initiatedConversations.length === 0 ? (
+                <div className="empty-state">
+                  <Users size={48} />
+                  <h3>Nenhuma conversa no momento</h3>
+                  <p>Quando clientes iniciarem conversas, elas aparecerão aqui.</p>
+                </div>
+              ) : (
+                <div className="conversations-grid">
+                  {initiatedConversations.map(conversation => (
+                    <div 
+                      key={conversation.id} 
+                      className={`conversation-card ${conversation.status}`}
+                      onClick={() => {
+                        setShowInitiatedConversations(false);
+                        if (onNavigate) {
+                          onNavigate('chat', parseInt(conversation.id.replace('conv_', '')))
+                        }
+                      }}
+                    >
+                      <div className="card-header">
+                        <div className="customer-avatar">
+                          <Users size={24} />
+                        </div>
+                        <div className="customer-info">
+                          <h4>{conversation.customerName}</h4>
+                          <span className="phone-number">{conversation.customerPhone}</span>
+                        </div>
+                        <span className={`status-badge ${conversation.status}`}>
+                          {conversation.status === 'bot_only' && '🤖 Bot'}
+                          {conversation.status === 'pending' && '⏳ Pendente'}
+                          {conversation.status === 'active' && '🟢 Ativo'}
+                        </span>
+                      </div>
+                      
+                      <div className="card-body">
+                        <div className="last-message">
+                          <span className="message-label">Última mensagem:</span>
+                          <p>"{conversation.lastMessage}"</p>
+                        </div>
+                        
+                        <div className="conversation-stats">
+                          <div className="stat">
+                            <MessageCircle size={14} />
+                            <span>{conversation.messageCount} mensagens</span>
+                          </div>
+                          <div className="stat">
+                            <Clock size={14} />
+                            <span>{formatTime(conversation.timestamp)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="card-action">
+                        <button className="action-btn">
+                          <Play size={16} />
+                          <span>Assumir Conversa</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cards de estatísticas */}
       <div className="dashboard-stats">
         <div className="stat-card primary">
@@ -587,6 +813,22 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
           <div className="stat-trend neutral">
             <ArrowDown size={16} />
             -3%
+          </div>
+        </div>
+
+        <div 
+          className="stat-card conversations-initiated clickable"
+          onClick={() => setShowInitiatedConversations(!showInitiatedConversations)}
+        >
+          <div className="stat-icon">
+            <Users size={24} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">{stats.conversationsInitiated}</div>
+            <div className="stat-label">Conversas Iniciadas</div>
+          </div>
+          <div className="stat-action">
+            <Play size={16} />
           </div>
         </div>
       </div>

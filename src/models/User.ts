@@ -16,6 +16,13 @@ export interface User {
   email_verified_at?: Date;
   created_at: Date;
   updated_at: Date;
+  last_login?: Date;
+  subscription_status?: 'free' | 'active' | 'expired' | 'cancelled';
+  subscription_plan?: string;
+  subscription_start_date?: Date;
+  subscription_end_date?: Date;
+  subscription_payment_method?: string;
+  subscription_amount?: number;
 }
 
 export interface CreateUserData {
@@ -71,16 +78,22 @@ export class UserModel {
 
   // Buscar usuário por ID
   static async findById(id: number): Promise<User | null> {
-    const query = 'SELECT * FROM users WHERE id = ? AND is_active = TRUE';
+    const query = `
+      SELECT 
+        id, name, email, role, manager_id, phone, avatar, is_active, 
+        email_verified_at, created_at, updated_at, last_login,
+        subscription_status, subscription_plan, subscription_start_date, 
+        subscription_end_date, subscription_payment_method, subscription_amount
+      FROM users 
+      WHERE id = ? AND is_active = TRUE
+    `;
     const result = await executeQuery(query, [id]);
     
     if (!Array.isArray(result) || result.length === 0) {
       return null;
     }
     
-    const user = result[0] as any;
-    delete user.password; // Não retornar senha
-    return user;
+    return result[0] as User;
   }
 
   // Buscar usuário por email
@@ -344,5 +357,82 @@ export class UserModel {
       console.error('❌ Erro ao criar admin padrão:', error);
       return null;
     }
+  }
+
+  // Verificar se usuário pode criar instâncias
+  static async canCreateInstance(userId: number): Promise<boolean> {
+    const user = await UserModel.findById(userId);
+    if (!user) return false;
+
+    // Admin sempre pode
+    if (user.role === 'admin') return true;
+
+    // Verificar assinatura ativa
+    return user.subscription_status === 'active';
+  }
+
+  // Atualizar assinatura do usuário
+  static async updateSubscription(userId: number, subscriptionData: {
+    status: 'free' | 'active' | 'expired' | 'cancelled';
+    plan?: string;
+    start_date?: Date;
+    end_date?: Date;
+    payment_method?: string;
+    amount?: number;
+  }): Promise<User | null> {
+    const query = `
+      UPDATE users SET 
+        subscription_status = ?,
+        subscription_plan = ?,
+        subscription_start_date = ?,
+        subscription_end_date = ?,
+        subscription_payment_method = ?,
+        subscription_amount = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+    
+    await executeQuery(query, [
+      subscriptionData.status,
+      subscriptionData.plan || null,
+      subscriptionData.start_date || null,
+      subscriptionData.end_date || null,
+      subscriptionData.payment_method || null,
+      subscriptionData.amount || null,
+      userId
+    ]);
+
+    return await UserModel.findById(userId);
+  }
+
+  // Verificar assinaturas que estão vencendo
+  static async getExpiringSubscriptions(daysBeforeExpiry: number = 7): Promise<User[]> {
+    const query = `
+      SELECT * FROM users 
+      WHERE subscription_status = 'active' 
+        AND subscription_end_date IS NOT NULL
+        AND subscription_end_date <= DATE_ADD(NOW(), INTERVAL ? DAY)
+        AND subscription_end_date > NOW()
+        AND is_active = TRUE
+      ORDER BY subscription_end_date ASC
+    `;
+    
+    const result = await executeQuery(query, [daysBeforeExpiry]);
+    return Array.isArray(result) ? result : [];
+  }
+
+  // Cancelar assinatura vencida automaticamente
+  static async expireSubscriptions(): Promise<number> {
+    const query = `
+      UPDATE users SET 
+        subscription_status = 'expired',
+        updated_at = CURRENT_TIMESTAMP
+      WHERE subscription_status = 'active' 
+        AND subscription_end_date IS NOT NULL
+        AND subscription_end_date < NOW()
+    `;
+    
+    const result = await executeQuery(query);
+    return (result as any).affectedRows || 0;
   }
 }

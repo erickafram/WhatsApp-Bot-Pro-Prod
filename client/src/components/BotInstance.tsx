@@ -8,9 +8,12 @@ import {
   RefreshCw,
   Clock,
   Bot,
-  MessageSquare
+  MessageSquare,
+  Crown,
+  Lock
 } from 'lucide-react'
 import QRCodePopup from './QRCodePopup'
+import SubscriptionUpgrade from './SubscriptionUpgrade'
 
 interface ConnectionStatus {
   connected: boolean
@@ -31,6 +34,12 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
   const [showQRPopup, setShowQRPopup] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [userRole, setUserRole] = useState<string>('manager')
+  const [userSubscription, setUserSubscription] = useState({
+    status: 'free',
+    plan: null,
+    endDate: null
+  })
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
   const [instanceStats, setInstanceStats] = useState({
     activeCount: 0,
     totalCount: 0,
@@ -38,14 +47,42 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
     canCreateMore: false
   })
 
-  // Get user role from localStorage
+  // Get user role and subscription from localStorage and API
   useEffect(() => {
     const userData = localStorage.getItem('user')
     if (userData) {
       const user = JSON.parse(userData)
       setUserRole(user.role || 'manager')
+      
+      // Fetch full user data including subscription
+      fetchUserSubscription()
     }
   }, [])
+
+  // Fetch user subscription status
+  const fetchUserSubscription = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) return
+
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setUserSubscription({
+          status: userData.user.subscription_status || 'free',
+          plan: userData.user.subscription_plan,
+          endDate: userData.user.subscription_end_date
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados de assinatura:', error)
+    }
+  }
 
   // Fetch instance statistics
   const fetchInstanceStats = async () => {
@@ -245,6 +282,12 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
   }, [status.connected, showQRPopup])
 
   const startInstance = async () => {
+    // Verificar se o usuário tem assinatura ativa
+    if (!canCreateInstance()) {
+      setShowSubscriptionModal(true)
+      return
+    }
+
     setIsLoading(true)
     setIsConnecting(true)
     setMessageCount(0)
@@ -436,6 +479,59 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
     return `${hours.toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
   }
 
+  // Verificar se o usuário pode criar instância
+  const canCreateInstance = (): boolean => {
+    // Admin sempre pode
+    if (userRole === 'admin') return true
+    
+    // Verificar se tem assinatura ativa
+    return userSubscription.status === 'active'
+  }
+
+  // Verificar se a assinatura está próxima do vencimento
+  const isSubscriptionExpiringSoon = (): boolean => {
+    if (!userSubscription.endDate) return false
+    
+    const endDate = new Date(userSubscription.endDate)
+    const now = new Date()
+    const daysUntilExpiry = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    
+    return daysUntilExpiry <= 7 && daysUntilExpiry > 0
+  }
+
+  // Lidar com upgrade de assinatura
+  const handleSubscriptionUpgrade = async (planId: string) => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      
+      // Simular processo de pagamento (aqui você integraria com gateway de pagamento)
+      const response = await fetch('/api/subscription/upgrade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          plan: planId
+        })
+      })
+
+      if (response.ok) {
+        // Atualizar dados de assinatura
+        await fetchUserSubscription()
+        setShowSubscriptionModal(false)
+        
+        // Mostrar mensagem de sucesso
+        alert('Assinatura ativada com sucesso! Agora você pode criar instâncias do WhatsApp.')
+      } else {
+        alert('Erro ao processar assinatura. Tente novamente.')
+      }
+    } catch (error) {
+      console.error('Erro ao fazer upgrade:', error)
+      alert('Erro ao processar assinatura. Tente novamente.')
+    }
+  }
+
   return (
     <div className="bot-instance-simple">
       {/* Header */}
@@ -487,7 +583,7 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
         </div>
       </div>
 
-      {/* Role-based Instance Limitation Info */}
+      {/* Subscription Status Info */}
       <div className="instance-info-card">
         {userRole === 'admin' ? (
           <div className="info-card admin">
@@ -501,18 +597,47 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
               </div>
             </div>
           </div>
-        ) : (
-          <div className="info-card manager">
-            <div className="info-icon">👤</div>
+        ) : userSubscription.status === 'active' ? (
+          <div className="info-card premium">
+            <div className="info-icon">
+              <Crown size={24} color="#f59e0b" />
+            </div>
             <div className="info-content">
-              <h3>Conta Gestor</h3>
-              <p>Você pode ter <strong>apenas 1 instância ativa</strong> por vez. Para mais instâncias, contate o administrador.</p>
+              <h3>Assinatura Ativa</h3>
+              <p>Plano: <strong>{userSubscription.plan || 'Premium'}</strong></p>
+              {userSubscription.endDate && (
+                <div className="subscription-expiry">
+                  Válida até: <strong>{new Date(userSubscription.endDate).toLocaleDateString('pt-BR')}</strong>
+                  {isSubscriptionExpiringSoon() && (
+                    <span className="expiry-warning"> ⚠️ Vence em breve!</span>
+                  )}
+                </div>
+              )}
               <div className="instance-count">
-                Instâncias ativas: <strong>{instanceStats.activeCount}/{instanceStats.limit || 1}</strong>
-                {!instanceStats.canCreateMore && (
-                  <span className="limit-reached"> - Limite atingido</span>
-                )}
+                Instâncias ativas: <strong>{instanceStats.activeCount}</strong>
               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="info-card free">
+            <div className="info-icon">
+              <Lock size={24} color="#ef4444" />
+            </div>
+            <div className="info-content">
+              <h3>Conta Gratuita</h3>
+              <p>Para usar o WhatsApp Bot, você precisa de uma <strong>assinatura ativa</strong>.</p>
+              <div className="subscription-benefits">
+                ✅ Instâncias ilimitadas do WhatsApp<br/>
+                ✅ Suporte técnico especializado<br/>
+                ✅ Recursos premium exclusivos
+              </div>
+              <button 
+                className="btn-upgrade-now"
+                onClick={() => setShowSubscriptionModal(true)}
+              >
+                <Crown size={16} />
+                Assinar Agora
+              </button>
             </div>
           </div>
         )}
@@ -543,12 +668,21 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
       {/* Action Buttons */}
       <div className="actions-simple">
         <button 
-          className="btn-simple btn-primary" 
-          onClick={startInstance}
-          disabled={isLoading || status.connected}
+          className={`btn-simple ${canCreateInstance() ? 'btn-primary' : 'btn-locked'}`}
+          onClick={canCreateInstance() ? startInstance : () => setShowSubscriptionModal(true)}
+          disabled={isLoading || (canCreateInstance() && status.connected)}
         >
-          <Play size={16} />
-          {isConnecting ? 'Aguarde...' : 'Iniciar Instância'}
+          {!canCreateInstance() ? (
+            <>
+              <Lock size={16} />
+              Precisa Assinar
+            </>
+          ) : (
+            <>
+              <Play size={16} />
+              {isConnecting ? 'Aguarde...' : 'Iniciar Instância'}
+            </>
+          )}
         </button>
         <button 
           className="btn-simple btn-secondary" 
@@ -574,6 +708,13 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
         isVisible={showQRPopup}
         onClose={clearQRStates}
         isLoading={isConnecting && !qrCode}
+      />
+
+      {/* Subscription Upgrade Modal */}
+      <SubscriptionUpgrade 
+        isVisible={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        onUpgrade={handleSubscriptionUpgrade}
       />
     </div>
   )

@@ -61,7 +61,8 @@ router.get('/dashboard-stats', (0, auth_1.requireRole)(['admin', 'manager']), as
             avgResponseTime: Math.round(parseFloat(stats.avg_response_time || 0)),
             customerSatisfaction: 92, // Mock data - implementar sistema de avaliação futuramente
             botInteractions: parseInt(stats.bot_interactions || 0),
-            humanInteractions: parseInt(stats.human_interactions || 0)
+            humanInteractions: parseInt(stats.human_interactions || 0),
+            conversationsInitiated: 0 // Será calculado na rota específica
         };
         res.json(dashboardStats);
     }
@@ -183,6 +184,50 @@ router.get('/recent-activity', (0, auth_1.requireRole)(['admin', 'manager']), as
     }
     catch (error) {
         console.error('Erro ao buscar atividades recentes:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Rota para obter conversas iniciadas (incluindo bot-only)
+router.get('/initiated-conversations', (0, auth_1.requireRole)(['admin', 'manager']), async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        const managerId = req.user.role === 'admin' ? req.user.id : req.user.id;
+        // Query simplificada para buscar contatos recentes
+        const conversationsQuery = `
+      SELECT 
+        c.id,
+        c.name as customer_name,
+        c.phone_number as customer_phone,
+        c.created_at,
+        c.updated_at,
+        hc.status,
+        hc.created_at as chat_created_at
+      FROM contacts c
+      LEFT JOIN human_chats hc ON c.id = hc.contact_id 
+        AND hc.status NOT IN ('resolved', 'finished')
+      WHERE c.manager_id = ?
+        AND c.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+      ORDER BY GREATEST(c.updated_at, COALESCE(hc.created_at, c.created_at)) DESC
+      LIMIT 20
+    `;
+        const [conversationsResult] = await database_1.default.execute(conversationsQuery, [managerId]);
+        const conversations = Array.isArray(conversationsResult) ? conversationsResult : [];
+        // Formatar conversas
+        const formattedConversations = conversations.map((conv) => ({
+            id: `conv_${conv.id}`,
+            customerName: conv.customer_name || `Cliente ${conv.customer_phone}`,
+            customerPhone: conv.customer_phone,
+            lastMessage: 'Iniciou uma conversa',
+            timestamp: conv.chat_created_at || conv.updated_at,
+            status: conv.status || 'bot_only',
+            messageCount: 1
+        }));
+        res.json(formattedConversations);
+    }
+    catch (error) {
+        console.error('Erro ao buscar conversas iniciadas:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
