@@ -29,13 +29,6 @@ interface Operator {
   last_login?: string
   status_label?: string
   days_since_created?: number
-  performance?: {
-    total_chats: number
-    active_chats: number
-    resolved_chats: number
-    avg_response_time?: number
-    efficiency: number
-  }
   formatted_created_at?: string
   formatted_last_login?: string
 }
@@ -514,26 +507,7 @@ function OperatorManagement() {
                     </div>
                   </div>
                 </div>
-                
-                {operator.performance && (
-                  <div className="operator-performance">
-                    <h5>Desempenho</h5>
-                    <div className="performance-stats">
-                      <div className="perf-item">
-                        <span className="perf-number">{operator.performance.total_chats}</span>
-                        <span className="perf-label">Total</span>
-                      </div>
-                      <div className="perf-item">
-                        <span className="perf-number">{operator.performance.active_chats}</span>
-                        <span className="perf-label">Ativos</span>
-                      </div>
-                      <div className="perf-item">
-                        <span className="perf-number">{operator.performance.efficiency}%</span>
-                        <span className="perf-label">Eficiência</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
               </div>
             ))}
           </div>

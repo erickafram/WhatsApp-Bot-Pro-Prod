@@ -6853,7 +6853,7 @@ body .app .main-content {
 .operator-header {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 0.0rem;
   margin-bottom: 1rem;
 }
 
