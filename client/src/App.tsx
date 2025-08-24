@@ -576,7 +576,7 @@ function App() {
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <MessageSquare className="sidebar-logo-icon" />
-            {(!sidebarCollapsed || isMobile) && <span className="sidebar-logo-text">WhatsApp Bot</span>}
+{!sidebarCollapsed && !isMobile && <span className="sidebar-logo-text">WhatsApp Bot</span>}
           </div>
       </div>
 
@@ -602,7 +602,7 @@ function App() {
                     <span className="sidebar-notification-badge">{humanChatUnreadCount}</span>
                   )}
                 </div>
-                {(!sidebarCollapsed || isMobile) && <span>{item.label}</span>}
+{!sidebarCollapsed && !isMobile && <span>{item.label}</span>}
               </button>
             )
           })}
@@ -622,7 +622,7 @@ function App() {
             title={sidebarCollapsed && !isMobile ? 'Configurações' : ''}
           >
             <Settings size={20} />
-            {(!sidebarCollapsed || isMobile) && <span>Configurações</span>}
+{!sidebarCollapsed && !isMobile && <span>Configurações</span>}
           </button>
         </nav>
 
@@ -636,13 +636,13 @@ function App() {
               <div className="user-avatar-footer">
                 <User size={16} />
               </div>
-              {(!sidebarCollapsed || isMobile) && (
+{!sidebarCollapsed && !isMobile && (
                 <div className="user-info-footer">
                   <span className="user-name-footer">{getUserData()?.name || 'Usuário'}</span>
                   <span className="user-role-footer">{getUserRole()}</span>
                 </div>
               )}
-              {(!sidebarCollapsed || isMobile) && (
+              {!sidebarCollapsed && !isMobile && (
                 <ChevronUp size={16} className={`chevron ${showUserMenu ? 'open' : ''}`} />
               )}
             </button>

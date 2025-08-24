@@ -10,7 +10,6 @@ import {
   XCircle,
   ChevronDown,
   Send,
-  Phone,
   MoreVertical,
   Search
 } from 'lucide-react'
@@ -120,6 +119,8 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     return localStorage.getItem('sidebarCollapsed') === 'true'
   })
   const [showTransferAcceptModal, setShowTransferAcceptModal] = useState<string | null>(null)
+  const [isMobileView, setIsMobileView] = useState(false)
+  const [showMobileChatList, setShowMobileChatList] = useState(true)
 
   // Função para carregar operadores disponíveis
   const loadOperators = async () => {
@@ -489,6 +490,29 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       console.error('❌ Erro ao carregar mensagens do chat:', error)
     }
   }
+
+  // Detectar mudanças de viewport para mobile
+  useEffect(() => {
+    const checkMobileView = () => {
+      const isMobile = window.innerWidth <= 768
+      setIsMobileView(isMobile)
+      
+      // Se mudou para desktop, sempre mostrar lista de chats
+      if (!isMobile) {
+        setShowMobileChatList(true)
+      }
+    }
+
+    // Verificar no carregamento
+    checkMobileView()
+
+    // Adicionar listener para mudanças de tamanho
+    window.addEventListener('resize', checkMobileView)
+
+    return () => {
+      window.removeEventListener('resize', checkMobileView)
+    }
+  }, [])
 
   // Carregar chats e operadores na inicialização
   useEffect(() => {
@@ -995,9 +1019,29 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
 
   return (
     <div className="human-chat-container">
-      <div className="chat-layout">
+      {/* Mobile Navigation Header */}
+      {isMobileView && (
+        <div className="mobile-chat-header">
+          {!showMobileChatList && selectedChat ? (
+            <button 
+              className="mobile-back-btn"
+              onClick={() => setShowMobileChatList(true)}
+              title="Voltar para lista de chats"
+            >
+              ← Voltar
+            </button>
+          ) : (
+            <div className="mobile-chat-title">
+              <MessageSquareText size={20} />
+              Atendimento Humano
+            </div>
+          )}
+        </div>
+      )}
+      
+      <div className={`chat-layout ${isMobileView ? 'mobile' : ''}`}>
         {/* Chat List Sidebar */}
-        <div className={`chat-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className={`chat-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileView && !showMobileChatList ? 'mobile-hidden' : ''}`}>
           {/* Header compacto com operador e ações */}
           <div className="chat-header-compact">
             <div className="operator-info-compact">
@@ -1147,6 +1191,11 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     } else {
                       setSelectedChat(chat.id)
                       markChatAsRead(chat.id)
+                      
+                      // Em mobile, esconder a lista de chats quando um chat é selecionado
+                      if (isMobileView) {
+                        setShowMobileChatList(false)
+                      }
                     }
                   }}
                 >
@@ -1195,7 +1244,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
         </div>
 
         {/* Chat Messages Area */}
-        <div className="chat-main">
+        <div className={`chat-main ${isMobileView && showMobileChatList ? 'mobile-hidden' : ''}`}>
           {selectedChat ? (() => {
             const currentChat = humanChats.find(chat => chat.id === selectedChat)
             if (!currentChat) return null
@@ -1221,15 +1270,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     </div>
                   </div>
                   <div className="chat-actions-compact">
-                    <button className="chat-action-btn" title="Buscar na conversa">
-                      <Search size={16} />
-                    </button>
-                    <button className="chat-action-btn" title="Ligar">
-                      <Phone size={16} />
-                    </button>
-                    <button className="chat-action-btn" title="Mais opções">
-                      <MoreVertical size={16} />
-                    </button>
+
                     {/* Botão para Assumir Conversa (se pendente e não atribuída) */}
                     {currentChat.status === 'pending' && !currentChat.assignedOperator && (
                       <button 
