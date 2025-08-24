@@ -152,7 +152,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
           <div className="nav-container">
             <div className="nav-brand">
               <MessageSquare className="brand-icon" />
-              <span className="brand-text">WhatsApp Bot Pro</span>
+              <span className="brand-text">ChatBot Whats</span>
             </div>
             
                          {/* Desktop Menu */}
@@ -500,7 +500,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             <div className="footer-brand">
               <div className="footer-logo">
                 <MessageSquare size={24} />
-                <span>WhatsApp Bot Pro</span>
+                <span>ChatBot What</span>
               </div>
               <p className="footer-description">
                 A plataforma mais completa para automatizar seu WhatsApp Business e aumentar suas vendas. 
@@ -588,7 +588,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
           
           <div className="footer-bottom">
             <div className="footer-bottom-text">
-              &copy; 2024 WhatsApp Bot Pro. Todos os direitos reservados.
+              &copy; @2025 ChatBot What - Desenvolvido por erickdev.online - Todos os direitos reservados.
             </div>
             <div className="footer-bottom-links">
               <a href="#" className="footer-bottom-link">Termos de Uso</a>

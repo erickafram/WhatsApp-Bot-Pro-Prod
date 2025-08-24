@@ -122,7 +122,7 @@ export default function Login({ onNavigate }: LoginProps) {
           <div className="auth-header">
             <div className="auth-logo">
               <MessageSquare size={32} />
-              <span>WhatsApp Bot Pro</span>
+              <span>ChatBot What</span>
             </div>
             <h1 className="auth-title">Bem-vindo de volta!</h1>
             <p className="auth-subtitle">

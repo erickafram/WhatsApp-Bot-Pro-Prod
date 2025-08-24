@@ -154,7 +154,7 @@ export default function Register({ onNavigate }: RegisterProps) {
           <div className="auth-header">
             <div className="auth-logo">
               <MessageSquare size={32} />
-              <span>WhatsApp Bot Pro</span>
+              <span>ChatBot What</span>
             </div>
             <h1 className="auth-title">Crie sua conta grátis</h1>
             <p className="auth-subtitle">
