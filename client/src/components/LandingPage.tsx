@@ -243,10 +243,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       <section className="hero-section">
         <div className="hero-container">
           <div className="hero-content">
-            <div className="hero-badge">
-              <Sparkles size={16} />
-              <span>Automatização Inteligente</span>
-            </div>
+
             <h1 className="hero-title">
               Transforme seu WhatsApp em uma
               <span className="hero-highlight"> Máquina de Vendas</span>
