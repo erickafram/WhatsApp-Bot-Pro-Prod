@@ -498,11 +498,11 @@ export class HumanChatModel {
     });
   }
 
-  // Buscar chat ativo por contato
+  // Buscar chat ativo por contato (incluindo status NULL para reutilização)
   static async findActiveByContact(contactId: number): Promise<HumanChat | null> {
     const query = `
       SELECT * FROM human_chats 
-      WHERE contact_id = ? AND status IN ('pending', 'active', 'waiting_payment', 'transfer_pending') 
+      WHERE contact_id = ? AND (status IN ('pending', 'active', 'waiting_payment', 'transfer_pending') OR status IS NULL)
       ORDER BY created_at DESC 
       LIMIT 1
     `;

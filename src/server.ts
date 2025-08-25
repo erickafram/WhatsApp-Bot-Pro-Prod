@@ -363,6 +363,8 @@ async function initializeWhatsAppClient(managerId: number, instanceId: number): 
                     // Verificar se mensagem é uma das opções pós-encerramento (1, 2, 3)
                     const messageText = msg.body.trim();
                     
+                    console.log(`🔍 Chat encerrado detectado! Status: ${activeChat.status}, Mensagem: "${messageText}"`);
+                    
                     if (['1', '2', '3'].includes(messageText)) {
                         console.log(`🔄 Processando opção pós-encerramento: ${messageText}`);
                         
@@ -403,16 +405,39 @@ async function initializeWhatsAppClient(managerId: number, instanceId: number): 
                             
                         } else if (messageText === '2') {
                             // Ir para menu principal - usar fluxo JSON
-                            console.log(`🏠 Usuário escolheu opção 2 - Buscando menu no fluxo JSON`);
+                            console.log(`🏠 OPÇÃO 2 DETECTADA - Processando menu principal pós-encerramento`);
+                            
+                            // RESETAR STATUS DO CHAT para permitir navegação normal
+                            const resetQuery = `
+                                UPDATE human_chats 
+                                SET status = NULL, operator_id = NULL, assigned_to = NULL, updated_at = NOW()
+                                WHERE id = ?
+                            `;
+                            await executeQuery(resetQuery, [activeChat.id]);
+                            console.log(`🔄 Status do chat resetado para permitir navegação normal`);
                             
                             const flowData = loadFlowFromJSON();
+                            console.log(`📄 FlowData carregado:`, !!flowData);
+                            
                             if (flowData) {
-                                const welcomeNode = flowData.nodes.find(node => node.id === 'welcome-message');
+                                console.log(`🔍 Procurando nó welcome-message entre ${flowData.nodes.length} nós`);
+                                
+                                const welcomeNode = flowData.nodes.find(node => 
+                                    node.id === 'welcome-message' || node.data.title?.includes('Boas-vindas')
+                                );
+                                
+                                console.log(`🎯 Nó encontrado:`, !!welcomeNode, welcomeNode ? welcomeNode.id : 'NENHUM');
+                                
                                 if (welcomeNode && welcomeNode.data.response) {
                                     const contact = await msg.getContact();
                                     const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
                                     response = welcomeNode.data.response.replace('{name}', name);
+                                    console.log(`✅ Resposta preparada do JSON com nome: ${name}`);
+                                } else {
+                                    console.log(`❌ Nó não encontrado ou sem resposta`);
                                 }
+                            } else {
+                                console.log(`❌ FlowData não carregado`);
                             }
                             
                             if (!response) {
@@ -448,8 +473,11 @@ Digite o número da opção desejada! 😊`;
                             activeChat.assigned_to = null;
                         }
                         
-                        // Enviar resposta se não for opção 2 (menu)
-                        if (messageText !== '2' && response) {
+                        // Enviar resposta e parar processamento para todas as opções (1, 2, 3)
+                        if (response) {
+                            console.log(`📤 ENVIANDO resposta pós-encerramento para opção ${messageText}`);
+                            console.log(`📝 Conteúdo da resposta:`, response.substring(0, 100) + '...');
+                            
                             await client.sendMessage(msg.from, response);
                             await delay(1000);
                             console.log(`✅ Resposta pós-encerramento enviada: Opção ${messageText}`);
@@ -466,27 +494,20 @@ Digite o número da opção desejada! 😊`;
                             
                             // Emitir evento para dashboard sobre conversa reaberta
                             io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
-                                type: 'chat_reopened',
+                                type: messageText === '2' ? 'menu_access' : 'chat_reopened',
                                 chatId: activeChat.id,
                                 customerName: contactName,
                                 customerPhone: phoneNumber,
-                                message: `Cliente escolheu opção ${messageText} - Conversa reaberta`,
+                                message: messageText === '2' ? 
+                                    `Cliente acessou menu principal após encerramento` : 
+                                    `Cliente escolheu opção ${messageText} - Conversa reaberta`,
                                 timestamp: new Date()
                             });
                             
-                            return; // Não processar mais nada
-                        }
-                        
-                        // Se for opção 2, continuar processamento normal (não fazer return)
-                        if (messageText === '2') {
-                            // Resetar status para permitir processamento do menu
-                            const updateQuery = `
-                                UPDATE human_chats 
-                                SET status = 'resolved', updated_at = NOW()
-                                WHERE id = ?
-                            `;
-                            await executeQuery(updateQuery, [activeChat.id]);
-                            // Continuar para processamento de mensagem automática
+                            console.log(`🛑 PARANDO processamento - return executado para opção ${messageText}`);
+                            return; // Parar processamento para TODAS as opções pós-encerramento
+                        } else {
+                            console.log(`⚠️ AVISO: Nenhuma resposta preparada para opção ${messageText}!`);
                         }
                         
                     } else {
@@ -1404,14 +1425,14 @@ async function transferToHuman(managerId: number, msg: any, botResponse: string)
                 ORDER BY created_at DESC 
                 LIMIT 1
             `;
-            const [existingChats] = await executeQuery(existingChatQuery, [dbContact.id, managerId]) as any[];
+            const existingChats = await executeQuery(existingChatQuery, [dbContact.id, managerId]) as any[];
             
             if (existingChats && existingChats.length > 0) {
                 // Reutilizar chat existente (SEMPRE)
                 humanChat = existingChats[0];
                 
-                // Se chat estava encerrado/resolvido, reabrir como pendente
-                if (humanChat.status === 'finished' || humanChat.status === 'resolved') {
+                // Se chat estava encerrado/resolvido/resetado, reabrir como pendente
+                if (humanChat.status === 'finished' || humanChat.status === 'resolved' || humanChat.status === null) {
                     const updateQuery = `
                         UPDATE human_chats 
                         SET status = 'pending', updated_at = NOW(), operator_id = NULL, assigned_to = NULL
@@ -1421,7 +1442,7 @@ async function transferToHuman(managerId: number, msg: any, botResponse: string)
                     humanChat.status = 'pending';
                     humanChat.operator_id = null;
                     humanChat.assigned_to = null;
-                    console.log(`🔄 Chat ${humanChat.id} REABERTO - Status: ${humanChat.status} → pending`);
+                    console.log(`🔄 Chat ${humanChat.id} REABERTO - Status: ${humanChat.status || 'NULL'} → pending`);
                 } else {
                     console.log(`♻️ Reutilizando chat humano existente - ID: ${humanChat.id} (Status: ${humanChat.status})`);
                 }
