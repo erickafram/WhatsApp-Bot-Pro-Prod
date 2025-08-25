@@ -1642,17 +1642,23 @@ html {
   }
 
   .landing-header {
-    padding: 0.25rem 0.5rem;
-    min-height: auto;
+    padding: 0.5rem;
+    min-height: 60px;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     z-index: 1000;
+    height: 60px;
+    display: flex;
+    align-items: center;
   }
 
   .landing-nav {
-    padding: 0.5rem 0;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
   }
 
   .nav-container {
@@ -1668,14 +1674,16 @@ html {
   }
 
   .hero-section {
-    padding: 5rem 0 1rem;
+    padding-top: 80px;
+    padding-bottom: 2rem;
     min-height: 100vh;
     display: flex;
     align-items: center;
+    justify-content: center;
   }
 
   .hero-container {
-    padding: 0 1rem;
+    padding: 1rem 1.5rem;
     gap: 1rem;
     max-width: 100%;
     overflow: hidden;
@@ -1688,36 +1696,42 @@ html {
     align-items: center;
     text-align: center;
     max-width: 100%;
+    width: 100%;
   }
 
 
 
   .hero-title {
-    font-size: 1.2rem;
-    line-height: 1.4;
+    font-size: 1.1rem;
+    line-height: 1.5;
     margin-bottom: 0.75rem;
     word-wrap: break-word;
     hyphens: auto;
     text-align: center;
-    padding: 0 0.5rem;
+    padding: 0;
     max-width: 100%;
+    width: 100%;
+    overflow-wrap: break-word;
   }
 
   .hero-highlight {
     display: inline;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .hero-description {
-    font-size: 0.8rem;
-    line-height: 1.5;
+    font-size: 0.75rem;
+    line-height: 1.6;
     margin-bottom: 1.5rem;
-    padding: 0 0.5rem;
+    padding: 0;
     text-align: center;
     max-width: 100%;
+    width: 100%;
     word-wrap: break-word;
     hyphens: auto;
+    overflow-wrap: break-word;
   }
 
   .hero-actions {
