@@ -1415,6 +1415,34 @@ function detectPersonalData(message) {
     return isPersonalData;
 }
 // ===== ROTAS DA API =====
+// Health check endpoint
+app.get('/health', async (req, res) => {
+    try {
+        // Testar conexão com banco de dados
+        await (0, database_1.executeQuery)('SELECT 1');
+        const healthStatus = {
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            database: 'connected',
+            whatsappInstances: whatsappInstances.size
+        };
+        res.status(200).json(healthStatus);
+    }
+    catch (error) {
+        const healthStatus = {
+            status: 'unhealthy',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            database: 'disconnected',
+            error: error instanceof Error ? error.message : 'Unknown error',
+            whatsappInstances: whatsappInstances.size
+        };
+        res.status(503).json(healthStatus);
+    }
+});
 // Rotas de autenticação
 app.use('/api/auth', auth_1.default);
 // Rotas de usuários
@@ -1704,22 +1732,46 @@ initializeSystem().then(() => {
     process.exit(1);
 });
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-    console.log('🔄 Encerrando servidor...');
-    // Fechar todas as instâncias do WhatsApp
-    for (const [managerId, instance] of whatsappInstances) {
-        try {
-            if (instance.client) {
-                await instance.client.destroy();
+async function gracefulShutdown(signal) {
+    console.log(`🔄 Recebido ${signal}, encerrando servidor graciosamente...`);
+    try {
+        // 1. Parar de aceitar novas conexões
+        server.close();
+        // 2. Fechar todas as instâncias do WhatsApp
+        console.log('📱 Fechando instâncias do WhatsApp...');
+        for (const [managerId, instance] of whatsappInstances) {
+            try {
+                if (instance.client) {
+                    await instance.client.destroy();
+                    console.log(`✅ Instância do gestor ${managerId} fechada`);
+                }
+            }
+            catch (error) {
+                console.error(`❌ Erro ao fechar instância do gestor ${managerId}:`, error);
             }
         }
-        catch (error) {
-            console.error(`Erro ao fechar instância do gestor ${managerId}:`, error);
-        }
-    }
-    server.close(() => {
-        console.log('✅ Servidor encerrado');
+        // 3. Fechar conexões de banco de dados
+        console.log('🗃️ Fechando conexões de banco de dados...');
+        await (0, database_1.closeDatabaseConnection)();
+        await (0, database_1.closePool)();
+        console.log('✅ Servidor encerrado graciosamente');
         process.exit(0);
-    });
+    }
+    catch (error) {
+        console.error('❌ Erro durante shutdown gracioso:', error);
+        process.exit(1);
+    }
+}
+// Handlers para diferentes sinais
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+// Handler para erros não capturados
+process.on('uncaughtException', (error) => {
+    console.error('❌ Erro não capturado:', error);
+    gracefulShutdown('uncaughtException');
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Promise rejeitada não tratada:', reason, promise);
+    gracefulShutdown('unhandledRejection');
 });
 //# sourceMappingURL=server.js.map

@@ -22,16 +22,10 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 15,
   queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true,
-  keepAliveInitialDelay: 0,
-  enableKeepAlive: true,
   // Configurações para detectar conexões mortas
   idleTimeout: 300000, // 5 minutos
   maxIdle: 10,
   // Configurações MySQL específicas
-  sql_mode: 'TRADITIONAL',
   charset: 'utf8mb4',
   timezone: 'local'
 });
@@ -56,11 +50,7 @@ export async function connectDatabase(): Promise<mysql.Connection> {
   if (!connection) {
     try {
       connection = await mysql.createConnection({
-        ...dbConfig,
-        reconnect: true,
-        keepAliveInitialDelay: 0,
-        enableKeepAlive: true,
-        timeout: 60000
+        ...dbConfig
       });
 
       // Garantir que autocommit está habilitado
@@ -217,11 +207,26 @@ export async function closePool(): Promise<void> {
 
 // Função para obter estatísticas do pool
 export function getPoolStats() {
-  return {
-    totalConnections: pool.pool?._allConnections?.length || 0,
-    idleConnections: pool.pool?._freeConnections?.length || 0,
-    busyConnections: (pool.pool?._allConnections?.length || 0) - (pool.pool?._freeConnections?.length || 0)
-  };
+  // Nota: As propriedades internas do pool não estão tipadas no mysql2
+  // Esta função fornece estatísticas básicas quando possível
+  const poolAny = pool as any;
+  
+  try {
+    return {
+      totalConnections: poolAny.pool?._allConnections?.length || 0,
+      idleConnections: poolAny.pool?._freeConnections?.length || 0,
+      busyConnections: (poolAny.pool?._allConnections?.length || 0) - (poolAny.pool?._freeConnections?.length || 0),
+      status: 'available'
+    };
+  } catch (error) {
+    return {
+      totalConnections: 0,
+      idleConnections: 0,
+      busyConnections: 0,
+      status: 'unknown',
+      error: 'Could not retrieve pool stats'
+    };
+  }
 }
 
 // Monitoramento do pool - log estatísticas a cada 5 minutos
