@@ -757,8 +757,30 @@ Obrigado pela compreensão! 🚌`;
             // Verificar se é uma solicitação de atendimento humano
             const isHumanRequest = autoMessage.trigger_words.some((trigger) => ['operador', 'atendente', 'humano', 'pessoa'].includes(trigger.toLowerCase()));
             if (isHumanRequest) {
+                // Verificar horário de atendimento antes de transferir
+                const isBusinessHours = isWithinBusinessHours();
+                console.log(`🕐 Solicitação de operador - Horário: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
+                let humanRequestMessage = '';
+                if (isBusinessHours) {
+                    // Dentro do horário - usar mensagem original
+                    humanRequestMessage = autoMessage.response_text;
+                }
+                else {
+                    // Fora do horário - mensagem personalizada
+                    humanRequestMessage = `👨‍💼 *SOLICITAÇÃO DE ATENDIMENTO HUMANO*
+
+⏰ *FORA DO HORÁRIO DE ATENDIMENTO*
+
+No momento não temos operadores online, pois estamos fora do nosso horário de funcionamento.
+
+${getBusinessHoursMessage()}
+
+🤝 Sua solicitação foi registrada e você será atendido assim que possível dentro do nosso horário de funcionamento.
+
+*Obrigado pela compreensão!* 🚌✨`;
+                }
                 // Transferir para atendimento humano
-                await transferToHuman(managerId, msg, autoMessage.response_text);
+                await transferToHuman(managerId, msg, humanRequestMessage);
                 messageProcessed = true;
                 break;
             }
@@ -823,8 +845,30 @@ Obrigado pela compreensão! 🚌`;
             const isHumanRequest = autoMessage.trigger_words.some((trigger) => ['operador', 'atendente', 'humano', 'pessoa'].includes(trigger.toLowerCase())) || autoMessage.response_text.toLowerCase().includes('transferir você para nosso operador');
             console.log(`🔍 Debug - isHumanRequest: ${isHumanRequest} para resposta: ${autoMessage.response_text.substring(0, 50)}...`);
             if (isHumanRequest) {
+                // Verificar horário de atendimento antes de transferir
+                const isBusinessHours = isWithinBusinessHours();
+                console.log(`🕐 Solicitação wildcard de operador - Horário: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
+                let humanRequestMessage = '';
+                if (isBusinessHours) {
+                    // Dentro do horário - usar mensagem original
+                    humanRequestMessage = autoMessage.response_text;
+                }
+                else {
+                    // Fora do horário - mensagem personalizada
+                    humanRequestMessage = `👨‍💼 *SOLICITAÇÃO DE ATENDIMENTO HUMANO*
+
+⏰ *FORA DO HORÁRIO DE ATENDIMENTO*
+
+No momento não temos operadores online, pois estamos fora do nosso horário de funcionamento.
+
+${getBusinessHoursMessage()}
+
+🤝 Sua solicitação foi registrada e você será atendido assim que possível dentro do nosso horário de funcionamento.
+
+*Obrigado pela compreensão!* 🚌✨`;
+                }
                 // Transferir para atendimento humano
-                await transferToHuman(managerId, msg, autoMessage.response_text);
+                await transferToHuman(managerId, msg, humanRequestMessage);
                 messageProcessed = true;
                 break;
             }
@@ -912,8 +956,13 @@ Obrigado pela compreensão! 🚌`;
             // 📝 DETECTAR DADOS PESSOAIS (Nome, Telefone, CPF, Data)
             const hasPersonalData = detectPersonalData(userMessage);
             if (hasPersonalData) {
-                console.log(`📝 Dados pessoais detectados: "${userMessage}" - Transferindo para operador`);
-                const transferMessage = `📋 *DADOS RECEBIDOS*
+                console.log(`📝 Dados pessoais detectados: "${userMessage}" - Verificando horário de atendimento`);
+                const isBusinessHours = isWithinBusinessHours();
+                console.log(`🕐 Horário de atendimento: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
+                let transferMessage = '';
+                if (isBusinessHours) {
+                    // Dentro do horário de atendimento
+                    transferMessage = `📋 *DADOS RECEBIDOS*
 
 Perfeito! Recebi suas informações:
 
@@ -924,6 +973,25 @@ ${userMessage}
 ⏰ *Em alguns instantes um operador entrará em contato!*
 
 Aguarde um momento... 🚌✨`;
+                }
+                else {
+                    // Fora do horário de atendimento
+                    transferMessage = `📋 *DADOS RECEBIDOS*
+
+Perfeito! Recebi suas informações:
+
+${userMessage}
+
+⏰ *FORA DO HORÁRIO DE ATENDIMENTO*
+
+No momento não temos operadores online, pois estamos fora do nosso horário de funcionamento.
+
+${getBusinessHoursMessage()}
+
+🤝 Suas informações foram registradas e você será atendido assim que possível dentro do nosso horário de funcionamento.
+
+*Obrigado pela compreensão!* 🚌✨`;
+                }
                 await transferToHuman(managerId, msg, transferMessage);
                 messageProcessed = true;
                 return; // Sair da função após transferir
@@ -1179,19 +1247,36 @@ Digite o número da opção desejada! 😊`;
             }
             else {
                 // 👨‍💼 CONVERSA EXISTENTE: Transferir para operador
-                console.log(`👨‍💼 Conversa existente - Transferindo para operador`);
-                const fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
+                console.log(`👨‍💼 Conversa existente - Verificando horário de atendimento`);
+                const isBusinessHours = isWithinBusinessHours();
+                console.log(`🕐 Horário de atendimento: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
+                let fallbackResponse = '';
+                if (isBusinessHours) {
+                    // Dentro do horário de atendimento
+                    fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
 
 🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe de atendimento poderá ajudá-lo melhor.
 
-⏰ *Horário de Atendimento:*
-Segunda a Sexta: 6h às 22h
-Sábado: 6h às 18h  
-Domingo: 8h às 20h
+${getBusinessHoursMessage()}
 
 Em alguns instantes um operador entrará em contato! 
 
 Obrigado pela preferência! 🚌✨`;
+                }
+                else {
+                    // Fora do horário de atendimento
+                    fallbackResponse = `👨‍💼 *ATENDIMENTO FORA DO HORÁRIO*
+
+🤔 Não consegui processar sua mensagem automaticamente e no momento não temos operadores online.
+
+⏰ *FORA DO HORÁRIO DE ATENDIMENTO*
+
+${getBusinessHoursMessage()}
+
+🤝 Sua mensagem foi registrada e você será atendido assim que possível dentro do nosso horário de funcionamento.
+
+*Obrigado pela compreensão!* 🚌✨`;
+                }
                 // Enviar mensagem de fallback e transferir automaticamente
                 if (client && instanceData.isReady) {
                     await client.sendMessage(msg.from, fallbackResponse);
@@ -1376,6 +1461,39 @@ async function transferToHuman(managerId, msg, botResponse) {
     catch (error) {
         console.error('Erro ao transferir para humano:', error);
     }
+}
+// Função para verificar se está dentro do horário de atendimento
+function isWithinBusinessHours() {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTime = currentHour + (currentMinute / 60);
+    // Domingo = fechado
+    if (dayOfWeek === 0) {
+        return false;
+    }
+    // Segunda a Sexta (1-5)
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        // Das 08:00 às 12:00 OU Das 14:00 às 18:00
+        return (currentTime >= 8 && currentTime < 12) || (currentTime >= 14 && currentTime < 18);
+    }
+    // Sábado (6)
+    if (dayOfWeek === 6) {
+        // Das 08:00 às 12:00
+        return currentTime >= 8 && currentTime < 12;
+    }
+    return false;
+}
+// Função para obter mensagem de horário de atendimento
+function getBusinessHoursMessage() {
+    return `🕐 *Horário de Atendimento:*
+De segunda a sexta feira:
+Das 08:00 às 12:00
+Das 14:00 às 18:00
+Aos sábados:
+Das 08:00 às 12:00
+Domingo fechado`;
 }
 // Função para detectar dados pessoais (Nome, Telefone, CPF, Data)
 function detectPersonalData(message) {
