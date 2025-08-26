@@ -22,6 +22,7 @@ import Register from './components/Register'
 import BotInstance from './components/BotInstance'
 import HumanChat from './components/HumanChat'
 import Messages from './components/Messages'
+import Contacts from './components/Contacts'
 
 import OperatorManagement from './components/OperatorManagement'
 import OperatorDashboard from './components/OperatorDashboard'
@@ -30,6 +31,7 @@ import './App.css'
 import './styles/LandingPage.css'
 import './styles/Auth.css'
 import './styles/ManagerDashboard.css'
+import './styles/Contacts.css'
 
 type PageType = 'landing' | 'login' | 'register' | 'dashboard'
 
@@ -402,11 +404,11 @@ function App() {
           </div>
         )
       case 'contacts':
-        return (
+        return isManagerOrAdmin() ? <Contacts /> : (
           <div className="content-placeholder">
             <Users size={64} className="placeholder-icon" />
-            <h2>Contatos</h2>
-            <p>Em breve: gerenciamento de contatos</p>
+            <h2>Acesso Negado</h2>
+            <p>Apenas gestores podem gerenciar contatos</p>
           </div>
         )
       case 'settings':

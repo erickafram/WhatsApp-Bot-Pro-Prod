@@ -1459,6 +1459,233 @@ app.use('/api/operators', operators_1.default);
 app.use('/api/managers', managers_1.default);
 // Rotas de assinatura
 app.use('/api/subscription', subscription_1.default);
+// ===== ENDPOINT DE CONTATOS =====
+// Listar todos os contatos de um gestor com estatísticas
+app.get('/api/contacts/:managerId', authenticate, async (req, res) => {
+    try {
+        const managerId = parseInt(req.params.managerId);
+        if (!managerId) {
+            return res.status(400).json({ error: 'ID do gestor inválido' });
+        }
+        // Buscar contatos com estatísticas detalhadas
+        const contactsQuery = `
+            SELECT 
+                c.*,
+                COALESCE(msg_stats.total_messages, 0) as total_messages,
+                COALESCE(msg_stats.messages_sent, 0) as messages_sent,
+                COALESCE(msg_stats.messages_received, 0) as messages_received,
+                msg_stats.last_message_content,
+                msg_stats.last_message_date,
+                msg_stats.last_message_type,
+                hc_stats.total_chats,
+                hc_stats.active_chats,
+                hc_stats.last_chat_status
+            FROM contacts c
+            LEFT JOIN (
+                SELECT 
+                    contact_id,
+                    COUNT(*) as total_messages,
+                    SUM(CASE WHEN sender_type = 'bot' OR sender_type = 'operator' THEN 1 ELSE 0 END) as messages_sent,
+                    SUM(CASE WHEN sender_type = 'contact' THEN 1 ELSE 0 END) as messages_received,
+                    MAX(content) as last_message_content,
+                    MAX(created_at) as last_message_date,
+                    MAX(message_type) as last_message_type
+                FROM messages 
+                WHERE manager_id = ?
+                GROUP BY contact_id
+            ) msg_stats ON c.id = msg_stats.contact_id
+            LEFT JOIN (
+                SELECT 
+                    contact_id,
+                    COUNT(*) as total_chats,
+                    SUM(CASE WHEN status IN ('pending', 'active', 'waiting_payment', 'transfer_pending') THEN 1 ELSE 0 END) as active_chats,
+                    MAX(status) as last_chat_status
+                FROM human_chats 
+                WHERE manager_id = ?
+                GROUP BY contact_id
+            ) hc_stats ON c.id = hc_stats.contact_id
+            WHERE c.manager_id = ?
+            ORDER BY msg_stats.last_message_date DESC, c.updated_at DESC
+        `;
+        const contacts = await (0, database_1.executeQuery)(contactsQuery, [managerId, managerId, managerId]);
+        // Processar dados dos contatos
+        const processedContacts = contacts.map(contact => {
+            // Parse tags JSON se existir
+            if (contact.tags && typeof contact.tags === 'string') {
+                try {
+                    contact.tags = JSON.parse(contact.tags);
+                }
+                catch (e) {
+                    contact.tags = null;
+                }
+            }
+            // Formatear dados para melhor apresentação
+            return {
+                id: contact.id,
+                phone_number: contact.phone_number,
+                name: contact.name || `Contato ${contact.phone_number}`,
+                avatar: contact.avatar,
+                tags: contact.tags,
+                notes: contact.notes,
+                is_blocked: contact.is_blocked,
+                created_at: contact.created_at,
+                updated_at: contact.updated_at,
+                statistics: {
+                    total_messages: parseInt(contact.total_messages) || 0,
+                    messages_sent: parseInt(contact.messages_sent) || 0,
+                    messages_received: parseInt(contact.messages_received) || 0,
+                    last_message: {
+                        content: contact.last_message_content ?
+                            (contact.last_message_content.length > 100 ?
+                                contact.last_message_content.substring(0, 100) + '...' :
+                                contact.last_message_content) : null,
+                        date: contact.last_message_date,
+                        type: contact.last_message_type
+                    },
+                    chats: {
+                        total: parseInt(contact.total_chats) || 0,
+                        active: parseInt(contact.active_chats) || 0,
+                        last_status: contact.last_chat_status
+                    }
+                }
+            };
+        });
+        // Estatísticas gerais
+        const totalContacts = processedContacts.length;
+        const activeContacts = processedContacts.filter(c => c.statistics.chats.active > 0).length;
+        const totalMessages = processedContacts.reduce((sum, c) => sum + c.statistics.total_messages, 0);
+        const contactsWithRecentActivity = processedContacts.filter(c => c.statistics.last_message.date &&
+            new Date(c.statistics.last_message.date) > new Date(Date.now() - 24 * 60 * 60 * 1000)).length;
+        const response = {
+            success: true,
+            data: {
+                contacts: processedContacts,
+                summary: {
+                    total_contacts: totalContacts,
+                    active_chats: activeContacts,
+                    total_messages: totalMessages,
+                    recent_activity_24h: contactsWithRecentActivity,
+                    timestamp: new Date().toISOString()
+                }
+            }
+        };
+        res.json(response);
+    }
+    catch (error) {
+        console.error('Erro ao buscar contatos:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            message: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
+// Buscar contato específico por ID
+app.get('/api/contacts/:managerId/:contactId', authenticate, async (req, res) => {
+    try {
+        const managerId = parseInt(req.params.managerId);
+        const contactId = parseInt(req.params.contactId);
+        if (!managerId || !contactId) {
+            return res.status(400).json({ error: 'IDs inválidos' });
+        }
+        // Buscar contato específico com detalhes completos
+        const contactQuery = `
+            SELECT 
+                c.*,
+                COALESCE(msg_stats.total_messages, 0) as total_messages,
+                COALESCE(msg_stats.messages_sent, 0) as messages_sent,
+                COALESCE(msg_stats.messages_received, 0) as messages_received,
+                hc_stats.total_chats,
+                hc_stats.active_chats
+            FROM contacts c
+            LEFT JOIN (
+                SELECT 
+                    contact_id,
+                    COUNT(*) as total_messages,
+                    SUM(CASE WHEN sender_type = 'bot' OR sender_type = 'operator' THEN 1 ELSE 0 END) as messages_sent,
+                    SUM(CASE WHEN sender_type = 'contact' THEN 1 ELSE 0 END) as messages_received
+                FROM messages 
+                WHERE manager_id = ? AND contact_id = ?
+                GROUP BY contact_id
+            ) msg_stats ON c.id = msg_stats.contact_id
+            LEFT JOIN (
+                SELECT 
+                    contact_id,
+                    COUNT(*) as total_chats,
+                    SUM(CASE WHEN status IN ('pending', 'active', 'waiting_payment', 'transfer_pending') THEN 1 ELSE 0 END) as active_chats
+                FROM human_chats 
+                WHERE manager_id = ? AND contact_id = ?
+                GROUP BY contact_id
+            ) hc_stats ON c.id = hc_stats.contact_id
+            WHERE c.manager_id = ? AND c.id = ?
+        `;
+        const result = await (0, database_1.executeQuery)(contactQuery, [
+            managerId, contactId,
+            managerId, contactId,
+            managerId, contactId
+        ]);
+        if (!result || result.length === 0) {
+            return res.status(404).json({ error: 'Contato não encontrado' });
+        }
+        const contact = result[0];
+        // Parse tags JSON
+        if (contact.tags && typeof contact.tags === 'string') {
+            try {
+                contact.tags = JSON.parse(contact.tags);
+            }
+            catch (e) {
+                contact.tags = null;
+            }
+        }
+        // Buscar mensagens recentes do contato
+        const recentMessagesQuery = `
+            SELECT content, sender_type, message_type, created_at
+            FROM messages 
+            WHERE manager_id = ? AND contact_id = ?
+            ORDER BY created_at DESC
+            LIMIT 10
+        `;
+        const recentMessages = await (0, database_1.executeQuery)(recentMessagesQuery, [managerId, contactId]);
+        const response = {
+            success: true,
+            data: {
+                contact: {
+                    id: contact.id,
+                    phone_number: contact.phone_number,
+                    name: contact.name || `Contato ${contact.phone_number}`,
+                    avatar: contact.avatar,
+                    tags: contact.tags,
+                    notes: contact.notes,
+                    is_blocked: contact.is_blocked,
+                    created_at: contact.created_at,
+                    updated_at: contact.updated_at,
+                    statistics: {
+                        total_messages: parseInt(contact.total_messages) || 0,
+                        messages_sent: parseInt(contact.messages_sent) || 0,
+                        messages_received: parseInt(contact.messages_received) || 0,
+                        chats: {
+                            total: parseInt(contact.total_chats) || 0,
+                            active: parseInt(contact.active_chats) || 0
+                        }
+                    }
+                },
+                recent_messages: recentMessages.map(msg => ({
+                    content: msg.content.length > 200 ? msg.content.substring(0, 200) + '...' : msg.content,
+                    sender_type: msg.sender_type,
+                    message_type: msg.message_type,
+                    created_at: msg.created_at
+                }))
+            }
+        };
+        res.json(response);
+    }
+    catch (error) {
+        console.error('Erro ao buscar contato:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            message: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
 // Rota de status do sistema
 app.get('/api/status', async (req, res) => {
     try {
