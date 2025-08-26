@@ -16,20 +16,69 @@ export const dbConfig: DatabaseConfig = {
   database: process.env.DB_NAME || 'whatsapp_bot'
 };
 
+// Pool de conexões robusto com configurações otimizadas para produção
+const pool = mysql.createPool({
+  ...dbConfig,
+  waitForConnections: true,
+  connectionLimit: 15,
+  queueLimit: 0,
+  acquireTimeout: 60000,
+  timeout: 60000,
+  reconnect: true,
+  keepAliveInitialDelay: 0,
+  enableKeepAlive: true,
+  // Configurações para detectar conexões mortas
+  idleTimeout: 300000, // 5 minutos
+  maxIdle: 10,
+  // Configurações MySQL específicas
+  sql_mode: 'TRADITIONAL',
+  charset: 'utf8mb4',
+  timezone: 'local'
+});
+
+// Variável para controle de conexão
 let connection: mysql.Connection | null = null;
+
+// Função para testar e reconectar o pool se necessário
+export async function ensurePoolConnection(): Promise<void> {
+  try {
+    // Testa a conexão executando uma query simples
+    await pool.execute('SELECT 1');
+  } catch (error) {
+    console.warn('⚠️ Pool de conexões com problema, tentando reconectar:', error);
+    // Força a criação de novas conexões
+    pool.end();
+    throw error;
+  }
+}
 
 export async function connectDatabase(): Promise<mysql.Connection> {
   if (!connection) {
     try {
-      connection = await mysql.createConnection(dbConfig);
+      connection = await mysql.createConnection({
+        ...dbConfig,
+        reconnect: true,
+        keepAliveInitialDelay: 0,
+        enableKeepAlive: true,
+        timeout: 60000
+      });
 
       // Garantir que autocommit está habilitado
       await connection.execute('SET autocommit = 1');
       console.log('✅ Conectado ao banco de dados MySQL com autocommit habilitado');
 
+      // Configurar handlers para detectar desconexões
+      connection.on('error', (err) => {
+        console.error('❌ Erro na conexão MySQL:', err);
+        if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+          connection = null; // Força reconexão
+        }
+      });
+
       return connection;
     } catch (error) {
       console.error('❌ Erro ao conectar ao banco de dados:', error);
+      connection = null;
       throw error;
     }
   }
@@ -56,65 +105,132 @@ export async function createDatabaseIfNotExists(): Promise<void> {
 }
 
 export async function executeQuery(query: string, params?: any[]): Promise<any> {
-  try {
-    const conn = await connectDatabase();
-    console.log(`🔍 executeQuery - Query: ${query.replace(/\s+/g, ' ').trim()}`);
-    console.log(`🔍 executeQuery - Params:`, params || []);
-    console.log(`🔍 executeQuery - Params type:`, typeof params, Array.isArray(params));
-    
-    // Para MySQL 9.x, usar query simples se prepared statement falhar
-    const safeParams = params || [];
-    
+  const maxRetries = 3;
+  let lastError: any;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const [results] = await conn.execute(query, safeParams);
-      return results;
-    } catch (preparedError) {
-      console.log('⚠️ Prepared statement falhou, tentando query simples...');
-      
-      // Fallback: usar query() em vez de execute() para MySQL 9.x
-      let simpleQuery = query;
-      
-      // Substituir ? por valores reais (escape manual)
-      if (safeParams.length > 0) {
-        safeParams.forEach((param, index) => {
-          let escapedParam;
-          if (param === null || param === undefined) {
-            escapedParam = 'NULL';
-          } else if (typeof param === 'string') {
-            escapedParam = `'${param.replace(/'/g, "''")}'`;
-          } else {
-            escapedParam = param.toString();
-          }
-          simpleQuery = simpleQuery.replace('?', escapedParam);
-        });
+      console.log(`🔍 executeQuery (tentativa ${attempt}) - Query: ${query.replace(/\s+/g, ' ').trim()}`);
+      if (params && params.length > 0) {
+        console.log(`🔍 executeQuery - Params:`, params);
       }
       
-      console.log(`🔄 Query simples: ${simpleQuery}`);
-      const [results] = await conn.query(simpleQuery);
-      return results;
+      // Usar pool de conexões em vez de conexão singleton
+      const safeParams = params || [];
+      
+      try {
+        // Tentar com prepared statement primeiro
+        const [results] = await pool.execute(query, safeParams);
+        if (attempt > 1) {
+          console.log(`✅ Query executada com sucesso na tentativa ${attempt}`);
+        }
+        return results;
+      } catch (preparedError: any) {
+        console.log('⚠️ Prepared statement falhou, tentando query simples...');
+        
+        // Fallback: usar query() em vez de execute() para MySQL 9.x
+        let simpleQuery = query;
+        
+        // Substituir ? por valores reais (escape manual)
+        if (safeParams.length > 0) {
+          safeParams.forEach((param, index) => {
+            let escapedParam;
+            if (param === null || param === undefined) {
+              escapedParam = 'NULL';
+            } else if (typeof param === 'string') {
+              escapedParam = `'${param.replace(/'/g, "''")}'`;
+            } else {
+              escapedParam = param.toString();
+            }
+            simpleQuery = simpleQuery.replace('?', escapedParam);
+          });
+        }
+        
+        console.log(`🔄 Query simples: ${simpleQuery}`);
+        const [results] = await pool.query(simpleQuery);
+        if (attempt > 1) {
+          console.log(`✅ Query simples executada com sucesso na tentativa ${attempt}`);
+        }
+        return results;
+      }
+    } catch (error: any) {
+      lastError = error;
+      console.error(`❌ Erro na tentativa ${attempt}:`, error.message);
+      
+      // Verificar se é erro de conexão
+      if (
+        attempt < maxRetries && 
+        (error.code === 'PROTOCOL_CONNECTION_LOST' || 
+         error.code === 'ECONNRESET' ||
+         error.code === 'ENOTFOUND' ||
+         error.message?.includes('connection is in closed state') ||
+         error.message?.includes('Connection lost'))
+      ) {
+        console.log(`🔄 Tentando reconectar... (tentativa ${attempt + 1}/${maxRetries})`);
+        
+        // Aguardar antes de tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        
+        // Resetar conexão singleton se existir
+        if (connection) {
+          try {
+            await connection.end();
+          } catch {}
+          connection = null;
+        }
+        
+        continue;
+      }
+      
+      // Se não é erro de conexão ou já esgotou tentativas, propagar o erro
+      break;
     }
-  } catch (error) {
-    console.error('❌ Erro ao executar query:', error);
-    console.error('❌ Query que falhou:', query);
-    console.error('❌ Params que falharam:', params);
-    throw error;
   }
+  
+  console.error('❌ Todas as tentativas falharam. Erro final:', lastError);
+  console.error('❌ Query que falhou:', query);
+  console.error('❌ Params que falharam:', params);
+  throw lastError;
 }
 
 export async function closeDatabaseConnection(): Promise<void> {
   if (connection) {
-    await connection.end();
+    try {
+      await connection.end();
+    } catch (error) {
+      console.warn('⚠️ Erro ao fechar conexão singleton:', error);
+    }
     connection = null;
-    console.log('✅ Conexão com banco de dados fechada');
+    console.log('✅ Conexão singleton com banco de dados fechada');
   }
 }
 
-// Pool de conexões para uso geral
-const pool = mysql.createPool({
-  ...dbConfig,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+// Função para fechar o pool de conexões
+export async function closePool(): Promise<void> {
+  try {
+    await pool.end();
+    console.log('✅ Pool de conexões fechado');
+  } catch (error) {
+    console.error('❌ Erro ao fechar pool de conexões:', error);
+  }
+}
 
+// Função para obter estatísticas do pool
+export function getPoolStats() {
+  return {
+    totalConnections: pool.pool?._allConnections?.length || 0,
+    idleConnections: pool.pool?._freeConnections?.length || 0,
+    busyConnections: (pool.pool?._allConnections?.length || 0) - (pool.pool?._freeConnections?.length || 0)
+  };
+}
+
+// Monitoramento do pool - log estatísticas a cada 5 minutos
+setInterval(() => {
+  const stats = getPoolStats();
+  if (stats.totalConnections > 0) {
+    console.log(`📊 Pool Stats - Total: ${stats.totalConnections}, Idle: ${stats.idleConnections}, Busy: ${stats.busyConnections}`);
+  }
+}, 5 * 60 * 1000);
+
+// Exportar pool como default
 export default pool;
