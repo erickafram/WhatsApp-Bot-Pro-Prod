@@ -55,8 +55,9 @@ const WhatsAppInstance_1 = require("./models/WhatsAppInstance");
 const MessageProject_1 = require("./models/MessageProject");
 const Message_1 = require("./models/Message");
 const UserSession_1 = require("./models/UserSession");
+const auth_1 = require("./middleware/auth");
 // Importar rotas
-const auth_1 = __importDefault(require("./routes/auth"));
+const auth_2 = __importDefault(require("./routes/auth"));
 const users_1 = __importDefault(require("./routes/users"));
 const whatsapp_1 = __importDefault(require("./routes/whatsapp"));
 const messages_1 = __importDefault(require("./routes/messages"));
@@ -1444,7 +1445,7 @@ app.get('/health', async (req, res) => {
     }
 });
 // Rotas de autenticação
-app.use('/api/auth', auth_1.default);
+app.use('/api/auth', auth_2.default);
 // Rotas de usuários
 app.use('/api/users', users_1.default);
 // Rotas de WhatsApp
@@ -1461,7 +1462,7 @@ app.use('/api/managers', managers_1.default);
 app.use('/api/subscription', subscription_1.default);
 // ===== ENDPOINT DE CONTATOS =====
 // Listar todos os contatos de um gestor com estatísticas
-app.get('/api/contacts/:managerId', authenticate, async (req, res) => {
+app.get('/api/contacts/:managerId', auth_1.authenticate, async (req, res) => {
     try {
         const managerId = parseInt(req.params.managerId);
         if (!managerId) {
@@ -1580,7 +1581,7 @@ app.get('/api/contacts/:managerId', authenticate, async (req, res) => {
     }
 });
 // Buscar contato específico por ID
-app.get('/api/contacts/:managerId/:contactId', authenticate, async (req, res) => {
+app.get('/api/contacts/:managerId/:contactId', auth_1.authenticate, async (req, res) => {
     try {
         const managerId = parseInt(req.params.managerId);
         const contactId = parseInt(req.params.contactId);

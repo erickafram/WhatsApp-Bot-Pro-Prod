@@ -19,6 +19,7 @@ import { WhatsAppInstanceModel } from './models/WhatsAppInstance';
 import { MessageProjectModel, AutoMessageModel } from './models/MessageProject';
 import { ContactModel, MessageModel, HumanChatModel } from './models/Message';
 import { UserSessionModel } from './models/UserSession';
+import { authenticate } from './middleware/auth';
 
 // Importar rotas
 import authRoutes from './routes/auth';
