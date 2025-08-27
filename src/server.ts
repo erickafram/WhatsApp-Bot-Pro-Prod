@@ -1815,60 +1815,16 @@ Das 08:00 às 12:00
 Domingo fechado`;
 }
 
-// Função para detectar dados pessoais (Nome, Telefone, CPF, Data)
+// Função para detectar dados pessoais (Nome, Telefone, CPF, Data) ou dados de viagem
 function detectPersonalData(message: string): boolean {
     const text = message.trim();
     
-    // 🎫 PADRÕES ESPECÍFICOS PARA DADOS DE VIAGEM
-    const travelPatterns = {
-        // Origem/Destino com barra - Ex: "palmas/goiania", "goiania/palmas"
-        originDestinationSlash: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+$/i,
-        
-        // Origem-Destino com hífen - Ex: "palmas-goiania", "goiania-palmas"
-        originDestinationHyphen: /^[a-záàâãéêíóôõúçñ\s]+\-[a-záàâãéêíóôõúçñ\s]+$/i,
-        
-        // Origem.Destino com ponto - Ex: "palmas.goiania", "goiania.palmas"
-        originDestinationDot: /^[a-záàâãéêíóôõúçñ\s]+\.[a-záàâãéêíóôõúçñ\s]+$/i,
-        
-        // Origem,Destino com vírgula - Ex: "palmas,goiania", "goiania,palmas"
-        originDestinationComma: /^[a-záàâãéêíóôõúçñ\s]+\,[a-záàâãéêíóôõúçñ\s]+$/i,
-        
-        // Origem Destino com espaço - Ex: "palmas goiania", "goiania palmas"
-        originDestinationSpace: /^[a-záàâãéêíóôõúçñ]+\s+[a-záàâãéêíóôõúçñ]+$/i,
-        
-        // Origem/Destino/Data com barras - Ex: "palmas/goiania/28/08/2025"
-        fullTravelDataSlash: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+\/\d{1,2}\/\d{1,2}\/\d{4}$/i,
-        
-        // Origem-Destino-Data com hífen - Ex: "palmas-goiania-28/08/2025"
-        fullTravelDataHyphen: /^[a-záàâãéêíóôõúçñ\s]+\-[a-záàâãéêíóôõúçñ\s]+\-\d{1,2}\/\d{1,2}\/\d{4}$/i,
-        
-        // Origem.Destino.Data com ponto - Ex: "palmas.goiania.28/08/2025"
-        fullTravelDataDot: /^[a-záàâãéêíóôõúçñ\s]+\.[a-záàâãéêíóôõúçñ\s]+\.\d{1,2}\/\d{1,2}\/\d{4}$/i,
-        
-        // Origem,Destino,Data com vírgula - Ex: "palmas,goiania,28/08/2025"
-        fullTravelDataComma: /^[a-záàâãéêíóôõúçñ\s]+\,[a-záàâãéêíóôõúçñ\s]+\,\d{1,2}\/\d{1,2}\/\d{4}$/i,
-        
-        // Formato sugerido no exemplo - Ex: "Palmas - Brasília - 25/01/2025"
-        hyphenFormatSpaced: /^[a-záàâãéêíóôõúçñ\s]+ - [a-záàâãéêíóôõúçñ\s]+ - \d{1,2}\/\d{1,2}\/\d{4}$/i,
-        
-        // Data com diferentes separadores - Ex: "28/08/2025", "28-08-2025", "28.08.2025"
-        dateSlash: /^\d{1,2}\/\d{1,2}\/\d{4}$/,
-        dateHyphen: /^\d{1,2}\-\d{1,2}\-\d{4}$/,
-        dateDot: /^\d{1,2}\.\d{1,2}\.\d{4}$/,
-        
-        // Formatos mistos - Ex: "palmas/goiania-28/08/2025", "palmas-goiania/28/08/2025"
-        mixedFormat1: /^[a-záàâãéêíóôõúçñ\s]+[\/\-\.][a-záàâãéêíóôõúçñ\s]+[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}$/i,
-        
-        // Formato com espaços - Ex: "palmas goiania 28/08/2025"
-        spaceFormat: /^[a-záàâãéêíóôõúçñ\s]+\s+[a-záàâãéêíóôõúçñ\s]+\s+\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}$/i
-    };
-    
-    // Verificar se é um padrão de dados de viagem
-    for (const [key, pattern] of Object.entries(travelPatterns)) {
-        if (pattern.test(text)) {
-            console.log(`🎫 Padrão de viagem ${key} detectado: ${text}`);
-            return true; // É um dado de viagem, transferir para operador
-        }
+    // 🎫 DETECÇÃO SIMPLIFICADA PARA DADOS DE VIAGEM
+    // Se a mensagem tem mais de 3 caracteres e não é apenas um número de 1 dígito (opções do menu)
+    // considera como dados de viagem válidos
+    if (text.length > 3 && !/^[1-9]$/.test(text)) {
+        console.log(`🎫 Dados de viagem detectados (formato livre): ${text}`);
+        return true; // Qualquer texto é considerado dados de viagem válidos
     }
     
     // Padrões para detectar dados pessoais tradicionais
