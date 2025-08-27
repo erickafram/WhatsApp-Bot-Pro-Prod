@@ -1393,9 +1393,64 @@ ${getBusinessHoursMessage()}
         
         if (messageProcessed) {
             console.log(`🏙️ Mensagem de cidade processada para ${msg.from}`);
-        } else {
-            // 🚨 FALLBACK AUTOMÁTICO: Verificar se é primeira conversa
-            console.log(`🔄 Nenhuma correspondência encontrada para "${msg.body}"`);
+        }
+    }
+    
+    // 🔄 SE NENHUMA MENSAGEM FOI PROCESSADA, TENTAR FLUXO JSON PRIMEIRO
+    if (!messageProcessed) {
+        console.log(`🔄 Tentando processar com fluxo JSON: "${msg.body}"`);
+        
+        const flowData = loadFlowFromJSON();
+        if (flowData) {
+            // Verificar se usuário tem contexto ativo
+            const userContext = userContexts.get(msg.from);
+            console.log(`🔍 Contexto do usuário ${msg.from}: ${userContext || 'nenhum'}`);
+            
+            const flowResult = processMessageWithFlow(msg.body, flowData, userContext);
+            
+            if (flowResult.node && flowResult.response) {
+                console.log(`🎯 Fluxo JSON processou mensagem - Nó: ${flowResult.node.id}`);
+                
+                const chat = await msg.getChat();
+                await delay(2000);
+                await chat.sendStateTyping();
+                await delay(2000);
+                
+                // Substituir placeholders
+                const contact = await msg.getContact();
+                const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+                let response = flowResult.response.replace(/{name}/g, name);
+                response = response.replace(/{operatorName}/g, 'operador');
+                
+                if (client && instanceData.isReady) {
+                    await client.sendMessage(msg.from, response);
+                    console.log(`🎯 Resposta do fluxo JSON enviada: ${flowResult.node.data.title}`);
+                    
+                    // Definir contexto baseado no nó processado
+                    if (flowResult.node.id === 'template-252') {
+                        // Usuário escolheu "Comprar Passagem" - próxima mensagem deve ir para purchase-transfer
+                        userContexts.set(msg.from, 'purchase');
+                        console.log(`🛒 Contexto de compra definido para ${msg.from}`);
+                    }
+                    
+                    // Se o nó é do tipo 'human', transferir para atendimento humano
+                    if (flowResult.node.type === 'human') {
+                        console.log(`👨‍💼 Nó de transferência humana detectado - iniciando transferência`);
+                        // Limpar contexto pois a conversa será transferida
+                        userContexts.delete(msg.from);
+                        await delay(1000);
+                        await transferToHuman(managerId, msg, response);
+                    }
+                }
+                
+                messageProcessed = true;
+            }
+        }
+    }
+    
+    // 🚨 FALLBACK FINAL: Se ainda não foi processada, verificar se é primeira conversa
+    if (!messageProcessed) {
+        console.log(`🔄 Nenhuma correspondência encontrada para "${msg.body}" - verificando primeira conversa`);
             
             // 🔍 VERIFICAR SE É PRIMEIRA CONVERSA DO USUÁRIO
             const contact = await msg.getContact();
@@ -1468,16 +1523,16 @@ Digite o número da opção desejada! 😊`;
                 }
             } else {
                 // 👨‍💼 CONVERSA EXISTENTE: Transferir para operador
-                console.log(`👨‍💼 Conversa existente - Verificando horário de atendimento`);
-                
-                const isBusinessHours = isWithinBusinessHours();
-                console.log(`🕐 Horário de atendimento: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
-                
-                let fallbackResponse = '';
-                
-                if (isBusinessHours) {
-                    // Dentro do horário de atendimento
-                    fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
+            console.log(`👨‍💼 Conversa existente - Verificando horário de atendimento`);
+            
+            const isBusinessHours = isWithinBusinessHours();
+            console.log(`🕐 Horário de atendimento: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
+            
+            let fallbackResponse = '';
+            
+            if (isBusinessHours) {
+                // Dentro do horário de atendimento
+                fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
 
 🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe de atendimento poderá ajudá-lo melhor.
 
@@ -1486,9 +1541,9 @@ ${getBusinessHoursMessage()}
 Em alguns instantes um operador entrará em contato! 
 
 Obrigado pela preferência! 🚌✨`;
-                } else {
-                    // Fora do horário de atendimento
-                    fallbackResponse = `👨‍💼 *ATENDIMENTO FORA DO HORÁRIO*
+            } else {
+                // Fora do horário de atendimento
+                fallbackResponse = `👨‍💼 *ATENDIMENTO FORA DO HORÁRIO*
 
 🤔 Não consegui processar sua mensagem automaticamente e no momento não temos operadores online.
 
@@ -1499,7 +1554,7 @@ ${getBusinessHoursMessage()}
 🤝 Sua mensagem foi registrada e você será atendido assim que possível dentro do nosso horário de funcionamento.
 
 *Obrigado pela compreensão!* 🚌✨`;
-                }
+            }
 
                 // Enviar mensagem de fallback e transferir automaticamente
                 if (client && instanceData.isReady) {
@@ -1509,59 +1564,6 @@ ${getBusinessHoursMessage()}
                     
                     // Transferir automaticamente para atendimento humano
                     await transferToHuman(managerId, msg, fallbackResponse);
-                }
-            }
-        }
-    }
-    
-    // 🔄 SE NENHUMA MENSAGEM FOI PROCESSADA, TENTAR FLUXO JSON
-    if (!messageProcessed) {
-        console.log(`🔄 Tentando processar com fluxo JSON: "${msg.body}"`);
-        
-        const flowData = loadFlowFromJSON();
-        if (flowData) {
-            // Verificar se usuário tem contexto ativo
-            const userContext = userContexts.get(msg.from);
-            console.log(`🔍 Contexto do usuário ${msg.from}: ${userContext || 'nenhum'}`);
-            
-            const flowResult = processMessageWithFlow(msg.body, flowData, userContext);
-            
-            if (flowResult.node && flowResult.response) {
-                console.log(`🎯 Fluxo JSON processou mensagem - Nó: ${flowResult.node.id}`);
-                
-                const chat = await msg.getChat();
-                await delay(2000);
-                await chat.sendStateTyping();
-                await delay(2000);
-                
-                // Substituir placeholders
-                const contact = await msg.getContact();
-                const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
-                let response = flowResult.response.replace(/{name}/g, name);
-                response = response.replace(/{operatorName}/g, 'operador');
-                
-                if (client && instanceData.isReady) {
-                    await client.sendMessage(msg.from, response);
-                    console.log(`🎯 Resposta do fluxo JSON enviada: ${flowResult.node.data.title}`);
-                    
-                    // Definir contexto baseado no nó processado
-                    if (flowResult.node.id === 'template-252') {
-                        // Usuário escolheu "Comprar Passagem" - próxima mensagem deve ir para purchase-transfer
-                        userContexts.set(msg.from, 'purchase');
-                        console.log(`🛒 Contexto de compra definido para ${msg.from}`);
-                    }
-                    
-                    // Se o nó é do tipo 'human', transferir para atendimento humano
-                    if (flowResult.node.type === 'human') {
-                        console.log(`👨‍💼 Nó de transferência humana detectado - iniciando transferência`);
-                        // Limpar contexto pois a conversa será transferida
-                        userContexts.delete(msg.from);
-                        await delay(1000);
-                        await transferToHuman(managerId, msg, response);
-                    }
-                }
-                
-                messageProcessed = true;
             }
         }
     }

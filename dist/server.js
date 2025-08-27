@@ -1196,118 +1196,8 @@ ${getBusinessHoursMessage()}
         if (messageProcessed) {
             console.log(`🏙️ Mensagem de cidade processada para ${msg.from}`);
         }
-        else {
-            // 🚨 FALLBACK AUTOMÁTICO: Verificar se é primeira conversa
-            console.log(`🔄 Nenhuma correspondência encontrada para "${msg.body}"`);
-            // 🔍 VERIFICAR SE É PRIMEIRA CONVERSA DO USUÁRIO
-            const contact = await msg.getContact();
-            const phoneNumber = msg.from.replace('@c.us', '');
-            const dbContact = await Message_1.ContactModel.findByPhoneAndManager(phoneNumber, managerId);
-            let isFirstConversation = false;
-            if (dbContact) {
-                // Verificar se há chats anteriores para este contato
-                const existingChatsQuery = `
-                    SELECT COUNT(*) as chatCount 
-                    FROM human_chats 
-                    WHERE contact_id = ? AND manager_id = ?
-                `;
-                try {
-                    const chatCountResult = await (0, database_1.executeQuery)(existingChatsQuery, [dbContact.id, managerId]);
-                    const chatCount = chatCountResult?.[0]?.chatCount || 0;
-                    isFirstConversation = chatCount === 0;
-                    console.log(`📊 Contato ${dbContact.id} tem ${chatCount} chats anteriores`);
-                }
-                catch (error) {
-                    console.error('❌ Erro ao verificar chats anteriores:', error);
-                    // Em caso de erro, assumir que é primeira conversa para dar melhor experiência
-                    isFirstConversation = true;
-                }
-            }
-            else {
-                // Se não existe contato no banco, é primeira conversa
-                isFirstConversation = true;
-            }
-            console.log(`👤 Primeira conversa do usuário: ${isFirstConversation ? 'SIM' : 'NÃO'}`);
-            if (isFirstConversation) {
-                // 🏠 PRIMEIRA CONVERSA: Mostrar menu principal do fluxo JSON
-                console.log(`🏠 Primeira conversa - Buscando menu principal no fluxo JSON`);
-                const contactName = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
-                let menuResponse = '';
-                // Tentar carregar do fluxo JSON
-                const flowData = loadFlowFromJSON();
-                if (flowData) {
-                    const welcomeNode = flowData.nodes.find(node => node.id === 'welcome-message');
-                    if (welcomeNode && welcomeNode.data.response) {
-                        menuResponse = welcomeNode.data.response.replace('{name}', contactName);
-                        console.log(`✅ Menu carregado do fluxo JSON: welcome-message`);
-                    }
-                }
-                // Fallback se não conseguir carregar do JSON
-                if (!menuResponse) {
-                    console.log(`⚠️ Usando menu fallback - JSON não disponível`);
-                    menuResponse = `🚌 Olá! ${contactName} Bem-vindo à *Kleiber Passagens/ Tocantins*! 
-
-Como posso ajudá-lo hoje?
-
-*1* - 🎫 Comprar Passagem
-*2* - 🕐 Ver Horários
-*3* - 📦 Encomendas e Cargas
-*4* - 🚐 Turismo/Locação
-*5* - 🚌 Atendimento Real Expresso
-
-Digite o número da opção desejada! 😊`;
-                }
-                if (client && instanceData.isReady) {
-                    await delay(2000);
-                    await client.sendMessage(msg.from, menuResponse);
-                    await delay(1000);
-                    console.log(`🏠 Menu principal enviado para primeira conversa: ${msg.from}`);
-                }
-            }
-            else {
-                // 👨‍💼 CONVERSA EXISTENTE: Transferir para operador
-                console.log(`👨‍💼 Conversa existente - Verificando horário de atendimento`);
-                const isBusinessHours = isWithinBusinessHours();
-                console.log(`🕐 Horário de atendimento: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
-                let fallbackResponse = '';
-                if (isBusinessHours) {
-                    // Dentro do horário de atendimento
-                    fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
-
-🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe de atendimento poderá ajudá-lo melhor.
-
-${getBusinessHoursMessage()}
-
-Em alguns instantes um operador entrará em contato! 
-
-Obrigado pela preferência! 🚌✨`;
-                }
-                else {
-                    // Fora do horário de atendimento
-                    fallbackResponse = `👨‍💼 *ATENDIMENTO FORA DO HORÁRIO*
-
-🤔 Não consegui processar sua mensagem automaticamente e no momento não temos operadores online.
-
-⏰ *FORA DO HORÁRIO DE ATENDIMENTO*
-
-${getBusinessHoursMessage()}
-
-🤝 Sua mensagem foi registrada e você será atendido assim que possível dentro do nosso horário de funcionamento.
-
-*Obrigado pela compreensão!* 🚌✨`;
-                }
-                // Enviar mensagem de fallback e transferir automaticamente
-                if (client && instanceData.isReady) {
-                    await client.sendMessage(msg.from, fallbackResponse);
-                    await delay(1000);
-                    console.log(`🤖 Resposta de fallback enviada para ${msg.from}`);
-                    // Transferir automaticamente para atendimento humano
-                    await transferToHuman(managerId, msg, fallbackResponse);
-                }
-            }
-        }
     }
-    // 🔄 SE NENHUMA MENSAGEM FOI PROCESSADA, TENTAR FLUXO JSON
+    // 🔄 SE NENHUMA MENSAGEM FOI PROCESSADA, TENTAR FLUXO JSON PRIMEIRO
     if (!messageProcessed) {
         console.log(`🔄 Tentando processar com fluxo JSON: "${msg.body}"`);
         const flowData = loadFlowFromJSON();
@@ -1346,6 +1236,116 @@ ${getBusinessHoursMessage()}
                     }
                 }
                 messageProcessed = true;
+            }
+        }
+    }
+    // 🚨 FALLBACK FINAL: Se ainda não foi processada, verificar se é primeira conversa
+    if (!messageProcessed) {
+        console.log(`🔄 Nenhuma correspondência encontrada para "${msg.body}" - verificando primeira conversa`);
+        // 🔍 VERIFICAR SE É PRIMEIRA CONVERSA DO USUÁRIO
+        const contact = await msg.getContact();
+        const phoneNumber = msg.from.replace('@c.us', '');
+        const dbContact = await Message_1.ContactModel.findByPhoneAndManager(phoneNumber, managerId);
+        let isFirstConversation = false;
+        if (dbContact) {
+            // Verificar se há chats anteriores para este contato
+            const existingChatsQuery = `
+                    SELECT COUNT(*) as chatCount 
+                    FROM human_chats 
+                    WHERE contact_id = ? AND manager_id = ?
+                `;
+            try {
+                const chatCountResult = await (0, database_1.executeQuery)(existingChatsQuery, [dbContact.id, managerId]);
+                const chatCount = chatCountResult?.[0]?.chatCount || 0;
+                isFirstConversation = chatCount === 0;
+                console.log(`📊 Contato ${dbContact.id} tem ${chatCount} chats anteriores`);
+            }
+            catch (error) {
+                console.error('❌ Erro ao verificar chats anteriores:', error);
+                // Em caso de erro, assumir que é primeira conversa para dar melhor experiência
+                isFirstConversation = true;
+            }
+        }
+        else {
+            // Se não existe contato no banco, é primeira conversa
+            isFirstConversation = true;
+        }
+        console.log(`👤 Primeira conversa do usuário: ${isFirstConversation ? 'SIM' : 'NÃO'}`);
+        if (isFirstConversation) {
+            // 🏠 PRIMEIRA CONVERSA: Mostrar menu principal do fluxo JSON
+            console.log(`🏠 Primeira conversa - Buscando menu principal no fluxo JSON`);
+            const contactName = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+            let menuResponse = '';
+            // Tentar carregar do fluxo JSON
+            const flowData = loadFlowFromJSON();
+            if (flowData) {
+                const welcomeNode = flowData.nodes.find(node => node.id === 'welcome-message');
+                if (welcomeNode && welcomeNode.data.response) {
+                    menuResponse = welcomeNode.data.response.replace('{name}', contactName);
+                    console.log(`✅ Menu carregado do fluxo JSON: welcome-message`);
+                }
+            }
+            // Fallback se não conseguir carregar do JSON
+            if (!menuResponse) {
+                console.log(`⚠️ Usando menu fallback - JSON não disponível`);
+                menuResponse = `🚌 Olá! ${contactName} Bem-vindo à *Kleiber Passagens/ Tocantins*! 
+
+Como posso ajudá-lo hoje?
+
+*1* - 🎫 Comprar Passagem
+*2* - 🕐 Ver Horários
+*3* - 📦 Encomendas e Cargas
+*4* - 🚐 Turismo/Locação
+*5* - 🚌 Atendimento Real Expresso
+
+Digite o número da opção desejada! 😊`;
+            }
+            if (client && instanceData.isReady) {
+                await delay(2000);
+                await client.sendMessage(msg.from, menuResponse);
+                await delay(1000);
+                console.log(`🏠 Menu principal enviado para primeira conversa: ${msg.from}`);
+            }
+        }
+        else {
+            // 👨‍💼 CONVERSA EXISTENTE: Transferir para operador
+            console.log(`👨‍💼 Conversa existente - Verificando horário de atendimento`);
+            const isBusinessHours = isWithinBusinessHours();
+            console.log(`🕐 Horário de atendimento: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
+            let fallbackResponse = '';
+            if (isBusinessHours) {
+                // Dentro do horário de atendimento
+                fallbackResponse = `👨‍💼 *Vou transferir você para nosso atendimento especializado!*
+
+🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe de atendimento poderá ajudá-lo melhor.
+
+${getBusinessHoursMessage()}
+
+Em alguns instantes um operador entrará em contato! 
+
+Obrigado pela preferência! 🚌✨`;
+            }
+            else {
+                // Fora do horário de atendimento
+                fallbackResponse = `👨‍💼 *ATENDIMENTO FORA DO HORÁRIO*
+
+🤔 Não consegui processar sua mensagem automaticamente e no momento não temos operadores online.
+
+⏰ *FORA DO HORÁRIO DE ATENDIMENTO*
+
+${getBusinessHoursMessage()}
+
+🤝 Sua mensagem foi registrada e você será atendido assim que possível dentro do nosso horário de funcionamento.
+
+*Obrigado pela compreensão!* 🚌✨`;
+            }
+            // Enviar mensagem de fallback e transferir automaticamente
+            if (client && instanceData.isReady) {
+                await client.sendMessage(msg.from, fallbackResponse);
+                await delay(1000);
+                console.log(`🤖 Resposta de fallback enviada para ${msg.from}`);
+                // Transferir automaticamente para atendimento humano
+                await transferToHuman(managerId, msg, fallbackResponse);
             }
         }
     }
