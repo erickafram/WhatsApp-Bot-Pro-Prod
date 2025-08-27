@@ -1,9 +1,8 @@
 {
   "metadata": {
-    "version": "2.0",
-    "created": "2025-01-20T10:00:00.000Z",
-    "description": "Fluxo Kleiber Passagens/Tocantins - Sistema Completo",
-    "company": "Kleiber Passagens/Tocantins"
+    "version": "1.0",
+    "created": "2025-08-27T13:48:42.841Z",
+    "description": "Fluxo de conversação automática"
   },
   "nodes": [
     {
@@ -18,18 +17,18 @@
         "description": "Usuário inicia conversa"
       },
       "connections": [
-        "welcome-message"
+        "template-251"
       ]
     },
     {
-      "id": "welcome-message",
+      "id": "template-251",
       "type": "message",
       "position": {
         "x": 50,
         "y": 150
       },
       "data": {
-        "title": "Boas-vindas Kleiber",
+        "title": "Boas-vindas",
         "triggers": [
           "oi",
           "olá",
@@ -52,43 +51,18 @@
         "active": 1
       },
       "connections": [
-        "option-1-buy-ticket",
-        "option-2-schedules",
-        "option-3-cargo",
-        "option-4-tourism",
-        "option-5-real-expresso",
-        "keyword-blocker",
+        "template-252",
+        "template-260",
+        "template-254",
+        "template-255",
+        "template-261",
+        "template-256",
+        "template-257",
         "fallback-auto"
       ]
     },
     {
-      "id": "keyword-blocker",
-      "type": "condition",
-      "position": {
-        "x": 50,
-        "y": 300
-      },
-      "data": {
-        "title": "Bloqueio Palavras-Chave",
-        "triggers": [
-          "idoso",
-          "idosa",
-          "passe livre",
-          "id jovem",
-          "meia entrada",
-          "gratuidade",
-          "isento",
-          "desconto especial"
-        ],
-        "response": "🏢 *ATENDIMENTO PRESENCIAL NECESSÁRIO*\n\nPara benefícios especiais como:\n• Passe Livre\n• ID Jovem\n• Gratuidade para Idosos\n• Outros descontos especiais\n\n📍 *É necessário comparecer pessoalmente na agência mais próxima* com a documentação exigida.\n\n *WhatsApp:* 63984666203\n\n🕐 *Horário de Atendimento:*\nSegunda a Sexta: 7h às 18h\nSábado: 7h às 12h\n\nObrigado pela compreensão! 🚌",
-        "active": 1
-      },
-      "connections": [
-        "end-1"
-      ]
-    },
-    {
-      "id": "option-1-buy-ticket",
+      "id": "template-252",
       "type": "message",
       "position": {
         "x": 300,
@@ -103,39 +77,55 @@
           "bilhete",
           "ticket"
         ],
-        "response": "🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem! ✈️",
+        "response": "🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem!",
         "active": 1
       },
       "connections": [
-        "process-ticket-request",
-        "keyword-blocker",
-        "fallback-auto"
+        "purchase-transfer"
       ]
     },
     {
-      "id": "process-ticket-request",
+      "id": "purchase-transfer",
       "type": "human",
       "position": {
-        "x": 300,
-        "y": 250
+        "x": 500,
+        "y": 100
       },
       "data": {
-        "title": "Processar Solicitação de Passagem",
+        "title": "Transferência Compra Passagem",
         "triggers": [
           "default"
         ],
-        "response": "✅ *Recebemos sua solicitação de passagem!*\n\n👨‍💼 *Transferindo para operador especializado...*\n\nNosso atendente verificará:\n• Disponibilidade de horários\n• Valores das passagens\n• Formas de pagamento\n• Finalização da compra\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato! 🚌✨",
+        "response": "✅ *DADOS RECEBIDOS PARA COMPRA DE PASSAGEM*\n\n👨‍💼 *Transferindo para operador especializado...*\n\nNosso atendente verificará:\n• Disponibilidade de horários\n• Valores das passagens\n• Formas de pagamento\n• Finalização da compra\n\n⏰ Em alguns instantes um operador entrará em contato para finalizar sua compra! 🚌✨",
         "active": 1
       },
-      "connections": [
-        "end-1"
-      ]
+      "connections": []
     },
     {
-      "id": "option-2-schedules",
+      "id": "template-260",
+      "type": "human",
+      "position": {
+        "x": 50,
+        "y": 300
+      },
+      "data": {
+        "title": "Atendimento Humano",
+        "triggers": [
+          "1",
+          "operador",
+          "mesmo operador",
+          "voltar"
+        ],
+        "response": "👨‍💼 *RECONECTANDO COM OPERADOR*\n\nPerfeito! Estou reconectando você com o operador {operatorName}.\n\n⏰ *Status:* Aguardando operador disponível\n\nEm alguns instantes {operatorName} retornará para continuar o atendimento!\n\n*Observação:* Se o operador não estiver disponível, outro membro da equipe poderá ajudá-lo.",
+        "active": 1
+      },
+      "connections": []
+    },
+    {
+      "id": "template-254",
       "type": "message",
       "position": {
-        "x": 500,
+        "x": 700,
         "y": 100
       },
       "data": {
@@ -147,28 +137,22 @@
           "hora",
           "saida"
         ],
-        "response": "🕐 *HORÁRIOS DE SAÍDA - KLEIBER PASSAGENS*\n\n📋 *Principais Rotas e Horários:*\n\n🌅 *MANHÃ*\n• 06:00 - Brasília, Goiânia\n• 07:30 - São Luís, Imperatriz\n• 08:00 - Araguaína, Gurupi\n• 09:00 - Teresina, Parnaíba\n\n🌞 *TARDE*\n• 14:00 - Barreiras, L.E. Magalhães\n• 15:30 - Porto Nacional, Paraíso\n• 16:00 - Colinas do Tocantins\n\n🌙 *NOITE*\n• 20:00 - Brasília, Goiânia\n• 21:30 - São Luís, Imperatriz\n• 22:00 - Palmas (retorno)\n\n*Horários sujeitos a alterações*\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\n*0* - 🏠 Menu Principal",
+        "response": "🕐 *HORÁRIOS DE SAÍDA - KLEIBER PASSAGENS*\n\n📋 *Principais Rotas e Horários:*\n\n🌅*MANHÃ*\n• PALMAS X ALVORADA – 06:45\n• PALMAS X PAU D’ARCO – 07:00\n• PALMAS X ITACAJÁ – 09:00\n• PALMAS X PALMEIRÓPOLIS – 11:00\n\n🌞 *TARDE*\n• PALMAS X BURITI – 18:00\n\n🌙 *NOITE*\n• PALMAS X GOIÂNIA – Ônibus Semi Leito 19:00\n• PALMAS X GOIÂNIA – Ônibus Todo Leito 19:15\n• PALMAS X GOIÂNIA – Ônibus Leito Cama 19:30\n• PALMAS X CANABRAVA – 19:00\n• PALMAS X BRASÍLIA – 19:00\n• PALMAS X IMPERATRIZ – 20:30\n\n*Horários sujeitos a alterações*\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\n*0* - 🏠 Menu Principal",
         "active": 1
       },
       "connections": [
-        "option-1-buy-ticket",
-        "option-2-schedules",
-        "option-3-cargo",
-        "option-4-tourism",
-        "option-5-real-expresso",
-        "welcome-message",
         "fallback-auto"
       ]
     },
     {
-      "id": "option-3-cargo",
+      "id": "template-255",
       "type": "message",
       "position": {
-        "x": 700,
-        "y": 100
+        "x": 300,
+        "y": 220
       },
       "data": {
-        "title": "Opção 3 - Encomendas e Cargas",
+        "title": "Opção 3",
         "triggers": [
           "3",
           "encomenda",
@@ -178,23 +162,44 @@
           "envio",
           "remessa"
         ],
-        "response": "📦 *ENCOMENDAS E CARGAS*\n\nPara envio de encomendas e cargas, entre em contato diretamente:\n\n📱 *WhatsApp Especializado:*\n*63984666203*\n\nNossos especialistas em logística irão ajudá-lo com:\n• Tarifas de envio\n• Prazos de entrega\n• Documentação necessária\n• Rastreamento de encomendas\n\n🕐 *Horário de Atendimento:*\nSegunda a Sexta: 7h às 18h\nSábado: 7h às 12h\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 📦🚌",
+        "response": "📦 *ENCOMENDAS E CARGAS*\n\nPara envio de encomendas e cargas, entre em contato diretamente:\n\n📱 *WhatsApp Especializado:*\n*(63)98466-6203*\n\nNossos especialistas em logística irão ajudá-lo com:\n• Tarifas de envio\n• Prazos de entrega\n• Documentação necessária\n• Rastreamento de encomendas\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 📦🚌",
         "active": 1
       },
       "connections": [
-        "welcome-message",
         "fallback-auto"
       ]
     },
     {
-      "id": "option-4-tourism",
+      "id": "template-261",
       "type": "message",
       "position": {
-        "x": 900,
-        "y": 100
+        "x": 500,
+        "y": 220
       },
       "data": {
-        "title": "Opção 4 - Turismo/Locação",
+        "title": "Opção 3",
+        "triggers": [
+          "3",
+          "outro operador",
+          "nova conversa",
+          "novo atendimento"
+        ],
+        "response": "👥 *NOVO ATENDIMENTO*\n\nEntendi! Vou direcioná-lo para um novo atendimento.\n\n⏰ *Horário de Atendimento:*\nDas cargas funciona:\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado \n\n\nDos turismo:\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado \n\nDo guichê\nDe segunda a sexta feira:\nDas 08:00 às 20:00\n\nAos sábados e Domingos \nDas 08:00 às 12:00\nDas 14:00 às 19:30\n\nEm alguns instantes um operador entrará em contato para ajudá-lo!\n\nObrigado pela preferência! 🚌✨",
+        "active": 1
+      },
+      "connections": [
+        "fallback-auto"
+      ]
+    },
+    {
+      "id": "template-256",
+      "type": "message",
+      "position": {
+        "x": 700,
+        "y": 220
+      },
+      "data": {
+        "title": "Opção 4",
         "triggers": [
           "4",
           "turismo",
@@ -204,38 +209,73 @@
           "excursao",
           "excursão"
         ],
-        "response": "🚐 *TURISMO E LOCAÇÃO*\n\nPara serviços de turismo e locação de veículos, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*63984666184*\n\nNossos consultores oferecerão:\n• Pacotes turísticos\n• Locação de ônibus e vans\n• Fretamento para eventos\n• Excursões personalizadas\n• Transporte executivo\n\n🕐 *Horário de Atendimento:*\nSegunda a Sexta: 8h às 17h\nSábado: 8h às 12h\n\n*0* - 🏠 Voltar ao Menu Principal\n\nVenha viajar conosco! 🚐✨",
+        "response": "🚐 *TURISMO E LOCAÇÃO*\n\nPara serviços de turismo e locação de veículos, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63)98466-6184*\n\nNossos consultores oferecerão:\n• Pacotes turísticos\n• Locação de ônibus e vans\n• Fretamento para eventos\n• Excursões personalizadas\n• Transporte executivo\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n\nVenha viajar conosco! 🚐✨",
         "active": 1
       },
       "connections": [
-        "welcome-message",
         "fallback-auto"
       ]
     },
     {
-      "id": "option-5-real-expresso",
+      "id": "template-257",
       "type": "message",
       "position": {
-        "x": 1100,
-        "y": 100
+        "x": 300,
+        "y": 340
       },
       "data": {
-        "title": "Opção 5 - Real Expresso",
+        "title": "Opção 5",
         "triggers": [
           "5",
           "real expresso",
           "real",
           "expresso"
         ],
-        "response": "🚌 *ATENDIMENTO REAL EXPRESSO*\n\nPara atendimento específico da Real Expresso, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*63992405166*\n\nServiços Real Expresso:\n• Passagens interestaduais\n• Rotas específicas\n• Informações de horários\n• Reservas e cancelamentos\n\n🕐 *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 🚌",
+        "response": "🚌 *ATENDIMENTO REAL EXPRESSO*\n\nPara atendimento específico da Real Expresso, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63)99240-5166*\n\nServiços Real Expresso:\n• Passagens interestaduais\n• Rotas específicas\n• Informações de horários\n• Reservas e cancelamentos\n\n🕐 *Horário de Atendimento:*\nSegunda a sexta das 08:00 às 19:00\nSábado e domingo \nDas 08:00 às 12:00\nDas 14:00 às 19;00\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 🚌",
         "active": 1
       },
       "connections": [
-        "welcome-message",
         "fallback-auto"
       ]
     },
-
+    {
+      "id": "template-253",
+      "type": "condition",
+      "position": {
+        "x": 400,
+        "y": 400
+      },
+      "data": {
+        "title": "Default 1",
+        "triggers": [
+          "default"
+        ],
+        "response": "✅ *Recebemos sua solicitação de passagem!*\n\n👨‍💼 *Transferindo para operador especializado...*\n\nNosso atendente verificará:\n• Disponibilidade de horários\n• Valores das passagens\n• Formas de pagamento\n• Finalização da compra\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato! 🚌✨",
+        "active": 1
+      },
+      "connections": [
+        "end-1"
+      ]
+    },
+    {
+      "id": "template-258",
+      "type": "condition",
+      "position": {
+        "x": 600,
+        "y": 500
+      },
+      "data": {
+        "title": "Default 2",
+        "triggers": [
+          "default"
+        ],
+        "response": "👨‍💼 *TRANSFERINDO PARA ATENDIMENTO HUMANO*\n\n🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe especializada poderá ajudá-lo melhor!\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato!\n\nObrigado pela paciência! 🚌✨",
+        "active": 1
+      },
+      "connections": [
+        "end-1"
+      ]
+    },
     {
       "id": "fallback-auto",
       "type": "human",
@@ -246,67 +286,7 @@
       "data": {
         "title": "Fallback Automático",
         "description": "Transfere automaticamente para operador quando não há correspondência",
-        "response": "👨‍💼 *TRANSFERINDO PARA ATENDIMENTO HUMANO*\n\n🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe especializada poderá ajudá-lo melhor!\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato!\n\nObrigado pela paciência! 🚌✨"
-      },
-      "connections": []
-    },
-    {
-      "id": "chat-ended-options",
-      "type": "message",
-      "position": {
-        "x": 400,
-        "y": 350
-      },
-      "data": {
-        "title": "Opções Pós-Encerramento",
-        "triggers": [
-          "CHAT_ENDED_BY_OPERATOR"
-        ],
-        "response": "✅ *CONVERSA ENCERRADA*\n\nSua conversa com o operador {operatorName} foi finalizada.\n\nVocê pode a qualquer momento:\n\n*1* - 👨‍💼 Voltar a falar com o operador {operatorName}\n*2* - 🏠 Ir para o Menu Principal\n*3* - 👥 Falar com outro operador\n\nDigite o número da opção desejada! 😊",
-        "active": 1
-      },
-      "connections": [
-        "reconnect-operator",
-        "welcome-message", 
-        "new-operator-chat",
-        "fallback-auto"
-      ]
-    },
-    {
-      "id": "reconnect-operator",
-      "type": "human",
-      "position": {
-        "x": 200,
-        "y": 500
-      },
-      "data": {
-        "title": "Reconectar com Operador",
-        "triggers": [
-          "1",
-          "operador",
-          "mesmo operador",
-          "voltar"
-        ],
-        "response": "👨‍💼 *RECONECTANDO COM OPERADOR*\n\nPerfeito! Estou reconectando você com o operador {operatorName}.\n\n⏰ *Status:* Aguardando operador disponível\n\nEm alguns instantes {operatorName} retornará para continuar o atendimento!\n\n*Observação:* Se o operador não estiver disponível, outro membro da equipe poderá ajudá-lo."
-      },
-      "connections": []
-    },
-    {
-      "id": "new-operator-chat", 
-      "type": "human",
-      "position": {
-        "x": 600,
-        "y": 500
-      },
-      "data": {
-        "title": "Novo Atendimento",
-        "triggers": [
-          "3",
-          "outro operador",
-          "nova conversa",
-          "novo atendimento"
-        ],
-        "response": "👥 *NOVO ATENDIMENTO*\n\nEntendi! Vou direcioná-lo para um novo atendimento.\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato para ajudá-lo!\n\nObrigado pela preferência! 🚌✨"
+        "response": "👨‍💼 Vou transferir você para nosso atendimento especializado!\n\n🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe poderá ajudá-lo melhor.\n\nEm alguns instantes um operador entrará em contato!"
       },
       "connections": []
     },
@@ -315,212 +295,100 @@
       "type": "end",
       "position": {
         "x": 650,
-        "y": 650
+        "y": 250
       },
       "data": {
-        "title": "Fim da Conversa",
-        "description": "Conversa finalizada ou transferida"
+        "title": "Fim",
+        "description": "Conversa finalizada"
       },
       "connections": []
     }
   ],
   "connections": [
     {
-      "id": "start-1-welcome-message",
+      "id": "start-1-template-251",
       "source": "start-1",
-      "target": "welcome-message"
+      "target": "template-251"
     },
     {
-      "id": "welcome-message-option-1-buy-ticket",
-      "source": "welcome-message",
-      "target": "option-1-buy-ticket"
+      "id": "template-251-template-252",
+      "source": "template-251",
+      "target": "template-252"
     },
     {
-      "id": "welcome-message-option-2-schedules",
-      "source": "welcome-message",
-      "target": "option-2-schedules"
+      "id": "template-251-template-260",
+      "source": "template-251",
+      "target": "template-260"
     },
     {
-      "id": "welcome-message-option-3-cargo",
-      "source": "welcome-message",
-      "target": "option-3-cargo"
+      "id": "template-251-template-254",
+      "source": "template-251",
+      "target": "template-254"
     },
     {
-      "id": "welcome-message-option-4-tourism",
-      "source": "welcome-message",
-      "target": "option-4-tourism"
+      "id": "template-251-template-255",
+      "source": "template-251",
+      "target": "template-255"
     },
     {
-      "id": "welcome-message-option-5-real-expresso",
-      "source": "welcome-message",
-      "target": "option-5-real-expresso"
+      "id": "template-251-template-261",
+      "source": "template-251",
+      "target": "template-261"
     },
     {
-      "id": "welcome-message-keyword-blocker",
-      "source": "welcome-message",
-      "target": "keyword-blocker"
+      "id": "template-251-template-256",
+      "source": "template-251",
+      "target": "template-256"
     },
-
     {
-      "id": "welcome-message-fallback-auto",
-      "source": "welcome-message",
+      "id": "template-251-template-257",
+      "source": "template-251",
+      "target": "template-257"
+    },
+    {
+      "id": "template-251-fallback-auto",
+      "source": "template-251",
       "target": "fallback-auto"
     },
     {
-      "id": "option-1-buy-ticket-process-ticket-request",
-      "source": "option-1-buy-ticket",
-      "target": "process-ticket-request"
+      "id": "template-252-purchase-transfer",
+      "source": "template-252",
+      "target": "purchase-transfer"
     },
     {
-      "id": "option-1-buy-ticket-keyword-blocker",
-      "source": "option-1-buy-ticket",
-      "target": "keyword-blocker"
-    },
-    {
-      "id": "option-1-buy-ticket-fallback-auto",
-      "source": "option-1-buy-ticket",
+      "id": "template-254-fallback-auto",
+      "source": "template-254",
       "target": "fallback-auto"
     },
     {
-      "id": "option-2-schedules-option-1-buy-ticket",
-      "source": "option-2-schedules",
-      "target": "option-1-buy-ticket"
-    },
-    {
-      "id": "option-2-schedules-option-2-schedules",
-      "source": "option-2-schedules",
-      "target": "option-2-schedules"
-    },
-    {
-      "id": "option-2-schedules-option-3-cargo",
-      "source": "option-2-schedules",
-      "target": "option-3-cargo"
-    },
-    {
-      "id": "option-2-schedules-option-4-tourism",
-      "source": "option-2-schedules",
-      "target": "option-4-tourism"
-    },
-    {
-      "id": "option-2-schedules-option-5-real-expresso",
-      "source": "option-2-schedules",
-      "target": "option-5-real-expresso"
-    },
-    {
-      "id": "option-2-schedules-welcome-message",
-      "source": "option-2-schedules",
-      "target": "welcome-message"
-    },
-    {
-      "id": "option-2-schedules-fallback-auto",
-      "source": "option-2-schedules",
+      "id": "template-255-fallback-auto",
+      "source": "template-255",
       "target": "fallback-auto"
     },
     {
-      "id": "option-3-cargo-welcome-message",
-      "source": "option-3-cargo",
-      "target": "welcome-message"
-    },
-    {
-      "id": "option-3-cargo-fallback-auto",
-      "source": "option-3-cargo",
+      "id": "template-261-fallback-auto",
+      "source": "template-261",
       "target": "fallback-auto"
     },
     {
-      "id": "option-4-tourism-welcome-message",
-      "source": "option-4-tourism",
-      "target": "welcome-message"
-    },
-    {
-      "id": "option-4-tourism-fallback-auto",
-      "source": "option-4-tourism",
+      "id": "template-256-fallback-auto",
+      "source": "template-256",
       "target": "fallback-auto"
     },
     {
-      "id": "option-5-real-expresso-welcome-message",
-      "source": "option-5-real-expresso",
-      "target": "welcome-message"
-    },
-    {
-      "id": "option-5-real-expresso-fallback-auto",
-      "source": "option-5-real-expresso",
+      "id": "template-257-fallback-auto",
+      "source": "template-257",
       "target": "fallback-auto"
     },
     {
-      "id": "keyword-blocker-end-1",
-      "source": "keyword-blocker",
+      "id": "template-253-end-1",
+      "source": "template-253",
       "target": "end-1"
     },
     {
-      "id": "process-ticket-request-end-1",
-      "source": "process-ticket-request",
+      "id": "template-258-end-1",
+      "source": "template-258",
       "target": "end-1"
-    },
-    {
-      "id": "option-2-schedules-welcome-message",
-      "source": "option-2-schedules",
-      "target": "welcome-message"
-    },
-    {
-      "id": "option-3-cargo-welcome-message",
-      "source": "option-3-cargo",
-      "target": "welcome-message"
-    },
-    {
-      "id": "option-4-tourism-welcome-message",
-      "source": "option-4-tourism",
-      "target": "welcome-message"
-    },
-    {
-      "id": "option-5-real-expresso-welcome-message",
-      "source": "option-5-real-expresso",
-      "target": "welcome-message"
-    },
-    {
-      "id": "chat-ended-options-reconnect-operator",
-      "source": "chat-ended-options",
-      "target": "reconnect-operator"
-    },
-    {
-      "id": "chat-ended-options-welcome-message",
-      "source": "chat-ended-options", 
-      "target": "welcome-message"
-    },
-    {
-      "id": "chat-ended-options-new-operator-chat",
-      "source": "chat-ended-options",
-      "target": "new-operator-chat"
-    },
-    {
-      "id": "chat-ended-options-fallback-auto",
-      "source": "chat-ended-options",
-      "target": "fallback-auto"
     }
-  ],
-  "settings": {
-    "auto_transfer_timeout": 300,
-    "fallback_to_human": true,
-    "keyword_blocking_enabled": true,
-    "blocked_keywords": [
-      "idoso",
-      "idosa",
-      "passe livre",
-      "id jovem",
-      "meia entrada",
-      "gratuidade",
-      "isento",
-      "desconto especial"
-    ],
-    "business_hours": {
-      "monday_friday": "06:00-22:00",
-      "saturday": "06:00-18:00",
-      "sunday": "08:00-20:00"
-    },
-    "contact_numbers": {
-      "main": "63984666203",
-      "cargo": "63984666203",
-      "tourism": "63984666184",
-      "real_expresso": "63992405166"
-    }
-  }
+  ]
 }
