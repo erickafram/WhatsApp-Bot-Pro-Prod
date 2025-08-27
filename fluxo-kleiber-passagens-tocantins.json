@@ -52,12 +52,12 @@
       },
       "connections": [
         "template-252",
-        "template-260",
         "template-254",
         "template-255",
         "template-261",
         "template-256",
         "template-257",
+        "template-260",
         "fallback-auto"
       ]
     },
@@ -111,7 +111,6 @@
       "data": {
         "title": "Atendimento Humano",
         "triggers": [
-          "1",
           "operador",
           "mesmo operador",
           "voltar"
@@ -315,11 +314,7 @@
       "source": "template-251",
       "target": "template-252"
     },
-    {
-      "id": "template-251-template-260",
-      "source": "template-251",
-      "target": "template-260"
-    },
+
     {
       "id": "template-251-template-254",
       "source": "template-251",
@@ -379,6 +374,11 @@
       "id": "template-257-fallback-auto",
       "source": "template-257",
       "target": "fallback-auto"
+    },
+    {
+      "id": "template-251-template-260",
+      "source": "template-251",
+      "target": "template-260"
     },
     {
       "id": "template-253-end-1",

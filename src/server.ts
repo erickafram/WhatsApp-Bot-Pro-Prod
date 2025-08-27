@@ -1190,8 +1190,17 @@ ${getBusinessHoursMessage()}
                        (normalizedInput.includes('goiânia') && normalizedCity.includes('goiania'))
             });
             
-            // Tratar "Palmas" como origem (não destino)
-            if (normalizedInput.includes('palmas')) {
+            // Tratar "Palmas" como origem (não destino) - MAS APENAS se for SOMENTE "palmas"
+            // Se contém outras cidades ou informações de viagem, deixar passar para o fluxo JSON
+            const containsOtherCities = availableCities.some(city => 
+                city.toLowerCase() !== 'palmas' && normalizedInput.includes(city.toLowerCase())
+            );
+            const hasRouteInfo = normalizedInput.includes('/') || normalizedInput.includes('-') || 
+                               normalizedInput.includes('x') || normalizedInput.includes(' para ') ||
+                               normalizedInput.includes(' ate ') || normalizedInput.includes(' até ');
+            
+            if (normalizedInput.includes('palmas') && !containsOtherCities && !hasRouteInfo && 
+                normalizedInput.trim().toLowerCase() === 'palmas') {
                 const chat = await msg.getChat();
                 await delay(2000);
                 await chat.sendStateTyping();
