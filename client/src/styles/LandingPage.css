@@ -281,6 +281,9 @@ html {
   overflow: hidden;
   position: relative;
   z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
 }
 
 .hero-section::before {
@@ -1346,7 +1349,10 @@ html {
 
   /* Hero Section Mobile */
   .hero-section {
-    padding: 4rem 0 2rem;
+    padding: 6rem 0 2rem;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
   }
 
   .hero-container {
@@ -1464,7 +1470,8 @@ html {
 /* Mobile Small Screens */
 @media (max-width: 480px) {
   .landing-header {
-    padding: 0rem 0.0rem;
+    padding: 0.5rem 0;
+    height: 60px;
   }
 
   .nav-brand {
@@ -1477,11 +1484,16 @@ html {
   }
 
   .hero-section {
-    padding: 3rem 0 2rem;
+    padding: 5rem 0 2rem;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
   }
 
   .hero-container {
     padding: 0 0.75rem;
+    width: 100%;
+    justify-content: center;
   }
 
   .hero-badge {
@@ -1493,7 +1505,7 @@ html {
     font-size: 1.8rem;
     line-height: 1.15;
     margin-bottom: 0.875rem;
-    margin-top: 50px;
+    margin-top: 0;
   }
 
   .hero-highlight {
@@ -1643,11 +1655,16 @@ html {
   }
 
   .landing-header {
-    padding: 1rem;
-    position: relative;
+    padding: 0.5rem 1rem;
+    position: fixed;
     background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(34, 197, 94, 0.2);
+    height: 60px;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
   }
 
   .landing-nav {
@@ -1675,8 +1692,11 @@ html {
   }
 
   .hero-section {
-    padding: 2rem 0;
-    min-height: auto;
+    padding: 5rem 0 2rem;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding-top: calc(60px + 2rem);
   }
 
   .hero-container {
@@ -1684,6 +1704,8 @@ html {
     gap: 1.5rem;
     max-width: 100%;
     text-align: center;
+    width: 100%;
+    justify-content: center;
   }
 
   .hero-content {
@@ -1698,7 +1720,7 @@ html {
     margin-bottom: 1rem;
     font-weight: 700;
     text-align: center;
-    margin-top: 50px;
+    margin-top: 0;
   }
 
   .hero-highlight {
