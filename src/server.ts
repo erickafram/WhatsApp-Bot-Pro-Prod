@@ -100,6 +100,9 @@ interface FlowData {
 
 let cachedFlow: FlowData | null = null;
 
+// Cache para contexto dos usuários (simples para rastrear onde estão no fluxo)
+const userContexts = new Map<string, string>();
+
 // Função para carregar fluxo JSON
 function loadFlowFromJSON(): FlowData | null {
     try {
@@ -122,10 +125,22 @@ function loadFlowFromJSON(): FlowData | null {
 }
 
 // Função para processar mensagem usando fluxo JSON
-function processMessageWithFlow(message: string, flowData: FlowData): { node: FlowNode | null, response: string | null } {
+function processMessageWithFlow(message: string, flowData: FlowData, currentContext?: string): { node: FlowNode | null, response: string | null } {
     if (!flowData) return { node: null, response: null };
     
     const messageText = message.toLowerCase().trim();
+    
+    // Se estamos no contexto de compra de passagem, procurar pelo nó purchase-transfer
+    if (currentContext === 'purchase') {
+        const purchaseNode = flowData.nodes.find(node => node.id === 'purchase-transfer');
+        if (purchaseNode && purchaseNode.data.active === 1) {
+            console.log(`🎯 Nó de compra encontrado: ${purchaseNode.id} - ${purchaseNode.data.title}`);
+            return {
+                node: purchaseNode,
+                response: purchaseNode.data.response || null
+            };
+        }
+    }
     
     // Buscar nó que corresponde à mensagem
     for (const node of flowData.nodes) {
@@ -1495,6 +1510,58 @@ ${getBusinessHoursMessage()}
                     // Transferir automaticamente para atendimento humano
                     await transferToHuman(managerId, msg, fallbackResponse);
                 }
+            }
+        }
+    }
+    
+    // 🔄 SE NENHUMA MENSAGEM FOI PROCESSADA, TENTAR FLUXO JSON
+    if (!messageProcessed) {
+        console.log(`🔄 Tentando processar com fluxo JSON: "${msg.body}"`);
+        
+        const flowData = loadFlowFromJSON();
+        if (flowData) {
+            // Verificar se usuário tem contexto ativo
+            const userContext = userContexts.get(msg.from);
+            console.log(`🔍 Contexto do usuário ${msg.from}: ${userContext || 'nenhum'}`);
+            
+            const flowResult = processMessageWithFlow(msg.body, flowData, userContext);
+            
+            if (flowResult.node && flowResult.response) {
+                console.log(`🎯 Fluxo JSON processou mensagem - Nó: ${flowResult.node.id}`);
+                
+                const chat = await msg.getChat();
+                await delay(2000);
+                await chat.sendStateTyping();
+                await delay(2000);
+                
+                // Substituir placeholders
+                const contact = await msg.getContact();
+                const name = contact.pushname ? contact.pushname.split(" ")[0] : 'amigo';
+                let response = flowResult.response.replace(/{name}/g, name);
+                response = response.replace(/{operatorName}/g, 'operador');
+                
+                if (client && instanceData.isReady) {
+                    await client.sendMessage(msg.from, response);
+                    console.log(`🎯 Resposta do fluxo JSON enviada: ${flowResult.node.data.title}`);
+                    
+                    // Definir contexto baseado no nó processado
+                    if (flowResult.node.id === 'template-252') {
+                        // Usuário escolheu "Comprar Passagem" - próxima mensagem deve ir para purchase-transfer
+                        userContexts.set(msg.from, 'purchase');
+                        console.log(`🛒 Contexto de compra definido para ${msg.from}`);
+                    }
+                    
+                    // Se o nó é do tipo 'human', transferir para atendimento humano
+                    if (flowResult.node.type === 'human') {
+                        console.log(`👨‍💼 Nó de transferência humana detectado - iniciando transferência`);
+                        // Limpar contexto pois a conversa será transferida
+                        userContexts.delete(msg.from);
+                        await delay(1000);
+                        await transferToHuman(managerId, msg, response);
+                    }
+                }
+                
+                messageProcessed = true;
             }
         }
     }
