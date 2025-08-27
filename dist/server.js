@@ -1577,13 +1577,33 @@ function detectPersonalData(message) {
     // 🎫 PADRÕES ESPECÍFICOS PARA DADOS DE VIAGEM
     const travelPatterns = {
         // Origem/Destino com barra - Ex: "palmas/goiania", "goiania/palmas"
-        originDestination: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+$/i,
+        originDestinationSlash: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+$/i,
+        // Origem-Destino com hífen - Ex: "palmas-goiania", "goiania-palmas"
+        originDestinationHyphen: /^[a-záàâãéêíóôõúçñ\s]+\-[a-záàâãéêíóôõúçñ\s]+$/i,
+        // Origem.Destino com ponto - Ex: "palmas.goiania", "goiania.palmas"
+        originDestinationDot: /^[a-záàâãéêíóôõúçñ\s]+\.[a-záàâãéêíóôõúçñ\s]+$/i,
+        // Origem,Destino com vírgula - Ex: "palmas,goiania", "goiania,palmas"
+        originDestinationComma: /^[a-záàâãéêíóôõúçñ\s]+\,[a-záàâãéêíóôõúçñ\s]+$/i,
+        // Origem Destino com espaço - Ex: "palmas goiania", "goiania palmas"
+        originDestinationSpace: /^[a-záàâãéêíóôõúçñ]+\s+[a-záàâãéêíóôõúçñ]+$/i,
         // Origem/Destino/Data com barras - Ex: "palmas/goiania/28/08/2025"
-        fullTravelData: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+\/\d{1,2}\/\d{1,2}\/\d{4}$/i,
-        // Origem-Destino-Data com hífen - Ex: "Palmas - Brasília - 25/01/2025"
-        hyphenFormat: /^[a-záàâãéêíóôõúçñ\s]+ - [a-záàâãéêíóôõúçñ\s]+ - \d{1,2}\/\d{1,2}\/\d{4}$/i,
-        // Apenas data no formato brasileiro - Ex: "28/08/2025"
-        dateOnly: /^\d{1,2}\/\d{1,2}\/\d{4}$/
+        fullTravelDataSlash: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+\/\d{1,2}\/\d{1,2}\/\d{4}$/i,
+        // Origem-Destino-Data com hífen - Ex: "palmas-goiania-28/08/2025"
+        fullTravelDataHyphen: /^[a-záàâãéêíóôõúçñ\s]+\-[a-záàâãéêíóôõúçñ\s]+\-\d{1,2}\/\d{1,2}\/\d{4}$/i,
+        // Origem.Destino.Data com ponto - Ex: "palmas.goiania.28/08/2025"
+        fullTravelDataDot: /^[a-záàâãéêíóôõúçñ\s]+\.[a-záàâãéêíóôõúçñ\s]+\.\d{1,2}\/\d{1,2}\/\d{4}$/i,
+        // Origem,Destino,Data com vírgula - Ex: "palmas,goiania,28/08/2025"
+        fullTravelDataComma: /^[a-záàâãéêíóôõúçñ\s]+\,[a-záàâãéêíóôõúçñ\s]+\,\d{1,2}\/\d{1,2}\/\d{4}$/i,
+        // Formato sugerido no exemplo - Ex: "Palmas - Brasília - 25/01/2025"
+        hyphenFormatSpaced: /^[a-záàâãéêíóôõúçñ\s]+ - [a-záàâãéêíóôõúçñ\s]+ - \d{1,2}\/\d{1,2}\/\d{4}$/i,
+        // Data com diferentes separadores - Ex: "28/08/2025", "28-08-2025", "28.08.2025"
+        dateSlash: /^\d{1,2}\/\d{1,2}\/\d{4}$/,
+        dateHyphen: /^\d{1,2}\-\d{1,2}\-\d{4}$/,
+        dateDot: /^\d{1,2}\.\d{1,2}\.\d{4}$/,
+        // Formatos mistos - Ex: "palmas/goiania-28/08/2025", "palmas-goiania/28/08/2025"
+        mixedFormat1: /^[a-záàâãéêíóôõúçñ\s]+[\/\-\.][a-záàâãéêíóôõúçñ\s]+[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}$/i,
+        // Formato com espaços - Ex: "palmas goiania 28/08/2025"
+        spaceFormat: /^[a-záàâãéêíóôõúçñ\s]+\s+[a-záàâãéêíóôõúçñ\s]+\s+\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}$/i
     };
     // Verificar se é um padrão de dados de viagem
     for (const [key, pattern] of Object.entries(travelPatterns)) {

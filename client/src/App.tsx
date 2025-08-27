@@ -32,6 +32,7 @@ import './styles/LandingPage.css'
 import './styles/Auth.css'
 import './styles/ManagerDashboard.css'
 import './styles/Contacts.css'
+import './styles/no-spinner.css'
 
 type PageType = 'landing' | 'login' | 'register' | 'dashboard'
 

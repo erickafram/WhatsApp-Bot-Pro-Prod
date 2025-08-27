@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.2
+-- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Tempo de geração: 27/08/2025 às 16:53
--- Versão do servidor: 8.0.36-28
--- Versão do PHP: 8.1.33
+-- Tempo de geração: 27/08/2025 às 16:23
+-- Versão do servidor: 9.1.0
+-- Versão do PHP: 8.3.14
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Banco de dados: `chatbot`
+-- Banco de dados: `whatsapp_bot`
 --
 
 -- --------------------------------------------------------
@@ -27,16 +27,21 @@ SET time_zone = "+00:00";
 -- Estrutura para tabela `auto_messages`
 --
 
-CREATE TABLE `auto_messages` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `auto_messages`;
+CREATE TABLE IF NOT EXISTS `auto_messages` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `project_id` int NOT NULL,
   `trigger_words` json NOT NULL,
   `response_text` text NOT NULL,
   `is_active` tinyint(1) DEFAULT '1',
   `order_index` int DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_project_id` (`project_id`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_order_index` (`order_index`)
+) ENGINE=MyISAM AUTO_INCREMENT=289 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Despejando dados para a tabela `auto_messages`
@@ -61,8 +66,9 @@ INSERT INTO `auto_messages` (`id`, `project_id`, `trigger_words`, `response_text
 -- Estrutura para tabela `contacts`
 --
 
-CREATE TABLE `contacts` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `contacts`;
+CREATE TABLE IF NOT EXISTS `contacts` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int NOT NULL,
   `phone_number` varchar(20) NOT NULL,
   `name` varchar(191) DEFAULT NULL,
@@ -71,8 +77,13 @@ CREATE TABLE `contacts` (
   `notes` text,
   `is_blocked` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_manager_phone` (`manager_id`,`phone_number`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_phone_number` (`phone_number`),
+  KEY `idx_name` (`name`)
+) ENGINE=MyISAM AUTO_INCREMENT=126 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Despejando dados para a tabela `contacts`
@@ -80,7 +91,6 @@ CREATE TABLE `contacts` (
 
 INSERT INTO `contacts` (`id`, `manager_id`, `phone_number`, `name`, `avatar`, `tags`, `notes`, `is_blocked`, `created_at`, `updated_at`) VALUES
 (117, 2, '556392134638', 'Junior Moreira', NULL, NULL, NULL, 0, '2025-08-27 13:19:58', '2025-08-27 13:19:58'),
-(122, 2, '556392410056', 'Erick Vinicius', NULL, NULL, NULL, 0, '2025-08-27 14:39:19', '2025-08-27 14:39:19'),
 (118, 2, '556385125988', '.', NULL, NULL, NULL, 0, '2025-08-27 13:23:33', '2025-08-27 13:23:33');
 
 -- --------------------------------------------------------
@@ -89,8 +99,9 @@ INSERT INTO `contacts` (`id`, `manager_id`, `phone_number`, `name`, `avatar`, `t
 -- Estrutura para tabela `daily_stats`
 --
 
-CREATE TABLE `daily_stats` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `daily_stats`;
+CREATE TABLE IF NOT EXISTS `daily_stats` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int NOT NULL,
   `date` date NOT NULL,
   `messages_sent` int DEFAULT '0',
@@ -98,7 +109,11 @@ CREATE TABLE `daily_stats` (
   `human_chats_created` int DEFAULT '0',
   `human_chats_resolved` int DEFAULT '0',
   `bot_interactions` int DEFAULT '0',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_manager_date` (`manager_id`,`date`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_date` (`date`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -107,8 +122,9 @@ CREATE TABLE `daily_stats` (
 -- Estrutura para tabela `devices`
 --
 
-CREATE TABLE `devices` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `devices`;
+CREATE TABLE IF NOT EXISTS `devices` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int NOT NULL,
   `whatsapp_instance_id` int DEFAULT NULL,
   `device_name` varchar(191) NOT NULL,
@@ -135,8 +151,18 @@ CREATE TABLE `devices` (
   `push_token` varchar(191) DEFAULT NULL,
   `metadata` json DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_manager_fingerprint` (`manager_id`,`device_fingerprint`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_device_type` (`device_type`),
+  KEY `idx_last_activity` (`last_activity`),
+  KEY `idx_device_fingerprint` (`device_fingerprint`),
+  KEY `idx_session_token` (`session_token`),
+  KEY `idx_whatsapp_instance_id` (`whatsapp_instance_id`),
+  KEY `idx_whatsapp_status` (`whatsapp_status`)
+) ENGINE=MyISAM AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -144,8 +170,9 @@ CREATE TABLE `devices` (
 -- Estrutura para tabela `human_chats`
 --
 
-CREATE TABLE `human_chats` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `human_chats`;
+CREATE TABLE IF NOT EXISTS `human_chats` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int NOT NULL,
   `contact_id` int NOT NULL,
   `operator_id` int DEFAULT NULL,
@@ -156,15 +183,16 @@ CREATE TABLE `human_chats` (
   `transfer_to` int DEFAULT NULL,
   `tags` json DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Despejando dados para a tabela `human_chats`
---
-
-INSERT INTO `human_chats` (`id`, `manager_id`, `contact_id`, `operator_id`, `assigned_to`, `status`, `transfer_reason`, `transfer_from`, `transfer_to`, `tags`, `created_at`, `updated_at`) VALUES
-(127, 2, 122, NULL, NULL, 'pending', 'Solicitação do cliente', NULL, NULL, NULL, '2025-08-27 14:40:08', '2025-08-27 14:40:08');
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_contact_id` (`contact_id`),
+  KEY `idx_operator_id` (`operator_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_assigned_to` (`assigned_to`),
+  KEY `idx_transfer_from` (`transfer_from`),
+  KEY `idx_transfer_to` (`transfer_to`)
+) ENGINE=MyISAM AUTO_INCREMENT=133 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -172,8 +200,9 @@ INSERT INTO `human_chats` (`id`, `manager_id`, `contact_id`, `operator_id`, `ass
 -- Estrutura para tabela `messages`
 --
 
-CREATE TABLE `messages` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `messages`;
+CREATE TABLE IF NOT EXISTS `messages` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int NOT NULL,
   `chat_id` int DEFAULT NULL,
   `contact_id` int NOT NULL,
@@ -186,23 +215,25 @@ CREATE TABLE `messages` (
   `is_read` tinyint(1) DEFAULT '0',
   `delivered_at` timestamp NULL DEFAULT NULL,
   `read_at` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_chat_id` (`chat_id`),
+  KEY `idx_contact_id` (`contact_id`),
+  KEY `idx_sender_type` (`sender_type`),
+  KEY `idx_sender_id` (`sender_id`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=MyISAM AUTO_INCREMENT=1351 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Despejando dados para a tabela `messages`
 --
 
 INSERT INTO `messages` (`id`, `manager_id`, `chat_id`, `contact_id`, `whatsapp_message_id`, `sender_type`, `sender_id`, `content`, `message_type`, `media_url`, `is_read`, `delivered_at`, `read_at`, `created_at`) VALUES
-(1317, 2, 127, 122, 'false_556392410056@c.us_3EB0E214E4469D3ABA191F', 'contact', NULL, 'palmas/goiania/28/08/2025', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:40:08'),
-(1316, 2, 127, 122, NULL, 'bot', NULL, '🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem! ✈️', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:55'),
-(1314, 2, 127, 122, 'false_556392410056@c.us_3EB0C165D7193D1C0314E1', 'contact', NULL, 'goiania/palmas', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:36'),
-(1315, 2, 127, 122, 'false_556392410056@c.us_3EB0252F5A66DF9EE74561', 'contact', NULL, '1', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:48'),
-(1318, 2, 127, 122, NULL, 'bot', NULL, '📋 *DADOS RECEBIDOS*\n\nPerfeito! Recebi suas informações:\n\npalmas/goiania/28/08/2025\n\n🤝 Vou transferir você para um de nossos operadores especializados em vendas para finalizar sua compra e processar o pagamento.\n\n⏰ *Em alguns instantes um operador entrará em contato!*\n\nAguarde um momento... 🚌✨', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:40:13'),
-(1312, 2, 127, 122, 'false_556392410056@c.us_3EB0826AB026C5DE7C292E', 'contact', NULL, '1', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:27'),
-(1313, 2, 127, 122, NULL, 'bot', NULL, '🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem! ✈️', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:32'),
-(1310, 2, 127, 122, 'false_556392410056@c.us_3EB0F5CCD540CF2BB116DF', 'contact', NULL, 'Olá', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:19'),
-(1311, 2, 127, 122, NULL, 'bot', NULL, '🚌 Olá! Erick Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:24');
+(1350, 2, 132, 125, NULL, 'bot', NULL, '📋 *DADOS RECEBIDOS*\n\nPerfeito! Recebi suas informações:\n\nPalmas,Goiânia,28/01/2025\n\n⏰ *FORA DO HORÁRIO DE ATENDIMENTO*\n\nNo momento não temos operadores online, pois estamos fora do nosso horário de funcionamento.\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados:\nDas 08:00 às 12:00\nDomingo fechado\n\n🤝 Suas informações foram registradas e você será atendido assim que possível dentro do nosso horário de funcionamento.\n\n*Obrigado pela compreensão!* 🚌✨', 'text', NULL, 0, NULL, NULL, '2025-08-27 16:20:17'),
+(1349, 2, 132, 125, 'false_556392410056@c.us_3EB06D8029128B506A1568', 'contact', NULL, 'Palmas,Goiânia,28/01/2025', 'text', NULL, 0, NULL, NULL, '2025-08-27 16:20:11'),
+(1347, 2, 132, 125, 'false_556392410056@c.us_3EB081123A3D1AA083B881', 'contact', NULL, 'olá', 'text', NULL, 0, NULL, NULL, '2025-08-27 16:19:51'),
+(1348, 2, 132, 125, NULL, 'bot', NULL, '🚌 Olá! Erick Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊', 'text', NULL, 0, NULL, NULL, '2025-08-27 16:19:57');
 
 -- --------------------------------------------------------
 
@@ -210,16 +241,21 @@ INSERT INTO `messages` (`id`, `manager_id`, `chat_id`, `contact_id`, `whatsapp_m
 -- Estrutura para tabela `message_projects`
 --
 
-CREATE TABLE `message_projects` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `message_projects`;
+CREATE TABLE IF NOT EXISTS `message_projects` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int NOT NULL,
   `name` varchar(191) NOT NULL,
   `description` text,
   `is_active` tinyint(1) DEFAULT '1',
   `is_default` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_is_default` (`is_default`)
+) ENGINE=MyISAM AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Despejando dados para a tabela `message_projects`
@@ -235,10 +271,12 @@ INSERT INTO `message_projects` (`id`, `manager_id`, `name`, `description`, `is_a
 -- Estrutura para tabela `migrations`
 --
 
-CREATE TABLE `migrations` (
+DROP TABLE IF EXISTS `migrations`;
+CREATE TABLE IF NOT EXISTS `migrations` (
   `id` varchar(100) NOT NULL,
   `description` text NOT NULL,
-  `executed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `executed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
@@ -265,8 +303,9 @@ INSERT INTO `migrations` (`id`, `description`, `executed_at`) VALUES
 -- Estrutura para tabela `system_logs`
 --
 
-CREATE TABLE `system_logs` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `system_logs`;
+CREATE TABLE IF NOT EXISTS `system_logs` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int DEFAULT NULL,
   `user_id` int DEFAULT NULL,
   `action` varchar(191) NOT NULL,
@@ -274,7 +313,12 @@ CREATE TABLE `system_logs` (
   `ip_address` varchar(45) DEFAULT NULL,
   `user_agent` text,
   `metadata` json DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_created_at` (`created_at`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -283,8 +327,9 @@ CREATE TABLE `system_logs` (
 -- Estrutura para tabela `users`
 --
 
-CREATE TABLE `users` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `email` varchar(191) NOT NULL,
   `password` varchar(255) NOT NULL,
@@ -302,8 +347,16 @@ CREATE TABLE `users` (
   `subscription_start_date` timestamp NULL DEFAULT NULL,
   `subscription_end_date` timestamp NULL DEFAULT NULL,
   `subscription_payment_method` varchar(50) DEFAULT NULL,
-  `subscription_amount` decimal(10,2) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `subscription_amount` decimal(10,2) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_email` (`email`),
+  KEY `idx_role` (`role`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_last_login` (`last_login`),
+  KEY `idx_subscription_status` (`subscription_status`),
+  KEY `idx_subscription_end_date` (`subscription_end_date`)
+) ENGINE=MyISAM AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Despejando dados para a tabela `users`
@@ -329,8 +382,9 @@ INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `manager_id`, `p
 -- Estrutura para tabela `user_sessions`
 --
 
-CREATE TABLE `user_sessions` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `user_sessions`;
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `session_token` varchar(255) NOT NULL,
   `refresh_token` varchar(255) NOT NULL,
@@ -339,15 +393,14 @@ CREATE TABLE `user_sessions` (
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `ip_address` varchar(45) DEFAULT NULL,
   `user_agent` text,
-  `is_active` tinyint(1) DEFAULT '1'
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Despejando dados para a tabela `user_sessions`
---
-
-INSERT INTO `user_sessions` (`id`, `user_id`, `session_token`, `refresh_token`, `expires_at`, `created_at`, `updated_at`, `ip_address`, `user_agent`, `is_active`) VALUES
-(141, 2, '48b23a5272ebb36dc03df53a01638f7f0f6621390892dbeb586beaf4ffbcea2a', 'b87635f3684b69fd35a29e0798cb1e63b766ff3fb45e63f42f46368c100b4fd7', '2025-08-28 14:37:40', '2025-08-27 14:37:40', '2025-08-27 14:38:43', '::ffff:127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 1);
+  `is_active` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `session_token` (`session_token`(191)),
+  UNIQUE KEY `refresh_token` (`refresh_token`(191)),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_expires_at` (`expires_at`),
+  KEY `idx_session_token` (`session_token`(191))
+) ENGINE=MyISAM AUTO_INCREMENT=146 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -355,8 +408,9 @@ INSERT INTO `user_sessions` (`id`, `user_id`, `session_token`, `refresh_token`, 
 -- Estrutura para tabela `whatsapp_instances`
 --
 
-CREATE TABLE `whatsapp_instances` (
-  `id` int NOT NULL,
+DROP TABLE IF EXISTS `whatsapp_instances`;
+CREATE TABLE IF NOT EXISTS `whatsapp_instances` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `manager_id` int NOT NULL,
   `instance_name` varchar(191) NOT NULL,
   `phone_number` varchar(20) DEFAULT NULL,
@@ -368,215 +422,12 @@ CREATE TABLE `whatsapp_instances` (
   `connected_at` timestamp NULL DEFAULT NULL,
   `last_activity` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Despejando dados para a tabela `whatsapp_instances`
---
-
-INSERT INTO `whatsapp_instances` (`id`, `manager_id`, `instance_name`, `phone_number`, `status`, `qr_code`, `session_data`, `webhook_url`, `is_active`, `connected_at`, `last_activity`, `created_at`, `updated_at`) VALUES
-(167, 2, 'Instância Erick Vinicius', '556392901378', 'connected', 'data:image/png;base64,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k4pJZaqYVE4qJpU3KiaVSWWqOFH5mx7WWuuSh7XWuuRhrbUu+eGyihOVE5WpYlI5qXhD5QuVN1SmikllqphUpopJZVI5qZhUpooTlaliUvmi4qTijYpJZaqYVKaKSWVSOan4TSpTxYnKTQ9rrXXJw1prXfKw1lqX/PCRylQxqUwVk8qJylTxhspJxaRyUnGiclIxqXyhclLxRsWk8kXFpPKbVE5UpopJZaqYVG5SualiUvmbHtZa65KHtda65GGttS754aOKN1SmijdUflPFicpvqjipmFROVE4qJpWTihOVqWKqmFTeUJkq3qg4qbipYlKZKiaVk4pJZar4Lz2stdYlD2utdcnDWmtd8sNHKicVk8qJyknFpPJGxRsqJxWTylQxqXyhclLxhspJxaTyhsoXKicqU8Wk8obKScWJyqTyRsWJylRxUjGp/KaHtda65GGttS55WGutS+wPLlI5qThRmSomlZOKE5WbKv5LKicVk8pUMamcVEwqU8WkclIxqUwVN6mcVLyhMlVMKjdVTConFZPKVHHTw1prXfKw1lqXPKy11iX2B79IZaqYVG6qmFSmikllqjhR+aLiN6lMFScqN1VMKlPFpPJGxYnKScWJyk0VJyr/koovHtZa65KHtda65GGttS754SOVk4pJ5aTiDZU3VKaKSeWLijdUbqo4UTmpeEPlpGJSeaPiJpWTijdUpoovKt5QeaNiUrnpYa21LnlYa61LHtZa65IfLquYVL5QmSpOVKaKE5WpYlJ5Q+WNikllqphUTlSmiqliUjlRmSpOVKaKqWJSmSq+qJhUpopJ5URlqjhROal4Q2Wq+ELlNz2stdYlD2utdcnDWmtd8sNHFScVJyonFW9UTCpTxYnKVDGpTBUnKv8llS8qvlCZKt5QOak4qZhUvlCZKiaVqWJSeaPijYoTlanipoe11rrkYa21LnlYa61L7A9+kcpUMan8pooTlTcq3lD5TRVvqPymiknljYovVKaKSWWqOFGZKiaVqeINlb+pYlKZKr54WGutSx7WWuuSh7XWusT+4AOV31QxqbxRMancVHGiMlVMKicVk8oXFZPKVHGiclJxovJGxRsqb1TcpDJVnKhMFZPKScW/5GGttS55WGutSx7WWusS+4OLVKaKL1SmiknljYo3VKaKSWWqmFSmihOVk4pJ5aRiUpkqJpWTihOVLypO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', NULL, NULL, 1, '2025-08-27 14:39:08', '2025-08-27 14:40:08', '2025-08-27 14:38:43', '2025-08-27 14:40:08');
-
---
--- Índices para tabelas despejadas
---
-
---
--- Índices de tabela `auto_messages`
---
-ALTER TABLE `auto_messages`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_project_id` (`project_id`),
-  ADD KEY `idx_is_active` (`is_active`),
-  ADD KEY `idx_order_index` (`order_index`);
-
---
--- Índices de tabela `contacts`
---
-ALTER TABLE `contacts`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_manager_phone` (`manager_id`,`phone_number`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_phone_number` (`phone_number`),
-  ADD KEY `idx_name` (`name`);
-
---
--- Índices de tabela `daily_stats`
---
-ALTER TABLE `daily_stats`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_manager_date` (`manager_id`,`date`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_date` (`date`);
-
---
--- Índices de tabela `devices`
---
-ALTER TABLE `devices`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_manager_fingerprint` (`manager_id`,`device_fingerprint`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_status` (`status`),
-  ADD KEY `idx_device_type` (`device_type`),
-  ADD KEY `idx_last_activity` (`last_activity`),
-  ADD KEY `idx_device_fingerprint` (`device_fingerprint`),
-  ADD KEY `idx_session_token` (`session_token`),
-  ADD KEY `idx_whatsapp_instance_id` (`whatsapp_instance_id`),
-  ADD KEY `idx_whatsapp_status` (`whatsapp_status`);
-
---
--- Índices de tabela `human_chats`
---
-ALTER TABLE `human_chats`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_contact_id` (`contact_id`),
-  ADD KEY `idx_operator_id` (`operator_id`),
-  ADD KEY `idx_status` (`status`),
-  ADD KEY `idx_assigned_to` (`assigned_to`),
-  ADD KEY `idx_transfer_from` (`transfer_from`),
-  ADD KEY `idx_transfer_to` (`transfer_to`);
-
---
--- Índices de tabela `messages`
---
-ALTER TABLE `messages`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_chat_id` (`chat_id`),
-  ADD KEY `idx_contact_id` (`contact_id`),
-  ADD KEY `idx_sender_type` (`sender_type`),
-  ADD KEY `idx_sender_id` (`sender_id`),
-  ADD KEY `idx_created_at` (`created_at`);
-
---
--- Índices de tabela `message_projects`
---
-ALTER TABLE `message_projects`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_is_active` (`is_active`),
-  ADD KEY `idx_is_default` (`is_default`);
-
---
--- Índices de tabela `migrations`
---
-ALTER TABLE `migrations`
-  ADD PRIMARY KEY (`id`);
-
---
--- Índices de tabela `system_logs`
---
-ALTER TABLE `system_logs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_action` (`action`),
-  ADD KEY `idx_created_at` (`created_at`);
-
---
--- Índices de tabela `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`),
-  ADD KEY `idx_email` (`email`),
-  ADD KEY `idx_role` (`role`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_last_login` (`last_login`),
-  ADD KEY `idx_subscription_status` (`subscription_status`),
-  ADD KEY `idx_subscription_end_date` (`subscription_end_date`);
-
---
--- Índices de tabela `user_sessions`
---
-ALTER TABLE `user_sessions`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `session_token` (`session_token`(191)),
-  ADD UNIQUE KEY `refresh_token` (`refresh_token`(191)),
-  ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_expires_at` (`expires_at`),
-  ADD KEY `idx_session_token` (`session_token`(191));
-
---
--- Índices de tabela `whatsapp_instances`
---
-ALTER TABLE `whatsapp_instances`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_manager_id` (`manager_id`),
-  ADD KEY `idx_status` (`status`),
-  ADD KEY `idx_phone_number` (`phone_number`);
-
---
--- AUTO_INCREMENT para tabelas despejadas
---
-
---
--- AUTO_INCREMENT de tabela `auto_messages`
---
-ALTER TABLE `auto_messages`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=289;
-
---
--- AUTO_INCREMENT de tabela `contacts`
---
-ALTER TABLE `contacts`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=123;
-
---
--- AUTO_INCREMENT de tabela `daily_stats`
---
-ALTER TABLE `daily_stats`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de tabela `devices`
---
-ALTER TABLE `devices`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
-
---
--- AUTO_INCREMENT de tabela `human_chats`
---
-ALTER TABLE `human_chats`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=128;
-
---
--- AUTO_INCREMENT de tabela `messages`
---
-ALTER TABLE `messages`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1319;
-
---
--- AUTO_INCREMENT de tabela `message_projects`
---
-ALTER TABLE `message_projects`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
-
---
--- AUTO_INCREMENT de tabela `system_logs`
---
-ALTER TABLE `system_logs`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de tabela `users`
---
-ALTER TABLE `users`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
-
---
--- AUTO_INCREMENT de tabela `user_sessions`
---
-ALTER TABLE `user_sessions`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=142;
-
---
--- AUTO_INCREMENT de tabela `whatsapp_instances`
---
-ALTER TABLE `whatsapp_instances`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=168;
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_manager_id` (`manager_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_phone_number` (`phone_number`)
+) ENGINE=MyISAM AUTO_INCREMENT=173 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
