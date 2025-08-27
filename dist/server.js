@@ -1464,24 +1464,39 @@ async function transferToHuman(managerId, msg, botResponse) {
 }
 // Função para verificar se está dentro do horário de atendimento
 function isWithinBusinessHours() {
+    // Usar horário de Brasília (UTC-3)
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const brasiliaTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const dayOfWeek = brasiliaTime.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    const currentHour = brasiliaTime.getHours();
+    const currentMinute = brasiliaTime.getMinutes();
     const currentTime = currentHour + (currentMinute / 60);
+    console.log(`🕐 Verificação horário de atendimento:`, {
+        horarioServidor: now.toISOString(),
+        horarioBrasilia: brasiliaTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+        diaSemana: dayOfWeek,
+        horaAtual: currentHour,
+        minutoAtual: currentMinute,
+        tempoDecimal: currentTime.toFixed(2)
+    });
     // Domingo = fechado
     if (dayOfWeek === 0) {
+        console.log(`❌ Domingo - FECHADO`);
         return false;
     }
     // Segunda a Sexta (1-5)
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
         // Das 08:00 às 12:00 OU Das 14:00 às 18:00
-        return (currentTime >= 8 && currentTime < 12) || (currentTime >= 14 && currentTime < 18);
+        const isOpen = (currentTime >= 8 && currentTime < 12) || (currentTime >= 14 && currentTime < 18);
+        console.log(`📅 Segunda a Sexta - ${isOpen ? 'ABERTO' : 'FECHADO'}`);
+        return isOpen;
     }
     // Sábado (6)
     if (dayOfWeek === 6) {
         // Das 08:00 às 12:00
-        return currentTime >= 8 && currentTime < 12;
+        const isOpen = currentTime >= 8 && currentTime < 12;
+        console.log(`📅 Sábado - ${isOpen ? 'ABERTO' : 'FECHADO'}`);
+        return isOpen;
     }
     return false;
 }

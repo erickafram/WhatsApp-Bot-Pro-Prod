@@ -892,12 +892,12 @@ Obrigado pela compreensão! 🚌`;
         if (messageMatches) {
             console.log(`🎯 Mensagem correspondente encontrada: "${msg.body}" -> "${autoMessage.response_text.substring(0, 50)}..."`);
             
-                    // Verificar se é uma solicitação de atendimento humano
-        const isHumanRequest = autoMessage.trigger_words.some((trigger: string) => 
-            ['operador', 'atendente', 'humano', 'pessoa'].includes(trigger.toLowerCase())
-        );
+            // Verificar se é uma solicitação de atendimento humano
+            const isHumanRequest = autoMessage.trigger_words.some((trigger: string) => 
+                ['operador', 'atendente', 'humano', 'pessoa'].includes(trigger.toLowerCase())
+            );
 
-        if (isHumanRequest) {
+            if (isHumanRequest) {
             // Verificar horário de atendimento antes de transferir
             const isBusinessHours = isWithinBusinessHours();
             console.log(`🕐 Solicitação de operador - Horário: ${isBusinessHours ? 'DENTRO' : 'FORA'} do horário`);
@@ -922,11 +922,11 @@ ${getBusinessHoursMessage()}
 *Obrigado pela compreensão!* 🚌✨`;
             }
             
-            // Transferir para atendimento humano
+                // Transferir para atendimento humano
             await transferToHuman(managerId, msg, humanRequestMessage);
-            messageProcessed = true;
-            break;
-        }
+                messageProcessed = true;
+                break;
+            }
 
             const chat = await msg.getChat();
             await delay(2000);
@@ -1683,27 +1683,44 @@ async function transferToHuman(managerId: number, msg: any, botResponse: string)
 
 // Função para verificar se está dentro do horário de atendimento
 function isWithinBusinessHours(): boolean {
+    // Usar horário de Brasília (UTC-3)
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const brasiliaTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+    
+    const dayOfWeek = brasiliaTime.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    const currentHour = brasiliaTime.getHours();
+    const currentMinute = brasiliaTime.getMinutes();
     const currentTime = currentHour + (currentMinute / 60);
+    
+    console.log(`🕐 Verificação horário de atendimento:`, {
+        horarioServidor: now.toISOString(),
+        horarioBrasilia: brasiliaTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+        diaSemana: dayOfWeek,
+        horaAtual: currentHour,
+        minutoAtual: currentMinute,
+        tempoDecimal: currentTime.toFixed(2)
+    });
 
     // Domingo = fechado
     if (dayOfWeek === 0) {
+        console.log(`❌ Domingo - FECHADO`);
         return false;
     }
 
     // Segunda a Sexta (1-5)
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
         // Das 08:00 às 12:00 OU Das 14:00 às 18:00
-        return (currentTime >= 8 && currentTime < 12) || (currentTime >= 14 && currentTime < 18);
+        const isOpen = (currentTime >= 8 && currentTime < 12) || (currentTime >= 14 && currentTime < 18);
+        console.log(`📅 Segunda a Sexta - ${isOpen ? 'ABERTO' : 'FECHADO'}`);
+        return isOpen;
     }
 
     // Sábado (6)
     if (dayOfWeek === 6) {
         // Das 08:00 às 12:00
-        return currentTime >= 8 && currentTime < 12;
+        const isOpen = currentTime >= 8 && currentTime < 12;
+        console.log(`📅 Sábado - ${isOpen ? 'ABERTO' : 'FECHADO'}`);
+        return isOpen;
     }
 
     return false;
@@ -2394,13 +2411,13 @@ async function gracefulShutdown(signal: string) {
         
         // 2. Fechar todas as instâncias do WhatsApp
         console.log('📱 Fechando instâncias do WhatsApp...');
-        for (const [managerId, instance] of whatsappInstances) {
-            try {
-                if (instance.client) {
-                    await instance.client.destroy();
+    for (const [managerId, instance] of whatsappInstances) {
+        try {
+            if (instance.client) {
+                await instance.client.destroy();
                     console.log(`✅ Instância do gestor ${managerId} fechada`);
-                }
-            } catch (error) {
+            }
+        } catch (error) {
                 console.error(`❌ Erro ao fechar instância do gestor ${managerId}:`, error);
             }
         }
