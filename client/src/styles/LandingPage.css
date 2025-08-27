@@ -29,7 +29,7 @@ html {
 /* Header & Navigation */
 .landing-header {
   position: fixed;
-  top: 20px;
+  top: 0px;
   left: 0;
   right: 0;
   z-index: 1000;
@@ -47,7 +47,7 @@ html {
 
 .nav-container {
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 10px auto;
   padding: 0 1.5rem;
   display: flex;
   justify-content: space-between;
