@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Tempo de geração: 26/08/2025 às 18:39
+-- Tempo de geração: 27/08/2025 às 16:53
 -- Versão do servidor: 8.0.36-28
 -- Versão do PHP: 8.1.33
 
@@ -43,17 +43,17 @@ CREATE TABLE `auto_messages` (
 --
 
 INSERT INTO `auto_messages` (`id`, `project_id`, `trigger_words`, `response_text`, `is_active`, `order_index`, `created_at`, `updated_at`) VALUES
-(257, 8, '[\"5\", \"real expresso\", \"real\", \"expresso\"]', '🚌 *ATENDIMENTO REAL EXPRESSO*\n\nPara atendimento específico da Real Expresso, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63)99240-5166*\n\nServiços Real Expresso:\n• Passagens interestaduais\n• Rotas específicas\n• Informações de horários\n• Reservas e cancelamentos\n\n🕐 *Horário de Atendimento:*\nSegunda a sexta das 08:00 às 19:00\nSábado e domingo \nDas 08:00 às 12:00\nDas 14:00 às 19;00\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 🚌', 1, 0, '2025-08-23 16:57:03', '2025-08-26 14:37:17'),
-(258, 8, '[\"default\"]', '👨‍💼 *TRANSFERINDO PARA ATENDIMENTO HUMANO*\n\n🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe especializada poderá ajudá-lo melhor!\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato!\n\nObrigado pela paciência! 🚌✨', 1, 0, '2025-08-23 16:57:03', '2025-08-23 16:57:03'),
-(259, 8, '[\"CHAT_ENDED_BY_OPERATOR\"]', '✅ *CONVERSA ENCERRADA*\n\nSua conversa com o operador {operatorName} foi finalizada.\n\nVocê pode a qualquer momento:\n\n*1* - 👨‍💼 Voltar a falar com o operador {operatorName}\n*2* - 🏠 Ir para o Menu Principal\n*3* - 👥 Falar com outro operador\n\nDigite o número da opção desejada! 😊', 1, 0, '2025-08-23 16:57:03', '2025-08-23 16:57:03'),
-(260, 8, '[\"1\", \"operador\", \"mesmo operador\", \"voltar\"]', '👨‍💼 *RECONECTANDO COM OPERADOR*\n\nPerfeito! Estou reconectando você com o operador {operatorName}.\n\n⏰ *Status:* Aguardando operador disponível\n\nEm alguns instantes {operatorName} retornará para continuar o atendimento!\n\n*Observação:* Se o operador não estiver disponível, outro membro da equipe poderá ajudá-lo.', 1, 0, '2025-08-23 16:57:03', '2025-08-23 16:57:03'),
-(261, 8, '[\"3\", \"outro operador\", \"nova conversa\", \"novo atendimento\"]', '👥 *NOVO ATENDIMENTO*\n\nEntendi! Vou direcioná-lo para um novo atendimento.\n\n⏰ *Horário de Atendimento:*\nDas cargas funciona:\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado \n\n\nDos turismo:\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado \n\nDo guichê\nDe segunda a sexta feira:\nDas 08:00 às 20:00\n\nAos sábados e Domingos \nDas 08:00 às 12:00\nDas 14:00 às 19:30\n\nEm alguns instantes um operador entrará em contato para ajudá-lo!\n\nObrigado pela preferência! 🚌✨', 1, 0, '2025-08-23 16:57:03', '2025-08-25 16:44:20'),
-(256, 8, '[\"4\", \"turismo\", \"locacao\", \"locação\", \"fretamento\", \"excursao\", \"excursão\"]', '🚐 *TURISMO E LOCAÇÃO*\n\nPara serviços de turismo e locação de veículos, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63)98466-6184*\n\nNossos consultores oferecerão:\n• Pacotes turísticos\n• Locação de ônibus e vans\n• Fretamento para eventos\n• Excursões personalizadas\n• Transporte executivo\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n\nVenha viajar conosco! 🚐✨', 1, 0, '2025-08-23 16:57:03', '2025-08-26 14:32:59'),
-(254, 8, '[\"2\", \"horários\", \"horario\", \"hora\", \"saida\"]', '🕐 *HORÁRIOS DE SAÍDA - KLEIBER PASSAGENS*\n\n📋 *Principais Rotas e Horários:*\n\n🌅*MANHÃ*\n• PALMAS X ALVORADA – 06:45\n• PALMAS X PAU D’ARCO – 07:00\n• PALMAS X ITACAJÁ – 09:00\n• PALMAS X PALMEIRÓPOLIS – 11:00\n\n🌞 *TARDE*\n• PALMAS X BURITI – 18:00\n\n🌙 *NOITE*\n• PALMAS X GOIÂNIA – Ônibus Semi Leito 19:00\n• PALMAS X GOIÂNIA – Ônibus Todo Leito 19:15\n• PALMAS X GOIÂNIA – Ônibus Leito Cama 19:30\n• PALMAS X CANABRAVA – 19:00\n• PALMAS X BRASÍLIA – 19:00\n• PALMAS X IMPERATRIZ – 20:30\n\n*Horários sujeitos a alterações*\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\n*0* - 🏠 Menu Principal', 1, 0, '2025-08-23 16:57:03', '2025-08-25 01:50:28'),
-(251, 8, '[\"oi\", \"olá\", \"menu\", \"dia\", \"tarde\", \"noite\", \"bom dia\", \"boa tarde\", \"boa noite\", \"passagem\", \"kleiber\", \"tocantins\", \"0\", \"principal\", \"voltar\", \"inicio\"]', '🚌 Olá! {name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊', 1, 0, '2025-08-23 16:57:03', '2025-08-23 16:57:03'),
-(255, 8, '[\"3\", \"encomenda\", \"encomendas\", \"carga\", \"cargas\", \"envio\", \"remessa\"]', '📦 *ENCOMENDAS E CARGAS*\n\nPara envio de encomendas e cargas, entre em contato diretamente:\n\n📱 *WhatsApp Especializado:*\n*(63)98466-6203*\n\nNossos especialistas em logística irão ajudá-lo com:\n• Tarifas de envio\n• Prazos de entrega\n• Documentação necessária\n• Rastreamento de encomendas\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\nAos sábados :\nDas 08:00 às 12:00\nDomingo fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 📦🚌', 1, 0, '2025-08-23 16:57:03', '2025-08-26 14:24:50'),
-(253, 8, '[\"default\"]', '✅ *Recebemos sua solicitação de passagem!*\n\n👨‍💼 *Transferindo para operador especializado...*\n\nNosso atendente verificará:\n• Disponibilidade de horários\n• Valores das passagens\n• Formas de pagamento\n• Finalização da compra\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato! 🚌✨', 1, 0, '2025-08-23 16:57:03', '2025-08-23 16:57:03'),
-(252, 8, '[\"1\", \"comprar\", \"passagem\", \"bilhete\", \"ticket\"]', '🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem!', 1, 0, '2025-08-23 16:57:03', '2025-08-25 18:10:24');
+(288, 8, '[\"3\", \"outro operador\", \"nova conversa\", \"novo atendimento\"]', '👥 *NOVO ATENDIMENTO*\n\nEntendi! Vou direcioná-lo para um novo atendimento.\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato para ajudá-lo!\n\nObrigado pela preferência! 🚌✨', 1, 0, '2025-08-27 14:38:16', '2025-08-27 14:38:16'),
+(286, 8, '[\"CHAT_ENDED_BY_OPERATOR\"]', '✅ *CONVERSA ENCERRADA*\n\nSua conversa com o operador {operatorName} foi finalizada.\n\nVocê pode a qualquer momento:\n\n*1* - 👨‍💼 Voltar a falar com o operador {operatorName}\n*2* - 🏠 Ir para o Menu Principal\n*3* - 👥 Falar com outro operador\n\nDigite o número da opção desejada! 😊', 1, 0, '2025-08-27 14:38:15', '2025-08-27 14:38:15'),
+(287, 8, '[\"1\", \"operador\", \"mesmo operador\", \"voltar\"]', '👨‍💼 *RECONECTANDO COM OPERADOR*\n\nPerfeito! Estou reconectando você com o operador {operatorName}.\n\n⏰ *Status:* Aguardando operador disponível\n\nEm alguns instantes {operatorName} retornará para continuar o atendimento!\n\n*Observação:* Se o operador não estiver disponível, outro membro da equipe poderá ajudá-lo.', 1, 0, '2025-08-27 14:38:15', '2025-08-27 14:38:15'),
+(278, 8, '[\"oi\", \"olá\", \"menu\", \"dia\", \"tarde\", \"noite\", \"bom dia\", \"boa tarde\", \"boa noite\", \"passagem\", \"kleiber\", \"tocantins\", \"0\", \"principal\", \"voltar\", \"inicio\"]', '🚌 Olá! {name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊', 1, 0, '2025-08-27 14:38:13', '2025-08-27 14:38:13'),
+(279, 8, '[\"1\", \"comprar\", \"passagem\", \"bilhete\", \"ticket\"]', '🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem! ✈️', 1, 0, '2025-08-27 14:38:14', '2025-08-27 14:38:14'),
+(280, 8, '[\"default\"]', '✅ *Recebemos sua solicitação de passagem!*\n\n👨‍💼 *Transferindo para operador especializado...*\n\nNosso atendente verificará:\n• Disponibilidade de horários\n• Valores das passagens\n• Formas de pagamento\n• Finalização da compra\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato! 🚌✨', 1, 0, '2025-08-27 14:38:14', '2025-08-27 14:38:14'),
+(281, 8, '[\"2\", \"horários\", \"horario\", \"hora\", \"saida\"]', '🕐 *HORÁRIOS DE SAÍDA - KLEIBER PASSAGENS*\n\n📋 *Principais Rotas e Horários:*\n\n🌅 *MANHÃ*\n• 06:00 - Brasília, Goiânia\n• 07:30 - São Luís, Imperatriz\n• 08:00 - Araguaína, Gurupi\n• 09:00 - Teresina, Parnaíba\n\n🌞 *TARDE*\n• 14:00 - Barreiras, L.E. Magalhães\n• 15:30 - Porto Nacional, Paraíso\n• 16:00 - Colinas do Tocantins\n\n🌙 *NOITE*\n• 20:00 - Brasília, Goiânia\n• 21:30 - São Luís, Imperatriz\n• 22:00 - Palmas (retorno)\n\n*Horários sujeitos a alterações*\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\n*0* - 🏠 Menu Principal', 1, 0, '2025-08-27 14:38:14', '2025-08-27 14:38:14'),
+(282, 8, '[\"3\", \"encomenda\", \"encomendas\", \"carga\", \"cargas\", \"envio\", \"remessa\"]', '📦 *ENCOMENDAS E CARGAS*\n\nPara envio de encomendas e cargas, entre em contato diretamente:\n\n📱 *WhatsApp Especializado:*\n*63984666203*\n\nNossos especialistas em logística irão ajudá-lo com:\n• Tarifas de envio\n• Prazos de entrega\n• Documentação necessária\n• Rastreamento de encomendas\n\n🕐 *Horário de Atendimento:*\nSegunda a Sexta: 7h às 18h\nSábado: 7h às 12h\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 📦🚌', 1, 0, '2025-08-27 14:38:14', '2025-08-27 14:38:14'),
+(283, 8, '[\"4\", \"turismo\", \"locacao\", \"locação\", \"fretamento\", \"excursao\", \"excursão\"]', '🚐 *TURISMO E LOCAÇÃO*\n\nPara serviços de turismo e locação de veículos, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*63984666184*\n\nNossos consultores oferecerão:\n• Pacotes turísticos\n• Locação de ônibus e vans\n• Fretamento para eventos\n• Excursões personalizadas\n• Transporte executivo\n\n🕐 *Horário de Atendimento:*\nSegunda a Sexta: 8h às 17h\nSábado: 8h às 12h\n\n*0* - 🏠 Voltar ao Menu Principal\n\nVenha viajar conosco! 🚐✨', 1, 0, '2025-08-27 14:38:14', '2025-08-27 14:38:14'),
+(285, 8, '[\"default\"]', '👨‍💼 *TRANSFERINDO PARA ATENDIMENTO HUMANO*\n\n🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe especializada poderá ajudá-lo melhor!\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato!\n\nObrigado pela paciência! 🚌✨', 1, 0, '2025-08-27 14:38:15', '2025-08-27 14:38:15'),
+(284, 8, '[\"5\", \"real expresso\", \"real\", \"expresso\"]', '🚌 *ATENDIMENTO REAL EXPRESSO*\n\nPara atendimento específico da Real Expresso, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*63992405166*\n\nServiços Real Expresso:\n• Passagens interestaduais\n• Rotas específicas\n• Informações de horários\n• Reservas e cancelamentos\n\n🕐 *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 🚌', 1, 0, '2025-08-27 14:38:15', '2025-08-27 14:38:15');
 
 -- --------------------------------------------------------
 
@@ -79,8 +79,9 @@ CREATE TABLE `contacts` (
 --
 
 INSERT INTO `contacts` (`id`, `manager_id`, `phone_number`, `name`, `avatar`, `tags`, `notes`, `is_blocked`, `created_at`, `updated_at`) VALUES
-(110, 2, '556392410056', 'Erick Vinicius', NULL, NULL, NULL, 0, '2025-08-26 13:44:07', '2025-08-26 13:44:07'),
-(111, 2, '556392804489', 'Natália💫', NULL, NULL, NULL, 0, '2025-08-26 14:14:51', '2025-08-26 14:14:51');
+(117, 2, '556392134638', 'Junior Moreira', NULL, NULL, NULL, 0, '2025-08-27 13:19:58', '2025-08-27 13:19:58'),
+(122, 2, '556392410056', 'Erick Vinicius', NULL, NULL, NULL, 0, '2025-08-27 14:39:19', '2025-08-27 14:39:19'),
+(118, 2, '556385125988', '.', NULL, NULL, NULL, 0, '2025-08-27 13:23:33', '2025-08-27 13:23:33');
 
 -- --------------------------------------------------------
 
@@ -163,8 +164,7 @@ CREATE TABLE `human_chats` (
 --
 
 INSERT INTO `human_chats` (`id`, `manager_id`, `contact_id`, `operator_id`, `assigned_to`, `status`, `transfer_reason`, `transfer_from`, `transfer_to`, `tags`, `created_at`, `updated_at`) VALUES
-(117, 2, 110, NULL, NULL, 'waiting_payment', 'Solicitação do cliente', NULL, NULL, NULL, '2025-08-26 13:46:18', '2025-08-26 14:42:23'),
-(118, 2, 111, NULL, NULL, NULL, 'Solicitação do cliente', NULL, NULL, NULL, '2025-08-26 14:15:39', '2025-08-26 14:31:04');
+(127, 2, 122, NULL, NULL, 'pending', 'Solicitação do cliente', NULL, NULL, NULL, '2025-08-27 14:40:08', '2025-08-27 14:40:08');
 
 -- --------------------------------------------------------
 
@@ -188,6 +188,21 @@ CREATE TABLE `messages` (
   `read_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Despejando dados para a tabela `messages`
+--
+
+INSERT INTO `messages` (`id`, `manager_id`, `chat_id`, `contact_id`, `whatsapp_message_id`, `sender_type`, `sender_id`, `content`, `message_type`, `media_url`, `is_read`, `delivered_at`, `read_at`, `created_at`) VALUES
+(1317, 2, 127, 122, 'false_556392410056@c.us_3EB0E214E4469D3ABA191F', 'contact', NULL, 'palmas/goiania/28/08/2025', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:40:08'),
+(1316, 2, 127, 122, NULL, 'bot', NULL, '🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem! ✈️', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:55'),
+(1314, 2, 127, 122, 'false_556392410056@c.us_3EB0C165D7193D1C0314E1', 'contact', NULL, 'goiania/palmas', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:36'),
+(1315, 2, 127, 122, 'false_556392410056@c.us_3EB0252F5A66DF9EE74561', 'contact', NULL, '1', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:48'),
+(1318, 2, 127, 122, NULL, 'bot', NULL, '📋 *DADOS RECEBIDOS*\n\nPerfeito! Recebi suas informações:\n\npalmas/goiania/28/08/2025\n\n🤝 Vou transferir você para um de nossos operadores especializados em vendas para finalizar sua compra e processar o pagamento.\n\n⏰ *Em alguns instantes um operador entrará em contato!*\n\nAguarde um momento... 🚌✨', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:40:13'),
+(1312, 2, 127, 122, 'false_556392410056@c.us_3EB0826AB026C5DE7C292E', 'contact', NULL, '1', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:27'),
+(1313, 2, 127, 122, NULL, 'bot', NULL, '🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Brasília - 25/01/2025\n\nDigite as informações da sua viagem! ✈️', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:32'),
+(1310, 2, 127, 122, 'false_556392410056@c.us_3EB0F5CCD540CF2BB116DF', 'contact', NULL, 'Olá', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:19'),
+(1311, 2, 127, 122, NULL, 'bot', NULL, '🚌 Olá! Erick Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊', 'text', NULL, 0, NULL, NULL, '2025-08-27 14:39:24');
 
 -- --------------------------------------------------------
 
@@ -327,6 +342,13 @@ CREATE TABLE `user_sessions` (
   `is_active` tinyint(1) DEFAULT '1'
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Despejando dados para a tabela `user_sessions`
+--
+
+INSERT INTO `user_sessions` (`id`, `user_id`, `session_token`, `refresh_token`, `expires_at`, `created_at`, `updated_at`, `ip_address`, `user_agent`, `is_active`) VALUES
+(141, 2, '48b23a5272ebb36dc03df53a01638f7f0f6621390892dbeb586beaf4ffbcea2a', 'b87635f3684b69fd35a29e0798cb1e63b766ff3fb45e63f42f46368c100b4fd7', '2025-08-28 14:37:40', '2025-08-27 14:37:40', '2025-08-27 14:38:43', '::ffff:127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 1);
+
 -- --------------------------------------------------------
 
 --
@@ -348,6 +370,13 @@ CREATE TABLE `whatsapp_instances` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Despejando dados para a tabela `whatsapp_instances`
+--
+
+INSERT INTO `whatsapp_instances` (`id`, `manager_id`, `instance_name`, `phone_number`, `status`, `qr_code`, `session_data`, `webhook_url`, `is_active`, `connected_at`, `last_activity`, `created_at`, `updated_at`) VALUES
+(167, 2, 'Instância Erick Vinicius', '556392901378', 'connected', 'data:image/png;base64,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k4pJZaqYVE4qJpU3KiaVSWWqOFH5mx7WWuuSh7XWuuRhrbUu+eGyihOVE5WpYlI5qXhD5QuVN1SmikllqphUpopJZVI5qZhUpooTlaliUvmi4qTijYpJZaqYVKaKSWVSOan4TSpTxYnKTQ9rrXXJw1prXfKw1lqX/PCRylQxqUwVk8qJylTxhspJxaRyUnGiclIxqXyhclLxRsWk8kXFpPKbVE5UpopJZaqYVG5SualiUvmbHtZa65KHtda65GGttS754aOKN1SmijdUflPFicpvqjipmFROVE4qJpWTihOVqWKqmFTeUJkq3qg4qbipYlKZKiaVk4pJZar4Lz2stdYlD2utdcnDWmtd8sNHKicVk8qJyknFpPJGxRsqJxWTylQxqXyhclLxhspJxaTyhsoXKicqU8Wk8obKScWJyqTyRsWJylRxUjGp/KaHtda65GGttS55WGutS+wPLlI5qThRmSomlZOKE5WbKv5LKicVk8pUMamcVEwqU8WkclIxqUwVN6mcVLyhMlVMKjdVTConFZPKVHHTw1prXfKw1lqXPKy11iX2B79IZaqYVG6qmFSmikllqjhR+aLiN6lMFScqN1VMKlPFpPJGxYnKScWJyk0VJyr/koovHtZa65KHtda65GGttS754SOVk4pJ5aTiDZU3VKaKSeWLijdUbqo4UTmpeEPlpGJSeaPiJpWTijdUpoovKt5QeaNiUrnpYa21LnlYa61LHtZa65IfLquYVL5QmSpOVKaKE5WpYlJ5Q+WNikllqphUTlSmiqliUjlRmSpOVKaKqWJSmSq+qJhUpopJ5URlqjhROal4Q2Wq+ELlNz2stdYlD2utdcnDWmtd8sNHFScVJyonFW9UTCpTxYnKVDGpTBUnKv8llS8qvlCZKt5QOak4qZhUvlCZKiaVqWJSeaPijYoTlanipoe11rrkYa21LnlYa61L7A9+kcpUMan8pooTlTcq3lD5TRVvqPymiknljYovVKaKSWWqOFGZKiaVqeINlb+pYlKZKr54WGutSx7WWuuSh7XWusT+4AOV31QxqbxRMancVHGiMlVMKicVk8oXFZPKVHGiclJxovJGxRsqb1TcpDJVnKhMFZPKScW/5GGttS55WGutSx7WWusS+4OLVKaKL1SmiknljYo3VKaKSWWqmFSmihOVk4pJ5aRiUpkqJpWTihOVLypO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', NULL, NULL, 1, '2025-08-27 14:39:08', '2025-08-27 14:40:08', '2025-08-27 14:38:43', '2025-08-27 14:40:08');
 
 --
 -- Índices para tabelas despejadas
@@ -487,13 +516,13 @@ ALTER TABLE `whatsapp_instances`
 -- AUTO_INCREMENT de tabela `auto_messages`
 --
 ALTER TABLE `auto_messages`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=262;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=289;
 
 --
 -- AUTO_INCREMENT de tabela `contacts`
 --
 ALTER TABLE `contacts`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=112;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=123;
 
 --
 -- AUTO_INCREMENT de tabela `daily_stats`
@@ -511,13 +540,13 @@ ALTER TABLE `devices`
 -- AUTO_INCREMENT de tabela `human_chats`
 --
 ALTER TABLE `human_chats`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=119;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=128;
 
 --
 -- AUTO_INCREMENT de tabela `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1222;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1319;
 
 --
 -- AUTO_INCREMENT de tabela `message_projects`
@@ -541,13 +570,13 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT de tabela `user_sessions`
 --
 ALTER TABLE `user_sessions`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=130;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=142;
 
 --
 -- AUTO_INCREMENT de tabela `whatsapp_instances`
 --
 ALTER TABLE `whatsapp_instances`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=161;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=168;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

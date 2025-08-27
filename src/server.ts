@@ -130,9 +130,9 @@ function processMessageWithFlow(message: string, flowData: FlowData, currentCont
     
     const messageText = message.toLowerCase().trim();
     
-    // Se estamos no contexto de compra de passagem, procurar pelo nó purchase-transfer
+    // Se estamos no contexto de compra de passagem, procurar pelo nó process-ticket-request
     if (currentContext === 'purchase') {
-        const purchaseNode = flowData.nodes.find(node => node.id === 'purchase-transfer');
+        const purchaseNode = flowData.nodes.find(node => node.id === 'process-ticket-request');
         if (purchaseNode && purchaseNode.data.active === 1) {
             console.log(`🎯 Nó de compra encontrado: ${purchaseNode.id} - ${purchaseNode.data.title}`);
             return {
@@ -1427,8 +1427,8 @@ ${getBusinessHoursMessage()}
                     console.log(`🎯 Resposta do fluxo JSON enviada: ${flowResult.node.data.title}`);
                     
                     // Definir contexto baseado no nó processado
-                    if (flowResult.node.id === 'template-252') {
-                        // Usuário escolheu "Comprar Passagem" - próxima mensagem deve ir para purchase-transfer
+                    if (flowResult.node.id === 'option-1-buy-ticket') {
+                        // Usuário escolheu "Comprar Passagem" - próxima mensagem deve ir para process-ticket-request
                         userContexts.set(msg.from, 'purchase');
                         console.log(`🛒 Contexto de compra definido para ${msg.from}`);
                     }
@@ -1819,7 +1819,30 @@ Domingo fechado`;
 function detectPersonalData(message: string): boolean {
     const text = message.trim();
     
-    // Padrões para detectar dados pessoais
+    // 🎫 PADRÕES ESPECÍFICOS PARA DADOS DE VIAGEM
+    const travelPatterns = {
+        // Origem/Destino com barra - Ex: "palmas/goiania", "goiania/palmas"
+        originDestination: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+$/i,
+        
+        // Origem/Destino/Data com barras - Ex: "palmas/goiania/28/08/2025"
+        fullTravelData: /^[a-záàâãéêíóôõúçñ\s]+\/[a-záàâãéêíóôõúçñ\s]+\/\d{1,2}\/\d{1,2}\/\d{4}$/i,
+        
+        // Origem-Destino-Data com hífen - Ex: "Palmas - Brasília - 25/01/2025"
+        hyphenFormat: /^[a-záàâãéêíóôõúçñ\s]+ - [a-záàâãéêíóôõúçñ\s]+ - \d{1,2}\/\d{1,2}\/\d{4}$/i,
+        
+        // Apenas data no formato brasileiro - Ex: "28/08/2025"
+        dateOnly: /^\d{1,2}\/\d{1,2}\/\d{4}$/
+    };
+    
+    // Verificar se é um padrão de dados de viagem
+    for (const [key, pattern] of Object.entries(travelPatterns)) {
+        if (pattern.test(text)) {
+            console.log(`🎫 Padrão de viagem ${key} detectado: ${text}`);
+            return true; // É um dado de viagem, transferir para operador
+        }
+    }
+    
+    // Padrões para detectar dados pessoais tradicionais
     const patterns = {
         // Nome completo (duas ou mais palavras com primeira letra maiúscula)
         name: /^[A-ZÀ-Ÿ][a-zà-ÿ]+\s+[A-ZÀ-Ÿ][a-zà-ÿ]+/,
