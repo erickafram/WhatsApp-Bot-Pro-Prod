@@ -81,6 +81,29 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
     return () => clearInterval(timer)
   }, [])
 
+  // Heartbeat para manter operador online
+  useEffect(() => {
+    const heartbeat = setInterval(async () => {
+      try {
+        const authToken = localStorage.getItem('authToken')
+        if (authToken) {
+          // Fazer uma requisição simples para manter a sessão ativa
+          await fetch('/api/operators/heartbeat', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        }
+      } catch (error) {
+        console.error('Erro no heartbeat:', error)
+      }
+    }, 120000) // A cada 2 minutos
+
+    return () => clearInterval(heartbeat)
+  }, [])
+
   // Load dashboard data on mount
   useEffect(() => {
     loadDashboardData()
@@ -251,6 +274,34 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
         }
       })
 
+      // Listener específico para mudanças de status de chat humano
+      socket.on('human_chat_status_changed', (data: {
+        type: 'status_changed'
+        chatId: number
+        customerName: string
+        customerPhone: string
+        status: string
+        previousStatus: string
+        timestamp: Date
+        operatorName: string
+        operatorId?: number
+        managerId: number
+      }) => {
+        console.log('🚀 OperatorDashboard - Status de chat alterado:', data)
+        
+        // Recarregar estatísticas para refletir mudanças
+        loadDashboardData()
+        
+        // Se o operador atual fez a mudança, pode mostrar feedback visual
+        const userData = localStorage.getItem('user')
+        if (userData) {
+          const user = JSON.parse(userData)
+          if (data.operatorId === user.id) {
+            console.log(`✅ Você alterou o status do chat ${data.chatId} para: ${data.status}`)
+          }
+        }
+      })
+
       return () => {
               socket.off('new_pending_chat', handleNewPendingChat)
       socket.off('chat_resolved', handleChatResolved)
@@ -258,6 +309,7 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
       socket.off('dashboard_update', handleDashboardUpdate)
       socket.off('dashboard_chat_update')
       socket.off('human_chat_requested')
+      socket.off('human_chat_status_changed')
       }
     }
   }, [socket])

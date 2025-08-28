@@ -982,12 +982,74 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
             : chat
         ))
       }
+
+      // Atualizar status em tempo real
+      if (data.type === 'status_changed') {
+        console.log(`🔄 Status do chat ${data.chatId} alterado para: ${data.status}`)
+        setHumanChats(chats => chats.map(chat => 
+          chat.id === data.chatId.toString()
+            ? {
+                ...chat,
+                status: data.status as any,
+                lastActivity: new Date(data.timestamp)
+              }
+            : chat
+        ))
+        
+        // Mostrar notificação de mudança de status
+        const statusText = {
+          'pending': 'Pendente',
+          'active': 'Ativo',
+          'waiting_payment': 'Aguardando Pagamento',
+          'paid': 'Pago',
+          'finished': 'Encerrado',
+          'resolved': 'Resolvido'
+        }[data.status] || data.status
+        
+        showNotification(
+          '🔄 Status Alterado',
+          `${data.customerName}: ${statusText}`,
+          data.chatId.toString()
+        )
+      }
       
       // Mostrar notificação específica para chat reaberto
       if (data.type === 'chat_reopened') {
         console.log(`🔄 Chat ${data.chatId} foi reaberto por ${data.customerName}`)
         // Aqui você pode adicionar uma notificação toast se desejar
       }
+    })
+
+    // Listener específico para mudanças de status de chat humano
+    socket.on('human_chat_status_changed', (data: {
+      type: 'status_changed'
+      chatId: number
+      customerName: string
+      customerPhone: string
+      status: string
+      previousStatus: string
+      timestamp: Date
+      operatorName: string
+      operatorId?: number
+      managerId: number
+    }) => {
+      console.log('🚀 Status de chat humano alterado em tempo real:', data)
+      
+      // Atualizar o chat no estado local
+      setHumanChats(chats => chats.map(chat => 
+        chat.id === data.chatId.toString()
+          ? {
+              ...chat,
+              status: data.status as any,
+              lastActivity: new Date(data.timestamp),
+              assignedOperator: data.operatorName || chat.assignedOperator,
+              operatorId: data.operatorId || chat.operatorId
+            }
+          : chat
+      ))
+      
+      // Log detalhado da mudança
+      console.log(`✅ Chat ${data.chatId} - Status: ${data.previousStatus} → ${data.status}`)
     })
 
     // Listener para erros de mensagens do operador
@@ -1011,6 +1073,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       socket.off('operator_message_saved')
       socket.off('chat_transferred')
       socket.off('dashboard_chat_update')
+      socket.off('human_chat_status_changed')
       socket.off('operator_message_error')
       socket.off('message_send_error')
       socket.off('message_sent_confirmation')

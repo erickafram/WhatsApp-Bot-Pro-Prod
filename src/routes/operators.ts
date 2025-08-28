@@ -702,6 +702,31 @@ router.get('/stats/overview', authenticate, requireManager, async (req: any, res
 
 // ===== DASHBOARD ENDPOINTS =====
 
+// 💓 Heartbeat - Manter operador online
+router.post('/heartbeat', authenticate, requireOperatorAccess, async (req: any, res) => {
+  try {
+    const operatorId = req.user.id
+    
+    // Atualizar last_login para manter status online
+    await pool.execute(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
+      [operatorId]
+    )
+    
+    res.json({ 
+      success: true, 
+      message: 'Heartbeat recebido',
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ Erro no heartbeat:', error)
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      details: error instanceof Error ? error.message : 'Erro desconhecido'
+    })
+  }
+})
+
 // 📊 Dashboard Stats - Estatísticas para operadores
 router.get('/dashboard/stats', authenticate, requireOperatorAccess, async (req: any, res) => {
   try {

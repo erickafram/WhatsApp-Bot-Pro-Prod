@@ -448,26 +448,39 @@ Digite o número da opção desejada! 😊`;
                         }
                     }
                     else {
-                        // Mensagem normal após encerramento - reabrir como pendente
-                        const updateQuery = `
-                            UPDATE human_chats 
-                            SET status = 'pending', updated_at = NOW(), operator_id = NULL, assigned_to = NULL
-                            WHERE id = ?
-                        `;
-                        await (0, database_1.executeQuery)(updateQuery, [activeChat.id]);
-                        activeChat.status = 'pending';
-                        activeChat.operator_id = null;
-                        activeChat.assigned_to = null;
-                        console.log(`🔄 Chat ${activeChat.id} REABERTO automaticamente - Status: finished/resolved → pending`);
-                        // Emitir evento para dashboard sobre conversa reaberta
-                        io.to(`manager_${managerId}`).emit('dashboard_instant_alert', {
-                            type: 'chat_reopened',
-                            chatId: activeChat.id,
-                            customerName: contactName,
-                            customerPhone: phoneNumber,
-                            message: 'Conversa reaberta - cliente enviou nova mensagem',
-                            timestamp: new Date()
+                        // Mensagem inválida após encerramento - reenviar opções
+                        console.log(`❌ Opção inválida após encerramento: "${messageText}". Reenviando mensagem de opções.`);
+                        // Buscar operador do chat anterior para personalizar mensagem
+                        const operatorId = activeChat.assigned_to || activeChat.operator_id;
+                        const previousOperator = operatorId ? await User_1.UserModel.findById(operatorId) : null;
+                        const operatorName = previousOperator ? previousOperator.name : 'operador';
+                        // Reenviar mensagem de pós-encerramento
+                        const endMessage = `✅ *CONVERSA ENCERRADA*
+
+Sua conversa com o operador ${operatorName} foi finalizada.
+
+Você pode a qualquer momento:
+
+*1* - 👨‍💼 Voltar a falar com o operador ${operatorName}
+*2* - 🏠 Ir para o Menu Principal  
+*3* - 👥 Falar com outro operador
+
+Digite o número da opção desejada! 😊`;
+                        console.log(`📤 Reenviando mensagem de opções pós-encerramento para ${msg.from}`);
+                        await client.sendMessage(msg.from, endMessage);
+                        await delay(1000);
+                        console.log(`✅ Mensagem de opções reenviada com sucesso`);
+                        // Salvar mensagem no banco
+                        await Message_1.MessageModel.create({
+                            manager_id: managerId,
+                            chat_id: activeChat.id,
+                            contact_id: dbContact.id,
+                            sender_type: 'bot',
+                            content: endMessage,
+                            message_type: 'text'
                         });
+                        console.log(`🛑 PARANDO processamento - mensagem inválida pós-encerramento processada`);
+                        return; // Parar processamento - NÃO reabrir conversa
                     }
                 }
                 // Mapear tipos do WhatsApp para tipos do banco

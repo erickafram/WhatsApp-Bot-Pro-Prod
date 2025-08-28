@@ -440,6 +440,41 @@ Digite o número da opção desejada! 😊`;
         if (!updatedChat) {
             return res.status(404).json({ error: 'Chat não encontrado após atualização' });
         }
+        // 🚀 EMITIR EVENTO EM TEMPO REAL PARA TODOS OS USUÁRIOS DO MANAGER
+        try {
+            const io = global.io;
+            if (io && updatedChat) {
+                // Buscar dados do contato para o evento
+                const contact = await Message_1.ContactModel.findById(updatedChat.contact_id);
+                const operatorId = updatedChat.assigned_to || updatedChat.operator_id;
+                const operator = operatorId ? await User_1.UserModel.findById(operatorId) : null;
+                const eventData = {
+                    type: 'status_changed',
+                    chatId: updatedChat.id,
+                    customerName: contact?.name || 'Cliente',
+                    customerPhone: contact?.phone_number || '',
+                    status: updatedChat.status,
+                    previousStatus: chatBefore?.status || '',
+                    timestamp: new Date(),
+                    operatorName: operator?.name || '',
+                    operatorId: operatorId,
+                    managerId: updatedChat.manager_id
+                };
+                console.log(`📡 Emitindo evento status_changed para manager ${updatedChat.manager_id}:`, eventData);
+                // Emitir para gestor e todos os operadores do gestor
+                io.to(`manager_${updatedChat.manager_id}`).emit('human_chat_status_changed', eventData);
+                // Também emitir o evento genérico dashboard_chat_update para compatibilidade
+                io.to(`manager_${updatedChat.manager_id}`).emit('dashboard_chat_update', eventData);
+                console.log(`✅ Eventos em tempo real enviados para manager ${updatedChat.manager_id}`);
+            }
+            else {
+                console.warn('⚠️ Socket.io não disponível para emitir eventos em tempo real');
+            }
+        }
+        catch (socketError) {
+            console.error('❌ Erro ao emitir eventos socket:', socketError);
+            // Não falhar a requisição por causa de erro no socket
+        }
         res.json({ chat: updatedChat });
     }
     catch (error) {

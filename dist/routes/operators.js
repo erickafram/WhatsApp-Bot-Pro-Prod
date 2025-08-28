@@ -559,6 +559,26 @@ router.get('/stats/overview', auth_1.authenticate, requireManager, async (req, r
     }
 });
 // ===== DASHBOARD ENDPOINTS =====
+// 💓 Heartbeat - Manter operador online
+router.post('/heartbeat', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
+    try {
+        const operatorId = req.user.id;
+        // Atualizar last_login para manter status online
+        await database_1.default.execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [operatorId]);
+        res.json({
+            success: true,
+            message: 'Heartbeat recebido',
+            timestamp: new Date().toISOString()
+        });
+    }
+    catch (error) {
+        console.error('❌ Erro no heartbeat:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
+});
 // 📊 Dashboard Stats - Estatísticas para operadores
 router.get('/dashboard/stats', auth_1.authenticate, requireOperatorAccess, async (req, res) => {
     try {

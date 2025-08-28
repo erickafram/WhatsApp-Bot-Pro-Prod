@@ -33,6 +33,15 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       req.user = sessionResult.user;
       req.token = token;
       req.session = sessionResult.session;
+      
+      // Atualizar last_login para operadores a cada 2 minutos (para manter status online)
+      const now = new Date();
+      const lastLogin = sessionResult.user.last_login ? new Date(sessionResult.user.last_login) : null;
+      
+      if (!lastLogin || (now.getTime() - lastLogin.getTime()) > 120000) { // 2 minutos
+        await UserModel.updateLastLogin(sessionResult.user.id);
+      }
+      
       next();
       return;
     }

@@ -4,6 +4,7 @@ import {
   UserCheck,
   Clock,
   TrendingUp,
+  TrendingDown,
   AlertCircle,
   CheckCircle2,
   Bot,
@@ -26,7 +27,11 @@ interface ManagerStats {
   onlineOperators: number
   messagesPerDay: number
   avgResponseTime: number
+  avgResponseTimeChange?: number
   customerSatisfaction: number
+  customerSatisfactionChange?: number
+  resolutionRate?: number
+  resolutionRateChange?: number
   botInteractions: number
   humanInteractions: number
   conversationsInitiated: number
@@ -77,7 +82,11 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
     onlineOperators: 0,
     messagesPerDay: 0,
     avgResponseTime: 0,
+    avgResponseTimeChange: 0,
     customerSatisfaction: 0,
+    customerSatisfactionChange: 0,
+    resolutionRate: 0,
+    resolutionRateChange: 0,
     botInteractions: 0,
     humanInteractions: 0,
     conversationsInitiated: 0
@@ -126,6 +135,42 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
     socket.on('manager_notification', handleManagerNotification)
     socket.on('conversation_initiated', handleConversationInitiated)
     socket.on('conversation_updated', handleConversationUpdated)
+
+    // Listener para mudanças de status de chat humano em tempo real
+    socket.on('human_chat_status_changed', (data: {
+      type: 'status_changed'
+      chatId: number
+      customerName: string
+      customerPhone: string
+      status: string
+      previousStatus: string
+      timestamp: Date
+      operatorName: string
+      operatorId?: number
+      managerId: number
+    }) => {
+      console.log('🚀 ManagerDashboard - Status de chat alterado:', data)
+      
+      // Atualizar estatísticas baseado na mudança de status
+      if (data.previousStatus !== data.status) {
+        // Recarregar dados da dashboard para refletir mudanças
+        loadDashboardData()
+        
+        // Atualizar atividade recente
+        const newActivity: RecentActivity = {
+          id: `status_change_${data.chatId}_${Date.now()}`,
+          type: 'message_sent',
+          description: `${data.customerName} - Status: ${data.previousStatus} → ${data.status}`,
+          timestamp: new Date().toISOString(),
+          operatorName: data.operatorName || 'Sistema',
+          customerName: data.customerName
+        }
+        
+        setRecentActivity(prev => [newActivity, ...prev.slice(0, 9)])
+        
+        console.log(`✅ Dashboard atualizada - Chat ${data.chatId}: ${data.previousStatus} → ${data.status}`)
+      }
+    })
 
     // 🚨 LISTENERS PARA ALERTAS INSTANTÂNEOS
     socket.on('dashboard_instant_alert', (data: {
@@ -192,6 +237,7 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
       socket.off('manager_notification', handleManagerNotification)
       socket.off('conversation_initiated', handleConversationInitiated)
       socket.off('conversation_updated', handleConversationUpdated)
+      socket.off('human_chat_status_changed')
       socket.off('dashboard_instant_alert')
     }
   }, [socket])
@@ -576,7 +622,6 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
       <div className="dashboard-header">
         <div className="header-content">
           <h1>Dashboard do Gestor</h1>
-          <p>Visão geral das operações e atividades em tempo real</p>
         </div>
         
         <div className="header-actions">
@@ -843,28 +888,64 @@ function ManagerDashboard({ socket, onNavigate }: ManagerDashboardProps) {
               <div className="metric">
                 <div className="metric-header">
                   <span>Tempo Médio de Resposta</span>
-                  <TrendingUp size={16} className="trend-up" />
+                  {stats.avgResponseTimeChange !== undefined && stats.avgResponseTimeChange < 0 ? (
+                    <TrendingDown size={16} className="trend-down" />
+                  ) : (
+                    <TrendingUp size={16} className="trend-up" />
+                  )}
                 </div>
                 <div className="metric-value">{stats.avgResponseTime}min</div>
-                <div className="metric-change positive">-15% vs ontem</div>
+                <div className={`metric-change ${stats.avgResponseTimeChange !== undefined && stats.avgResponseTimeChange < 0 ? 'positive' : 'negative'}`}>
+                  {stats.avgResponseTimeChange !== undefined ? (
+                    stats.avgResponseTimeChange < 0 ? 
+                      `${stats.avgResponseTimeChange}% vs ontem` : 
+                      stats.avgResponseTimeChange > 0 ? 
+                        `+${stats.avgResponseTimeChange}% vs ontem` : 
+                        'Sem alteração vs ontem'
+                  ) : 'Calculando...'}
+                </div>
               </div>
 
               <div className="metric">
                 <div className="metric-header">
                   <span>Satisfação do Cliente</span>
-                  <TrendingUp size={16} className="trend-up" />
+                  {stats.customerSatisfactionChange !== undefined && stats.customerSatisfactionChange > 0 ? (
+                    <TrendingUp size={16} className="trend-up" />
+                  ) : (
+                    <TrendingDown size={16} className="trend-down" />
+                  )}
                 </div>
                 <div className="metric-value">{stats.customerSatisfaction}%</div>
-                <div className="metric-change positive">+5% vs ontem</div>
+                <div className={`metric-change ${stats.customerSatisfactionChange !== undefined && stats.customerSatisfactionChange > 0 ? 'positive' : 'negative'}`}>
+                  {stats.customerSatisfactionChange !== undefined ? (
+                    stats.customerSatisfactionChange > 0 ? 
+                      `+${stats.customerSatisfactionChange}% vs ontem` : 
+                      stats.customerSatisfactionChange < 0 ? 
+                        `${stats.customerSatisfactionChange}% vs ontem` : 
+                        'Sem alteração vs ontem'
+                  ) : 'Calculando...'}
+                </div>
               </div>
 
               <div className="metric">
                 <div className="metric-header">
                   <span>Taxa de Resolução</span>
-                  <TrendingUp size={16} className="trend-up" />
+                  {stats.resolutionRateChange !== undefined && stats.resolutionRateChange > 0 ? (
+                    <TrendingUp size={16} className="trend-up" />
+                  ) : (
+                    <TrendingDown size={16} className="trend-down" />
+                  )}
                 </div>
-                <div className="metric-value">87%</div>
-                <div className="metric-change positive">+3% vs ontem</div>
+                <div className="metric-value">{stats.resolutionRate || 0}%</div>
+                <div className={`metric-change ${stats.resolutionRateChange !== undefined && stats.resolutionRateChange > 0 ? 'positive' : 'negative'}`}>
+                  {stats.resolutionRateChange !== undefined ? (
+                    stats.resolutionRateChange > 0 ? 
+                      `+${stats.resolutionRateChange}% vs ontem` : 
+                      stats.resolutionRateChange < 0 ? 
+                        `${stats.resolutionRateChange}% vs ontem` : 
+                        'Sem alteração vs ontem'
+                  ) : 'Calculando...'}
+                </div>
               </div>
             </div>
           </div>

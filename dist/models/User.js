@@ -78,6 +78,10 @@ class UserModel {
         const result = await (0, database_1.executeQuery)(query, params);
         return Array.isArray(result) && result.length > 0;
     }
+    // Atualizar last_login do usuário
+    static async updateLastLogin(userId) {
+        await (0, database_1.executeQuery)('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [userId]);
+    }
     // Fazer login
     static async login(credentials, sessionData) {
         const user = await UserModel.findByEmailWithPassword(credentials.email);
@@ -88,6 +92,8 @@ class UserModel {
         if (!isPasswordValid) {
             return null;
         }
+        // Atualizar last_login do usuário
+        await (0, database_1.executeQuery)('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
         // Criar sessão no banco de dados
         const session = await UserSession_1.UserSessionModel.create({
             user_id: user.id,
@@ -98,6 +104,9 @@ class UserModel {
         const token = UserModel.generateToken(user);
         // Remover senha do objeto de retorno
         delete user.password;
+        // Atualizar o objeto user com o novo last_login
+        user.last_login = new Date();
+        console.log(`✅ Login realizado - Usuário ${user.name} (${user.email}) - last_login atualizado`);
         return { user, token, sessionToken: session.session_token };
     }
     // Gerar token JWT

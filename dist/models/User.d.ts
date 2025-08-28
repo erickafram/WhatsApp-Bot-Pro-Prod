@@ -43,6 +43,7 @@ export declare class UserModel {
     static findByEmail(email: string): Promise<User | null>;
     static findByEmailWithPassword(email: string): Promise<User | null>;
     static emailExists(email: string, excludeId?: number): Promise<boolean>;
+    static updateLastLogin(userId: number): Promise<void>;
     static login(credentials: LoginCredentials, sessionData?: {
         ip_address?: string;
         user_agent?: string;

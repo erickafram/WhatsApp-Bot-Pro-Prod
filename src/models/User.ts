@@ -134,6 +134,14 @@ export class UserModel {
     return Array.isArray(result) && result.length > 0;
   }
 
+  // Atualizar last_login do usuário
+  static async updateLastLogin(userId: number): Promise<void> {
+    await executeQuery(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
+      [userId]
+    );
+  }
+
   // Fazer login
   static async login(
     credentials: LoginCredentials,
@@ -151,6 +159,12 @@ export class UserModel {
       return null;
     }
 
+    // Atualizar last_login do usuário
+    await executeQuery(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
+      [user.id]
+    );
+
     // Criar sessão no banco de dados
     const session = await UserSessionModel.create({
       user_id: user.id,
@@ -163,6 +177,11 @@ export class UserModel {
 
     // Remover senha do objeto de retorno
     delete user.password;
+
+    // Atualizar o objeto user com o novo last_login
+    user.last_login = new Date();
+
+    console.log(`✅ Login realizado - Usuário ${user.name} (${user.email}) - last_login atualizado`);
 
     return { user, token, sessionToken: session.session_token };
   }
