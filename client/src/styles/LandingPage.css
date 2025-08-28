@@ -1506,8 +1506,7 @@ html {
   .hero-title {
     font-size: 1.8rem;
     line-height: 1.15;
-    margin-bottom: 0.875rem;
-    margin-top: 25px;
+    margin: 25px 20px 10px;
   }
 
   .hero-highlight {
