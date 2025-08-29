@@ -144,6 +144,13 @@ Operador: Removido
 ```
 Cliente: 3
 Bot: 👥 NOVO ATENDIMENTO
+
+Entendi! Vou direcioná-lo para um novo atendimento.
+
+Em alguns instantes um operador entrará em contato para ajudá-lo!
+
+Obrigado pela preferência! 🚌✨
+
 Status: finished → pending
 Operador: Removido (novo atendimento)
 ```

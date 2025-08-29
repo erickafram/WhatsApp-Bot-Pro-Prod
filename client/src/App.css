@@ -727,7 +727,7 @@ input::placeholder, textarea::placeholder {
   flex: 1;
   max-width: 100% !important;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 5px 5px;
   width: 100%;
 }
 
@@ -5237,7 +5237,7 @@ body .app .main-content {
 
 /* === SIDEBAR - ESTILO WHATSAPP CLEAN === */
 .chat-sidebar {
-  width: 30%;
+  width: 25%;
   background: #ffffff;
   border-right: 1px solid #ddd;
   display: flex;
@@ -5375,6 +5375,15 @@ body .app .main-content {
   cursor: pointer;
   color: #54656f;
   transition: background-color 0.2s ease;
+}
+
+.header-action-btn svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
 }
 
 .header-action-btn:hover {
@@ -6299,7 +6308,7 @@ body .app .main-content {
 
 /* === CHAT MAIN - ESTILO WHATSAPP CLEAN === */
 .chat-main {
-  width: 70%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   background: #f1f1f1;
@@ -9355,7 +9364,7 @@ body .app .main-content {
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0.5rem 0;
-  color: #1a202c;
+  color: #ffffff;
 }
 
 .plan-description {

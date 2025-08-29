@@ -3,14 +3,12 @@ import {
   MessageSquareText,
   MessageCircle,
   Users,
-  Edit3,
   ArrowRightLeft,
   CreditCard,
   CheckCircle2,
   XCircle,
   ChevronDown,
   Send,
-  MoreVertical,
   Search
 } from 'lucide-react'
 
@@ -63,7 +61,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   
   const [newChatMessage, setNewChatMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [operatorName, setOperatorName] = useState(() => {
+  const [operatorName] = useState(() => {
     try {
       const userData = localStorage.getItem('user')
       if (userData) {
@@ -115,7 +113,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   const [transferReason, setTransferReason] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [operators, setOperators] = useState<Operator[]>([])
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+  const [isSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true'
   })
   const [showTransferAcceptModal, setShowTransferAcceptModal] = useState<string | null>(null)
@@ -712,10 +710,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
   }, [selectedChat])
 
-  // Salvar estado da sidebar no localStorage
-  useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', isSidebarCollapsed.toString())
-  }, [isSidebarCollapsed])
+
 
   // Socket listeners for real-time updates
   useEffect(() => {
@@ -1067,6 +1062,27 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       console.log('✅ Confirmação de envio de mensagem:', data);
     });
 
+    // Listener para alertas instantâneos da dashboard
+    socket.on('dashboard_instant_alert', (data: {
+      type: 'chat_reopened' | 'menu_access'
+      chatId: number
+      customerName: string
+      customerPhone: string
+      message: string
+      timestamp: Date
+    }) => {
+      console.log('🚨 Alerta instantâneo da dashboard:', data);
+      
+      // Se for um chat reaberto (opção 1 ou 3), recarregar lista de chats
+      if (data.type === 'chat_reopened') {
+        console.log('🔄 Chat reaberto detectado, recarregando lista de chats');
+        loadChatsFromDatabase();
+        
+        // Mostrar notificação
+        showNotification(`Chat reaberto: ${data.customerName}`, data.message);
+      }
+    });
+
     return () => {
       socket.off('human_chat_requested')
       socket.off('customer_message')
@@ -1074,6 +1090,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       socket.off('chat_transferred')
       socket.off('dashboard_chat_update')
       socket.off('human_chat_status_changed')
+      socket.off('dashboard_instant_alert')
       socket.off('operator_message_error')
       socket.off('message_send_error')
       socket.off('message_sent_confirmation')
@@ -1123,42 +1140,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 </div>
               </div>
             </div>
-            <div className="header-actions-compact">
-              <button
-                className="header-action-btn"
-                onClick={() => {
-                  const newName = prompt('Digite seu nome:', operatorName)
-                  if (newName && newName.trim()) {
-                    setOperatorName(newName.trim())
-                    localStorage.setItem('operatorName', newName.trim())
-                  }
-                }}
-                title="Editar perfil"
-              >
-                <Edit3 size={20} />
-              </button>
-              <button
-                className="header-action-btn"
-                onClick={() => {
-                  if (confirm('Tem certeza que deseja limpar todos os chats?')) {
-                    setHumanChats([])
-                    setSelectedChat(null)
-                    localStorage.removeItem('humanChats')
-                    localStorage.removeItem('selectedChat')
-                  }
-                }}
-                title="Limpar chats"
-              >
-                <MessageCircle size={20} />
-              </button>
-              <button
-                className="header-action-btn"
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                title="Menu"
-              >
-                <MoreVertical size={20} />
-              </button>
-            </div>
+
           </div>
 
           {/* Barra de Busca */}

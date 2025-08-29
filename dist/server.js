@@ -401,7 +401,7 @@ Digite o número da opção desejada! 😊`;
                         }
                         else if (messageText === '3') {
                             // Novo operador
-                            response = `👥 *NOVO ATENDIMENTO*\n\nEntendi! Vou direcioná-lo para um novo atendimento.\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 6h às 22h\nSábado: 6h às 18h\nDomingo: 8h às 20h\n\nEm alguns instantes um operador entrará em contato para ajudá-lo!\n\nObrigado pela preferência! 🚌✨`;
+                            response = `👥 *NOVO ATENDIMENTO*\n\nEntendi! Vou direcioná-lo para um novo atendimento.\n\nEm alguns instantes um operador entrará em contato para ajudá-lo!\n\nObrigado pela preferência! 🚌✨`;
                             // Reabrir como novo chat (sem operador específico)
                             const updateQuery = `
                                 UPDATE human_chats 
@@ -440,6 +440,21 @@ Digite o número da opção desejada! 😊`;
                                     `Cliente escolheu opção ${messageText} - Conversa reaberta`,
                                 timestamp: new Date()
                             });
+                            // Emitir evento específico para HumanChat quando opção 3 for escolhida
+                            if (messageText === '3') {
+                                console.log(`📢 Emitindo evento dashboard_chat_update para opção 3 - chat ${activeChat.id}`);
+                                io.to(`manager_${managerId}`).emit('dashboard_chat_update', {
+                                    type: 'chat_reopened',
+                                    chatId: activeChat.id,
+                                    customerName: contactName,
+                                    customerPhone: phoneNumber,
+                                    status: 'pending',
+                                    operatorName: null,
+                                    operatorId: null,
+                                    timestamp: new Date()
+                                });
+                                console.log(`✅ Evento dashboard_chat_update enviado para HumanChat - chat ${activeChat.id} reaberto`);
+                            }
                             console.log(`🛑 PARANDO processamento - return executado para opção ${messageText}`);
                             return; // Parar processamento para TODAS as opções pós-encerramento
                         }
