@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'whatsapp-bot',
-      script: './dist/server.js',
+      script: './dist/server-baileys.js',
       instances: 1, // Não use cluster mode para WhatsApp (conexões WebSocket)
       exec_mode: 'fork',
       
