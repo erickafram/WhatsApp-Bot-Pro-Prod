@@ -649,6 +649,25 @@ const migration013 = {
         await (0, database_1.executeQuery)('DROP TABLE IF EXISTS saved_documents');
     }
 };
+// Migration 014: Aumentar tamanho da coluna phone_number
+const migration014 = {
+    id: '014_increase_phone_number_size',
+    description: 'Aumentar tamanho da coluna phone_number para acomodar números WhatsApp completos',
+    up: async () => {
+        const query = `
+      ALTER TABLE whatsapp_instances 
+      MODIFY COLUMN phone_number VARCHAR(30) NULL
+    `;
+        await (0, database_1.executeQuery)(query);
+    },
+    down: async () => {
+        const query = `
+      ALTER TABLE whatsapp_instances 
+      MODIFY COLUMN phone_number VARCHAR(20) NULL
+    `;
+        await (0, database_1.executeQuery)(query);
+    }
+};
 exports.migrations = [
     migration001,
     migration002,
@@ -662,7 +681,8 @@ exports.migrations = [
     migration010,
     migration011,
     migration012,
-    migration013
+    migration013,
+    migration014
 ];
 // Função para verificar se uma migration já foi executada
 const isMigrationExecuted = async (migrationId) => {

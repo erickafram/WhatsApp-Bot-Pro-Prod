@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   MessageSquareText,
   MessageCircle,
@@ -77,26 +77,68 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const audioRef = useState(new Audio(audioUrl))[0]
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Construir URL absoluta se necessário
+  const getAbsoluteUrl = (url: string) => {
+    if (url.startsWith('http')) return url
+    if (url.startsWith('/')) return window.location.origin + url
+    return window.location.origin + '/' + url
+  }
+  
+  const audioRef = useState(() => {
+    const audio = new Audio()
+    audio.preload = 'metadata'
+    return audio
+  })[0]
 
   useEffect(() => {
     const audio = audioRef
+    setIsLoading(true)
+    setError(null)
+    
+    const absoluteUrl = getAbsoluteUrl(audioUrl)
+    console.log('🔊 Carregando áudio:', { originalUrl: audioUrl, absoluteUrl })
     
     const updateTime = () => setCurrentTime(audio.currentTime)
-    const updateDuration = () => setDuration(audio.duration)
+    const updateDuration = () => {
+      setDuration(audio.duration)
+      setIsLoading(false)
+    }
     const handleEnded = () => setIsPlaying(false)
+    const handleError = (e: Event) => {
+      console.error('❌ Erro ao carregar áudio:', e, audio.error)
+      setError(`Erro ao carregar áudio: ${audio.error?.message || 'Formato não suportado'}`)
+      setIsLoading(false)
+    }
+    const handleCanPlay = () => {
+      console.log('✅ Áudio carregado com sucesso')
+      setIsLoading(false)
+      setError(null)
+    }
 
+    // Tentar diferentes formatos e URLs
+    audio.src = absoluteUrl
+    
     audio.addEventListener('timeupdate', updateTime)
     audio.addEventListener('loadedmetadata', updateDuration)
     audio.addEventListener('ended', handleEnded)
+    audio.addEventListener('error', handleError)
+    audio.addEventListener('canplay', handleCanPlay)
+
+    // Carregar o áudio
+    audio.load()
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime)
       audio.removeEventListener('loadedmetadata', updateDuration)
       audio.removeEventListener('ended', handleEnded)
+      audio.removeEventListener('error', handleError)
+      audio.removeEventListener('canplay', handleCanPlay)
       audio.pause()
     }
-  }, [audioRef])
+  }, [audioRef, audioUrl])
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -124,8 +166,9 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
       <button 
         onClick={togglePlay} 
         className="play-button"
+        disabled={!!error || isLoading}
         style={{
-          background: '#25d366',
+          background: error ? '#ef4444' : isLoading ? '#fbbf24' : '#25d366',
           color: 'white',
           border: 'none',
           borderRadius: '50%',
@@ -134,30 +177,39 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: 'pointer'
+          cursor: error || isLoading ? 'not-allowed' : 'pointer',
+          opacity: error || isLoading ? 0.7 : 1
         }}
       >
-        {isPlaying ? <Pause size={16} style={{ display: 'block' }} /> : <Play size={16} style={{ display: 'block' }} />}
+        {error ? '⚠️' : isLoading ? '⏳' : (isPlaying ? <Pause size={16} style={{ display: 'block' }} /> : <Play size={16} style={{ display: 'block' }} />)}
       </button>
       <div className="audio-info">
         <div className="audio-filename">{fileName || 'Áudio'}</div>
-        <div className="audio-controls">
-          <span className="time">{formatTime(currentTime)}</span>
-          <input
-            type="range"
-            min="0"
-            max={duration || 0}
-            value={currentTime}
-            onChange={handleSeek}
-            className="seek-bar"
-          />
-          <span className="time">{formatTime(duration)}</span>
-        </div>
+        {error ? (
+          <div className="audio-error" style={{ color: '#ef4444', fontSize: '0.75rem' }}>
+            {error}
+          </div>
+        ) : (
+          <div className="audio-controls">
+            <span className="time">{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min="0"
+              max={duration || 0}
+              value={currentTime}
+              onChange={handleSeek}
+              className="seek-bar"
+              disabled={!!error || isLoading}
+            />
+            <span className="time">{formatTime(duration)}</span>
+          </div>
+        )}
       </div>
       <a 
-        href={audioUrl} 
+        href={getAbsoluteUrl(audioUrl)} 
         download={fileName} 
         className="download-button"
+        title={error ? "Baixar arquivo (reprodução indisponível)" : "Baixar áudio"}
         style={{
           background: 'rgba(255, 255, 255, 0.1)',
           color: '#e9edef',
@@ -224,9 +276,33 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  const getAbsoluteUrl = (url: string) => {
+    if (url.startsWith('http')) return url
+    if (url.startsWith('/')) return window.location.origin + url
+    return window.location.origin + '/' + url
+  }
+
   const openDocument = () => {
+    const absoluteUrl = getAbsoluteUrl(fileUrl)
+    console.log('📄 Abrindo documento:', { originalUrl: fileUrl, absoluteUrl })
+    
     // Tentar abrir o documento em uma nova aba
-    window.open(fileUrl, '_blank')
+    try {
+      const newWindow = window.open(absoluteUrl, '_blank')
+      if (!newWindow) {
+        // Se o popup foi bloqueado, tentar download direto
+        console.warn('⚠️ Popup bloqueado, tentando download direto')
+        const link = document.createElement('a')
+        link.href = absoluteUrl
+        link.download = fileName || 'documento'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } catch (error) {
+      console.error('❌ Erro ao abrir documento:', error)
+      alert('Erro ao abrir documento. Tente baixar o arquivo.')
+    }
   }
 
   const handleSaveDocument = () => {
@@ -271,7 +347,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
           <FileText size={14} style={{ display: 'block' }} />
         </button>
         <a 
-          href={fileUrl} 
+          href={getAbsoluteUrl(fileUrl)} 
           download={fileName} 
           className="download-button" 
           title="Baixar arquivo"
@@ -318,47 +394,139 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
 // Componente para imagens
 const ImageViewer = ({ imageUrl, fileName }: { imageUrl: string, fileName?: string }) => {
   const [showFullSize, setShowFullSize] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  
+  const getAbsoluteUrl = (url: string) => {
+    if (url.startsWith('http')) return url
+    if (url.startsWith('/')) return window.location.origin + url
+    return window.location.origin + '/' + url
+  }
+  
+  const absoluteUrl = getAbsoluteUrl(imageUrl)
+  
+  // Debug da URL
+  console.log('🖼️ ImageViewer - URLs:', { 
+    original: imageUrl, 
+    absolute: absoluteUrl,
+    fileName 
+  })
 
   return (
     <>
       <div className="image-viewer">
-        <img 
-          src={imageUrl} 
-          alt={fileName || 'Imagem'} 
-          className="message-image"
-          onClick={() => setShowFullSize(true)}
-        />
-        <div className="image-actions">
+        {imageError ? (
+          <div className="image-error" style={{ 
+            padding: '20px', 
+            background: '#f3f4f6', 
+            borderRadius: '8px', 
+            textAlign: 'center',
+            color: '#6b7280',
+            border: '1px solid #e5e7eb'
+          }}>
+            <FileImage size={32} style={{ margin: '0 auto 8px' }} />
+            <div>❌ Imagem não disponível</div>
+            <small>{fileName || 'Arquivo de imagem'}</small>
+            <div style={{ marginTop: '8px', fontSize: '10px', color: '#9ca3af' }}>
+              URL: {absoluteUrl}
+            </div>
+          </div>
+        ) : (
+          <div style={{ position: 'relative' }}>
+            {isLoading && (
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                background: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                zIndex: 1
+              }}>
+                ⏳ Carregando...
+              </div>
+            )}
+            <img 
+              src={absoluteUrl} 
+              alt={fileName || 'Imagem'} 
+              className="message-image"
+              onClick={() => !imageError && setShowFullSize(true)}
+              onError={() => {
+                console.error('❌ Erro ao carregar imagem:', { 
+                  url: absoluteUrl, 
+                  original: imageUrl,
+                  fileName 
+                })
+                setImageError(true)
+                setIsLoading(false)
+              }}
+              onLoad={() => {
+                console.log('✅ Imagem carregada com sucesso:', absoluteUrl)
+                setImageError(false)
+                setIsLoading(false)
+              }}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '300px',
+                borderRadius: '8px',
+                cursor: imageError ? 'default' : 'pointer',
+                display: 'block'
+              }}
+            />
+          </div>
+        )}
+        <div className="image-actions" style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
           <a 
-            href={imageUrl} 
+            href={absoluteUrl} 
             download={fileName} 
             className="download-button" 
             title="Baixar imagem"
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: '#e9edef',
+              background: '#25d366',
+              color: 'white',
               border: 'none',
               borderRadius: '6px',
-              width: '28px',
-              height: '28px',
+              width: '32px',
+              height: '32px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               textDecoration: 'none'
             }}
           >
-            <Download size={14} style={{ display: 'block' }} />
+            <Download size={16} style={{ display: 'block' }} />
           </a>
+          <button 
+            onClick={() => window.open(absoluteUrl, '_blank')}
+            title="Abrir em nova aba"
+            style={{
+              background: '#128c7e',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            🔗
+          </button>
         </div>
       </div>
       
-      {showFullSize && (
+      {showFullSize && !imageError && (
         <div className="image-modal" onClick={() => setShowFullSize(false)}>
           <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="image-modal-close" onClick={() => setShowFullSize(false)}>
               <XCircle size={20} />
             </button>
-            <img src={imageUrl} alt={fileName || 'Imagem'} className="full-size-image" />
+            <img src={absoluteUrl} alt={fileName || 'Imagem'} className="full-size-image" />
           </div>
         </div>
       )}
@@ -561,6 +729,11 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   // Estados para emoji picker e upload de arquivos
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Estados para colar imagens
+  const [pastedImage, setPastedImage] = useState<File | null>(null)
+  const [showPastedImagePreview, setShowPastedImagePreview] = useState(false)
+  const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null)
 
   // Função para carregar operadores disponíveis
   const loadOperators = async () => {
@@ -1200,6 +1373,55 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
   }, [selectedChat])
 
+  // Função para lidar com imagens coladas (Ctrl+V)
+  const handlePaste = useCallback(async (event: any) => {
+    if (!selectedChat) return
+    
+    const items = event.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      
+      // Verificar se é uma imagem
+      if (item.type.indexOf('image') !== -1) {
+        event.preventDefault()
+        
+        const file = item.getAsFile()
+        if (!file) continue
+
+        console.log('📋 Imagem colada:', { name: file.name, type: file.type, size: file.size })
+
+        // Criar preview da imagem
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const imageDataUrl = e.target?.result as string
+          setPastedImagePreview(imageDataUrl)
+          setPastedImage(file)
+          setShowPastedImagePreview(true)
+        }
+        reader.readAsDataURL(file)
+        
+        break
+      }
+    }
+  }, [selectedChat])
+
+  // Adicionar listener para colar imagens (Ctrl+V)
+  useEffect(() => {
+    const chatContainer = document.querySelector('.chat-main')
+    if (chatContainer && selectedChat) {
+      const handleGlobalPaste = (e: Event) => handlePaste(e)
+      
+      // Adicionar listener apenas quando há chat selecionado
+      chatContainer.addEventListener('paste', handleGlobalPaste)
+      
+      return () => {
+        chatContainer.removeEventListener('paste', handleGlobalPaste)
+      }
+    }
+  }, [selectedChat, handlePaste])
+
   // Lista de emojis mais usados
   const commonEmojis = [
     '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
@@ -1220,6 +1442,68 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   const insertEmoji = (emoji: string) => {
     setNewChatMessage(prev => prev + emoji)
     setShowEmojiPicker(false)
+  }
+
+
+
+  // Função para enviar imagem colada
+  const sendPastedImage = async () => {
+    if (!pastedImage || !selectedChat) return
+
+    try {
+      const currentChat = humanChats.find(chat => chat.id === selectedChat)
+      if (!currentChat) return
+
+      const formData = new FormData()
+      
+      // Criar nome único para a imagem colada
+      const timestamp = Date.now()
+      const extension = pastedImage.type.split('/')[1] || 'png'
+      const fileName = `pasted_image_${timestamp}.${extension}`
+      
+      formData.append('file', pastedImage, fileName)
+      formData.append('chatId', currentChat.contactNumber + '@c.us')
+      formData.append('operatorName', operatorName)
+
+      const authToken = localStorage.getItem('authToken')
+      
+      console.log('📤 Enviando imagem colada:', fileName)
+      
+      const response = await fetch('/api/messages/upload-file', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Imagem colada enviada com sucesso:', data)
+        
+        // Fechar preview
+        setShowPastedImagePreview(false)
+        setPastedImage(null)
+        setPastedImagePreview(null)
+        
+        // Mostrar confirmação
+        console.log('🖼️ Imagem enviada para', currentChat.contactName)
+      } else {
+        const error = await response.json()
+        console.error('❌ Erro ao enviar imagem colada:', error)
+        alert(error.message || 'Erro ao enviar imagem')
+      }
+    } catch (error) {
+      console.error('❌ Erro ao fazer upload da imagem colada:', error)
+      alert('Erro ao enviar imagem colada')
+    }
+  }
+
+  // Função para cancelar envio da imagem colada
+  const cancelPastedImage = () => {
+    setShowPastedImagePreview(false)
+    setPastedImage(null)
+    setPastedImagePreview(null)
   }
 
   // Função para upload de arquivo
@@ -2238,13 +2522,24 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                 controls 
                                 className="message-video"
                                 preload="metadata"
+                                onError={(e) => {
+                                  console.error('❌ Erro ao carregar vídeo:', message.fileUrl)
+                                  e.currentTarget.style.display = 'none'
+                                  const errorDiv = document.createElement('div')
+                                  errorDiv.innerHTML = '⚠️ Erro ao carregar vídeo'
+                                  errorDiv.style.cssText = 'padding: 20px; background: #f3f4f6; border-radius: 8px; text-align: center; color: #6b7280;'
+                                  e.currentTarget.parentNode?.appendChild(errorDiv)
+                                }}
+                                onLoadedData={() => {
+                                  console.log('✅ Vídeo carregado:', message.fileUrl)
+                                }}
                               >
-                                <source src={message.fileUrl} type={message.mimeType} />
+                                <source src={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} type={message.mimeType} />
                                 Seu navegador não suporta reprodução de vídeo.
                               </video>
                               <div className="video-actions">
                                 <a 
-                                  href={message.fileUrl} 
+                                  href={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} 
                                   download={message.fileName} 
                                   className="download-button"
                                   style={{
@@ -2355,7 +2650,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                             ? `Responder a "${replyingToMessage.body.substring(0, 30)}${replyingToMessage.body.length > 30 ? '...' : ''}"`
                             : currentChat.status === 'pending' && !currentChat.assignedOperator
                               ? `Assuma a conversa para responder...`
-                              : `Responder para ${currentChat.contactName}...`
+                              : `Responder para ${currentChat.contactName}... (Ctrl+V para colar imagens)`
                         }
                         disabled={currentChat.status === 'pending' && !currentChat.assignedOperator}
                         onKeyDown={(e) => {
@@ -2367,6 +2662,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                             setReplyingToMessage(null)
                           }
                         }}
+                        onPaste={handlePaste}
                       />
                       <button
                         className="btn-send"
@@ -2803,6 +3099,74 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 disabled={!documentDescription.trim()}
               >
                 💾 Catalogar Documento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para preview de imagem colada */}
+      {showPastedImagePreview && pastedImagePreview && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>📋 Enviar Imagem Colada</h3>
+              <button className="modal-close" onClick={cancelPastedImage}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <p>Você colou uma imagem. Deseja enviá-la para o cliente?</p>
+              </div>
+              
+              <div className="pasted-image-preview" style={{
+                textAlign: 'center',
+                marginBottom: '20px',
+                border: '2px dashed #e5e7eb',
+                borderRadius: '8px',
+                padding: '20px'
+              }}>
+                <img 
+                  src={pastedImagePreview} 
+                  alt="Imagem colada" 
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '300px',
+                    borderRadius: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <div style={{ marginTop: '10px', fontSize: '14px', color: '#6b7280' }}>
+                  {pastedImage && (
+                    <>
+                      Tipo: {pastedImage.type} | 
+                      Tamanho: {(pastedImage.size / 1024).toFixed(1)} KB
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                type="button"
+                className="btn-cancel"
+                onClick={cancelPastedImage}
+              >
+                ❌ Cancelar
+              </button>
+              <button 
+                type="button"
+                className="btn-confirm"
+                onClick={sendPastedImage}
+                style={{
+                  background: '#25d366',
+                  borderColor: '#25d366'
+                }}
+              >
+                📤 Enviar Imagem
               </button>
             </div>
           </div>

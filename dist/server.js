@@ -1090,8 +1090,66 @@ async function transferToHumanBaileys(managerId, sender, contactName, dbContact)
     }
 }
 // ===== ROTAS DA API =====
-// Servir arquivos de mídia
-app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '..', 'uploads')));
+// Servir arquivos de mídia com headers apropriados
+app.use('/uploads', (req, res, next) => {
+    // Headers para permitir acesso a arquivos de mídia
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+    // Determinar Content-Type baseado na extensão do arquivo
+    const ext = req.path.toLowerCase().split('.').pop();
+    switch (ext) {
+        case 'ogg':
+        case 'oga':
+            res.setHeader('Content-Type', 'audio/ogg');
+            break;
+        case 'mp3':
+            res.setHeader('Content-Type', 'audio/mpeg');
+            break;
+        case 'wav':
+            res.setHeader('Content-Type', 'audio/wav');
+            break;
+        case 'm4a':
+            res.setHeader('Content-Type', 'audio/mp4');
+            break;
+        case 'aac':
+            res.setHeader('Content-Type', 'audio/aac');
+            break;
+        case 'mp4':
+            res.setHeader('Content-Type', 'video/mp4');
+            break;
+        case 'webm':
+            res.setHeader('Content-Type', 'video/webm');
+            break;
+        case 'pdf':
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'inline');
+            break;
+        case 'jpg':
+        case 'jpeg':
+            res.setHeader('Content-Type', 'image/jpeg');
+            break;
+        case 'png':
+            res.setHeader('Content-Type', 'image/png');
+            break;
+        case 'gif':
+            res.setHeader('Content-Type', 'image/gif');
+            break;
+        case 'webp':
+            res.setHeader('Content-Type', 'image/webp');
+            break;
+    }
+    // Headers de cache
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    next();
+}, express_1.default.static(path_1.default.join(__dirname, '..', 'uploads'), {
+    // Configurações adicionais para servir arquivos
+    etag: true,
+    lastModified: true,
+    maxAge: '1y',
+    // Permitir range requests para áudio/vídeo
+    acceptRanges: true
+}));
 // Usar rotas existentes
 app.use('/api/auth', auth_1.default);
 app.use('/api/users', users_1.default);
