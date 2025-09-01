@@ -108,8 +108,43 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
     }
     const handleEnded = () => setIsPlaying(false)
     const handleError = (e: Event) => {
-      console.error('❌ Erro ao carregar áudio:', e, audio.error)
-      setError(`Erro ao carregar áudio: ${audio.error?.message || 'Formato não suportado'}`)
+      const errorDetails = {
+        event: e,
+        audioError: audio.error,
+        networkState: audio.networkState,
+        readyState: audio.readyState,
+        currentSrc: audio.currentSrc,
+        canPlayType: {
+          ogg: audio.canPlayType('audio/ogg'),
+          mp3: audio.canPlayType('audio/mpeg'),
+          wav: audio.canPlayType('audio/wav'),
+          m4a: audio.canPlayType('audio/mp4')
+        }
+      }
+      
+      console.error('❌ Erro ao carregar áudio:', errorDetails)
+      
+      let errorMessage = 'Formato de áudio não suportado'
+      if (audio.error) {
+        switch (audio.error.code) {
+          case 1: // MEDIA_ERR_ABORTED
+            errorMessage = 'Carregamento cancelado'
+            break
+          case 2: // MEDIA_ERR_NETWORK
+            errorMessage = 'Erro de rede'
+            break
+          case 3: // MEDIA_ERR_DECODE
+            errorMessage = 'Erro de decodificação'
+            break
+          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+            errorMessage = 'Formato não suportado pelo navegador'
+            break
+          default:
+            errorMessage = audio.error.message || 'Erro desconhecido'
+        }
+      }
+      
+      setError(errorMessage)
       setIsLoading(false)
     }
     const handleCanPlay = () => {
@@ -118,7 +153,15 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
       setError(null)
     }
 
-    // Tentar diferentes formatos e URLs
+    // Verificar suporte do navegador para o formato
+    console.log('🔊 Suporte de áudio do navegador:', {
+      ogg: audio.canPlayType('audio/ogg'),
+      mp3: audio.canPlayType('audio/mpeg'),
+      wav: audio.canPlayType('audio/wav'),
+      m4a: audio.canPlayType('audio/mp4')
+    })
+    
+    // Configurar src e listeners
     audio.src = absoluteUrl
     
     audio.addEventListener('timeupdate', updateTime)
@@ -126,9 +169,26 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
     audio.addEventListener('ended', handleEnded)
     audio.addEventListener('error', handleError)
     audio.addEventListener('canplay', handleCanPlay)
+    audio.addEventListener('loadstart', () => console.log('🔊 Iniciando carregamento do áudio'))
+    audio.addEventListener('progress', () => console.log('🔊 Progresso do carregamento'))
 
-    // Carregar o áudio
-    audio.load()
+    // Verificar se a URL é acessível antes de tentar carregar
+    fetch(absoluteUrl, { method: 'HEAD' })
+      .then(response => {
+        console.log('🔍 Status do arquivo de áudio:', response.status, response.headers.get('content-type'))
+        if (response.ok) {
+          // Carregar o áudio apenas se o arquivo existir
+          audio.load()
+        } else {
+          setError(`Arquivo não encontrado (${response.status})`)
+          setIsLoading(false)
+        }
+      })
+      .catch(err => {
+        console.error('❌ Erro ao verificar arquivo de áudio:', err)
+        // Tentar carregar mesmo assim
+        audio.load()
+      })
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime)
@@ -286,23 +346,40 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
     const absoluteUrl = getAbsoluteUrl(fileUrl)
     console.log('📄 Abrindo documento:', { originalUrl: fileUrl, absoluteUrl })
     
-    // Tentar abrir o documento em uma nova aba
-    try {
-      const newWindow = window.open(absoluteUrl, '_blank')
-      if (!newWindow) {
-        // Se o popup foi bloqueado, tentar download direto
-        console.warn('⚠️ Popup bloqueado, tentando download direto')
-        const link = document.createElement('a')
-        link.href = absoluteUrl
-        link.download = fileName || 'documento'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      }
-    } catch (error) {
-      console.error('❌ Erro ao abrir documento:', error)
-      alert('Erro ao abrir documento. Tente baixar o arquivo.')
-    }
+    // Verificar se a URL é acessível primeiro
+    fetch(absoluteUrl, { method: 'HEAD' })
+      .then(response => {
+        console.log('🔍 Status do arquivo:', response.status, response.statusText)
+        if (response.ok) {
+          // Arquivo existe, tentar abrir
+          try {
+            const newWindow = window.open(absoluteUrl, '_blank', 'noopener,noreferrer')
+            if (!newWindow || newWindow.closed) {
+              // Se o popup foi bloqueado, tentar download direto
+              console.warn('⚠️ Popup bloqueado, tentando download direto')
+              const link = document.createElement('a')
+              link.href = absoluteUrl
+              link.download = fileName || 'documento'
+              link.target = '_blank'
+              link.rel = 'noopener noreferrer'
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+            }
+          } catch (error) {
+            console.error('❌ Erro ao abrir documento:', error)
+            // Tentar download como fallback
+            window.location.href = absoluteUrl
+          }
+        } else {
+          console.error('❌ Arquivo não encontrado:', response.status)
+          alert(`Arquivo não encontrado no servidor (${response.status}). Verifique se o arquivo existe.`)
+        }
+      })
+      .catch(error => {
+        console.error('❌ Erro ao verificar arquivo:', error)
+        alert('Erro ao acessar arquivo. Verifique sua conexão.')
+      })
   }
 
   const handleSaveDocument = () => {
