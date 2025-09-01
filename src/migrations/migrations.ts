@@ -368,7 +368,6 @@ const migration008: Migration = {
       'ALTER TABLE devices ADD COLUMN whatsapp_status ENUM("disconnected", "connecting", "connected", "error") DEFAULT "disconnected" AFTER language',
       'ALTER TABLE devices ADD COLUMN whatsapp_phone VARCHAR(20) NULL AFTER whatsapp_status',
       'ALTER TABLE devices ADD INDEX idx_whatsapp_instance_id (whatsapp_instance_id)',
-      'ALTER TABLE devices ADD INDEX idx_whatsapp_status (whatsapp_status)',
       'ALTER TABLE devices ADD FOREIGN KEY (whatsapp_instance_id) REFERENCES whatsapp_instances(id) ON DELETE SET NULL'
     ];
     
@@ -387,7 +386,6 @@ const migration008: Migration = {
     const dropQueries = [
       'ALTER TABLE devices DROP FOREIGN KEY devices_ibfk_2',
       'ALTER TABLE devices DROP INDEX idx_whatsapp_instance_id',
-      'ALTER TABLE devices DROP INDEX idx_whatsapp_status', 
       'ALTER TABLE devices DROP COLUMN whatsapp_instance_id',
       'ALTER TABLE devices DROP COLUMN whatsapp_status',
       'ALTER TABLE devices DROP COLUMN whatsapp_phone'

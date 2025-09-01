@@ -1,4 +1,7 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { authenticate } from '../middleware/auth';
 import { MessageProjectModel, AutoMessageModel } from '../models/MessageProject';
 import { ContactModel, MessageModel, HumanChatModel } from '../models/Message';
@@ -6,6 +9,58 @@ import { UserModel } from '../models/User';
 import { executeQuery } from '../config/database';
 
 const router = express.Router();
+
+// ===== CONFIGURAÇÃO DO MULTER PARA UPLOAD =====
+
+// Configurar storage do multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '..', '..', 'uploads', 'media');
+    // Criar diretório se não existir
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Gerar nome único para o arquivo
+    const timestamp = Date.now();
+    const extension = path.extname(file.originalname);
+    const filename = `DOC_${timestamp}_${req.user?.id || 'unknown'}${extension}`;
+    cb(null, filename);
+  }
+});
+
+// Filtro de tipos de arquivo permitidos
+const fileFilter = (req: any, file: any, cb: any) => {
+  const allowedTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain'
+  ];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de arquivo não suportado'), false);
+  }
+};
+
+// Configuração do multer
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});
 
 // ===== ROTAS DE CONTATOS =====
 
@@ -996,6 +1051,190 @@ router.post('/human-chats/:chatId/messages', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Upload de arquivo para chat humano
+router.post('/upload-file', authenticate, upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    console.log('📎 Recebendo upload de arquivo...');
+    
+    if (!req.user) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+    }
+    
+    const { chatId, operatorName } = req.body;
+    
+    if (!chatId) {
+      return res.status(400).json({ error: 'ID do chat é obrigatório' });
+    }
+    
+    console.log('📎 Arquivo recebido:', {
+      originalName: req.file.originalname,
+      filename: req.file.filename,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      chatId: chatId,
+      operatorName: operatorName
+    });
+    
+    // Buscar informações do chat para validar permissões
+    const chatNumber = chatId.replace('@c.us', '');
+    
+    // Buscar contato pelo telefone (precisa do manager_id)
+    const managerId = req.user.manager_id || req.user.id;
+    const contact = await ContactModel.findByPhoneAndManager(chatNumber, managerId);
+    
+    if (!contact) {
+      return res.status(404).json({ error: 'Contato não encontrado' });
+    }
+    
+    // Buscar chat humano ativo
+    const humanChat = await HumanChatModel.findActiveByContact(contact.id);
+    
+    if (!humanChat) {
+      return res.status(404).json({ error: 'Chat humano não encontrado' });
+    }
+    
+    // Verificar permissão para envio
+    let canSendFile = false;
+    if (req.user.role === 'admin') {
+      canSendFile = true;
+    } else if (req.user.role === 'manager') {
+      canSendFile = humanChat.manager_id === req.user.id;
+    } else if (req.user.role === 'operator') {
+      canSendFile = (humanChat.manager_id === req.user.manager_id) && 
+                   (humanChat.assigned_to === req.user.id);
+    }
+    
+    if (!canSendFile) {
+      // Remover arquivo se não tem permissão
+      fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: 'Sem permissão para enviar arquivo neste chat' });
+    }
+    
+    // Criar mensagem no banco com informações do arquivo
+    const mediaUrl = `/uploads/media/${req.file.filename}`;
+    
+    const message = await MessageModel.create({
+      manager_id: humanChat.manager_id,
+      chat_id: humanChat.id,
+      contact_id: contact.id,
+      sender_type: 'operator',
+      sender_id: req.user.id,
+      content: `📎 Arquivo enviado: ${req.file.originalname}`,
+      message_type: req.file.mimetype.startsWith('image/') ? 'image' : 'document',
+      media_url: mediaUrl
+    });
+    
+    console.log('✅ Arquivo salvo e mensagem criada:', {
+      messageId: message.id,
+      mediaUrl: mediaUrl,
+      originalName: req.file.originalname
+    });
+    
+    // 📤 ENVIAR ARQUIVO VIA WHATSAPP BAILEYS
+    try {
+      // Buscar instância ativa do WhatsApp
+      const instances = (global as any).whatsappInstances;
+      const instance = instances && instances.get(humanChat.manager_id);
+      
+      if (instance?.sock && instance.isReady) {
+        // Formato correto para Baileys
+        const phoneNumber = contact.phone_number + '@s.whatsapp.net';
+        
+        // Obter nome do operador
+        const operatorName = req.user.name || 'Operador';
+        
+        // Preparar mídia para envio
+        const filePath = path.resolve(req.file.path);
+        
+        let mediaMessage: any;
+        
+        if (req.file.mimetype.startsWith('image/')) {
+          // Enviar como imagem
+          mediaMessage = {
+            image: { url: filePath },
+            caption: `*${operatorName}:* 📷 ${req.file.originalname}`
+          };
+        } else {
+          // Enviar como documento
+          mediaMessage = {
+            document: { url: filePath },
+            fileName: req.file.originalname,
+            caption: `*${operatorName}:* 📎 ${req.file.originalname}`,
+            mimetype: req.file.mimetype
+          };
+        }
+        
+        console.log(`📤 Enviando arquivo via Baileys para ${phoneNumber}...`);
+        console.log(`📁 Arquivo: ${req.file.originalname} (${req.file.mimetype})`);
+        
+        // Enviar arquivo via Baileys
+        await instance.sock.sendMessage(phoneNumber, mediaMessage);
+        
+        console.log(`✅ Arquivo ${req.file.originalname} enviado com sucesso via Baileys!`);
+        
+        // Atualizar mensagem no banco com status de envio
+        await executeQuery(
+          'UPDATE messages SET content = ? WHERE id = ?',
+          [`*${operatorName}:* 📎 ${req.file.originalname} ✅`, message.id]
+        );
+        
+        // 📡 NOTIFICAR VIA SOCKET.IO QUE ARQUIVO FOI ENVIADO
+        const io = (global as any).io;
+        if (io) {
+          io.to(`manager_${humanChat.manager_id}`).emit('file_sent_success', {
+            chatId: chatId,
+            messageId: message.id,
+            filename: req.file.originalname,
+            mediaUrl: mediaUrl,
+            timestamp: new Date(),
+            operatorName: operatorName
+          });
+        }
+        
+      } else {
+        console.warn(`⚠️ Instância do WhatsApp não disponível para manager ${humanChat.manager_id}`);
+        console.warn(`🔍 Instance estado:`, {
+          exists: !!instance,
+          hasSock: !!(instance?.sock),
+          isReady: instance?.isReady
+        });
+      }
+    } catch (whatsappError) {
+      console.error('❌ Erro ao enviar arquivo via WhatsApp:', whatsappError);
+      // Não falhar a requisição se o WhatsApp falhar, arquivo já foi salvo
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Arquivo enviado com sucesso',
+      data: {
+        messageId: message.id,
+        filename: req.file.originalname,
+        mediaUrl: mediaUrl,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao fazer upload do arquivo:', error);
+    
+    // Remover arquivo em caso de erro
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: error instanceof Error ? error.message : 'Erro desconhecido'
+    });
   }
 });
 

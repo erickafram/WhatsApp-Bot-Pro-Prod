@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   MessageSquareText,
   MessageCircle,
@@ -20,7 +20,9 @@ import {
   Video,
   Bookmark,
   Reply,
-  X
+  X,
+  Smile,
+  Paperclip
 } from 'lucide-react'
 import './HumanChatWhatsApp.css'
 
@@ -555,6 +557,10 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   const [documentCategory, setDocumentCategory] = useState('outros')
   const [documentTags, setDocumentTags] = useState('')
   const [isImportantDocument, setIsImportantDocument] = useState(false)
+  
+  // Estados para emoji picker e upload de arquivos
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Função para carregar operadores disponíveis
   const loadOperators = async () => {
@@ -1194,6 +1200,94 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
   }, [selectedChat])
 
+  // Lista de emojis mais usados
+  const commonEmojis = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+    '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+    '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
+    '👈', '👉', '👆', '🖕', '👇', '☝️', '👏', '🙌', '👐', '🤲',
+    '🤝', '🙏', '✍️', '💪', '❤️', '🧡', '💛', '💚', '💙', '💜',
+    '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖',
+    '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯',
+    '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌',
+    '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑'
+  ]
+
+  // Função para inserir emoji no texto
+  const insertEmoji = (emoji: string) => {
+    setNewChatMessage(prev => prev + emoji)
+    setShowEmojiPicker(false)
+  }
+
+  // Função para upload de arquivo
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Verificar se é um arquivo válido (PDF, imagem, documento)
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      alert('Tipo de arquivo não suportado. Use PDF, imagens ou documentos do Office.')
+      return
+    }
+
+    // Verificar tamanho (máximo 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Arquivo muito grande. Máximo 10MB.')
+      return
+    }
+
+    try {
+      const currentChat = humanChats.find(chat => chat.id === selectedChat)
+      if (!currentChat) return
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('chatId', currentChat.contactNumber + '@c.us')
+      formData.append('operatorName', operatorName)
+
+      const authToken = localStorage.getItem('authToken')
+      const response = await fetch('/api/messages/upload-file', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Arquivo enviado com sucesso:', data)
+        
+        // Limpar input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      } else {
+        const error = await response.json()
+        console.error('❌ Erro ao enviar arquivo:', error)
+        alert(error.message || 'Erro ao enviar arquivo')
+      }
+    } catch (error) {
+      console.error('❌ Erro ao fazer upload:', error)
+      alert('Erro ao enviar arquivo')
+    }
+  }
+
   // Função unificada para enviar mensagem
   const sendMessage = () => {
     if (!newChatMessage.trim() || !selectedChat) return
@@ -1697,6 +1791,51 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       console.log('✅ Confirmação de envio de mensagem:', data);
     });
 
+    // Listener para arquivos enviados com sucesso
+    socket.on('file_sent_success', (data: {
+      chatId: string
+      messageId: number
+      filename: string
+      mediaUrl: string
+      timestamp: Date
+      operatorName: string
+    }) => {
+      console.log('📎 Arquivo enviado com sucesso:', data);
+      
+      // Atualizar a lista de chats para mostrar a nova mensagem
+      setHumanChats(prevChats => 
+        prevChats.map(chat => {
+          if (chat.contactNumber + '@c.us' === data.chatId) {
+            // Criar nova mensagem de arquivo
+            const newMessage: ChatMessage = {
+              id: `${data.messageId}`,
+              from: 'operator',
+              to: chat.contactNumber,
+              body: `*${data.operatorName}:* 📎 ${data.filename} ✅`,
+              timestamp: new Date(data.timestamp),
+              isFromBot: false,
+              isFromHuman: true,
+              messageType: 'document',
+              fileUrl: data.mediaUrl,
+              fileName: data.filename
+            };
+
+            // Adicionar mensagem ao chat se não existir
+            const messageExists = chat.messages.some(msg => msg.id === newMessage.id);
+            if (!messageExists) {
+              return {
+                ...chat,
+                messages: [...chat.messages, newMessage],
+                lastMessage: newMessage.body,
+                lastMessageTime: newMessage.timestamp
+              };
+            }
+          }
+          return chat;
+        })
+      );
+    });
+
     // Listener para alertas instantâneos da dashboard
     socket.on('dashboard_instant_alert', (data: {
       type: 'chat_reopened' | 'menu_access'
@@ -1729,6 +1868,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       socket.off('operator_message_error')
       socket.off('message_send_error')
       socket.off('message_sent_confirmation')
+      socket.off('file_sent_success')
     }
   }, [socket, humanChats, loadChatsFromDatabase])
 
@@ -2177,13 +2317,43 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     )}
                     
                     <div className="input-container">
+                      {/* Botões de ação */}
+                      <div className="input-actions">
+                        {/* Botão de emoji */}
+                        <button
+                          className="action-btn emoji-btn"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                          title="Adicionar emoji"
+                        >
+                          <Smile size={18} />
+                        </button>
+                        
+                        {/* Botão de upload */}
+                        <button
+                          className="action-btn upload-btn"
+                          onClick={() => fileInputRef.current?.click()}
+                          title="Enviar arquivo"
+                        >
+                          <Paperclip size={18} />
+                        </button>
+                        
+                        {/* Input de arquivo oculto */}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+                          onChange={handleFileUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </div>
+
                       <textarea
                         value={newChatMessage}
                         onChange={(e) => setNewChatMessage(e.target.value)}
                         placeholder={
                           replyingToMessage
                             ? `Responder a "${replyingToMessage.body.substring(0, 30)}${replyingToMessage.body.length > 30 ? '...' : ''}"`
-                            : currentChat.status === 'pending' && !currentChat.assignedOperator 
+                            : currentChat.status === 'pending' && !currentChat.assignedOperator
                               ? `Assuma a conversa para responder...`
                               : `Responder para ${currentChat.contactName}...`
                         }
@@ -2210,6 +2380,33 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                         <Send size={18} />
                       </button>
                     </div>
+
+                    {/* Emoji Picker */}
+                    {showEmojiPicker && (
+                      <div className="emoji-picker">
+                        <div className="emoji-header">
+                          <span>Emojis mais usados</span>
+                          <button
+                            className="close-emoji"
+                            onClick={() => setShowEmojiPicker(false)}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        <div className="emoji-grid">
+                          {commonEmojis.map((emoji, index) => (
+                            <button
+                              key={index}
+                              className="emoji-btn"
+                              onClick={() => insertEmoji(emoji)}
+                              title={emoji}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

@@ -944,6 +944,116 @@
   -webkit-box-orient: vertical !important;
 }
 
+/* Botões de ação do input */
+.input-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  margin-right: 0.5rem !important;
+}
+
+.action-btn {
+  width: 32px !important;
+  height: 32px !important;
+  background: none !important;
+  border: none !important;
+  border-radius: 50% !important;
+  color: var(--wa-icon-secondary) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+}
+
+.action-btn:hover {
+  background: var(--wa-hover) !important;
+  color: var(--wa-text-primary) !important;
+  transform: scale(1.1) !important;
+}
+
+.emoji-btn:hover {
+  color: var(--wa-yellow) !important;
+}
+
+.upload-btn:hover {
+  color: var(--wa-blue) !important;
+}
+
+/* Emoji Picker */
+.emoji-picker {
+  position: absolute !important;
+  bottom: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: var(--wa-dark-secondary) !important;
+  border: 1px solid var(--wa-border) !important;
+  border-radius: 12px !important;
+  margin-bottom: 0.5rem !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  z-index: 1000 !important;
+  max-height: 200px !important;
+  overflow: hidden !important;
+}
+
+.emoji-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 0.75rem 1rem !important;
+  border-bottom: 1px solid var(--wa-border) !important;
+  background: var(--wa-dark-tertiary) !important;
+}
+
+.emoji-header span {
+  font-size: 0.85rem !important;
+  color: var(--wa-text-primary) !important;
+  font-weight: 500 !important;
+}
+
+.close-emoji {
+  background: none !important;
+  border: none !important;
+  color: var(--wa-text-tertiary) !important;
+  cursor: pointer !important;
+  padding: 0.25rem !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease !important;
+}
+
+.close-emoji:hover {
+  background: var(--wa-hover) !important;
+  color: var(--wa-text-primary) !important;
+}
+
+.emoji-grid {
+  display: grid !important;
+  grid-template-columns: repeat(10, 1fr) !important;
+  gap: 0.25rem !important;
+  padding: 0.75rem !important;
+  max-height: 140px !important;
+  overflow-y: auto !important;
+}
+
+.emoji-btn {
+  width: 32px !important;
+  height: 32px !important;
+  background: none !important;
+  border: none !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1.2rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.emoji-btn:hover {
+  background: var(--wa-hover) !important;
+  transform: scale(1.2) !important;
+}
+
 /* Container principal do input melhorado */
 .input-container {
   display: flex !important;
