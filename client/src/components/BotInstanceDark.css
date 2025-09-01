@@ -1,0 +1,583 @@
+/* CSS Específico para BotInstance - Tema Dark WhatsApp Web */
+
+/* Cores do tema dark WhatsApp */
+:root {
+  --wa-dark-bg: #111b21;
+  --wa-dark-secondary: #202c33;
+  --wa-dark-tertiary: #2a3942;
+  --wa-chat-bg: #0b141a;
+  --wa-panel-bg: #111b21;
+  --wa-sent-msg: #005c4b;
+  --wa-received-msg: #202c33;
+  --wa-text-primary: #e9edef;
+  --wa-text-secondary: #8696a0;
+  --wa-text-tertiary: #667781;
+  --wa-icon-primary: #aebac1;
+  --wa-icon-secondary: #8696a0;
+  --wa-border: #222d34;
+  --wa-hover: #2a3942;
+  --wa-green: #00a884;
+  --wa-green-dark: #008069;
+  --wa-blue: #53bdeb;
+  --wa-red: #ff6b6b;
+  --wa-yellow: #ffd93d;
+  --wa-orange: #ff9500;
+  --wa-purple: #8b5cf6;
+}
+
+/* Container principal */
+.bot-instance-simple {
+  background: var(--wa-dark-bg) !important;
+  color: var(--wa-text-primary) !important;
+  min-height: 100vh !important;
+  font-family: 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  padding: 1.5rem !important;
+}
+
+/* Header da instância */
+.instance-header-simple {
+  background: var(--wa-dark-secondary) !important;
+  border: 1px solid var(--wa-border) !important;
+  border-radius: 12px !important;
+  padding: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+}
+
+.header-left svg {
+  color: var(--wa-green) !important;
+  padding: 0.5rem !important;
+  background: rgba(0, 168, 132, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+.header-left h1 {
+  color: var(--wa-text-primary) !important;
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  margin: 0 0 0.25rem 0 !important;
+}
+
+.status-badge {
+  font-size: 0.8rem !important;
+  padding: 0.3rem 0.8rem !important;
+  border-radius: 20px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.status-badge.active {
+  background: rgba(0, 168, 132, 0.15) !important;
+  color: var(--wa-green) !important;
+  border: 1px solid rgba(0, 168, 132, 0.3) !important;
+}
+
+.status-badge.inactive {
+  background: rgba(255, 107, 107, 0.15) !important;
+  color: var(--wa-red) !important;
+  border: 1px solid rgba(255, 107, 107, 0.3) !important;
+}
+
+.btn-logout-simple {
+  background: var(--wa-dark-tertiary) !important;
+  color: var(--wa-text-primary) !important;
+  border: 1px solid var(--wa-border) !important;
+  padding: 0.75rem 1.5rem !important;
+  border-radius: 8px !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-logout-simple:hover {
+  background: var(--wa-hover) !important;
+  border-color: var(--wa-text-tertiary) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Stats Cards - Layout lado a lado */
+.stats-simple {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  gap: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.stat-card {
+  background: var(--wa-dark-secondary) !important;
+  border: 1px solid var(--wa-border) !important;
+  border-radius: 12px !important;
+  padding: 1.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.stat-card:hover {
+  background: var(--wa-hover) !important;
+  border-color: var(--wa-text-tertiary) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+.stat-icon {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+/* Ícones com cores específicas */
+.stat-card:nth-child(1) .stat-icon {
+  background: rgba(0, 168, 132, 0.15) !important;
+  color: var(--wa-green) !important;
+}
+
+.stat-card:nth-child(2) .stat-icon {
+  background: rgba(83, 189, 235, 0.15) !important;
+  color: var(--wa-blue) !important;
+}
+
+.stat-card:nth-child(3) .stat-icon {
+  background: rgba(255, 217, 61, 0.15) !important;
+  color: var(--wa-yellow) !important;
+}
+
+.stat-card h3 {
+  color: var(--wa-text-primary) !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  margin: 0 0 0.25rem 0 !important;
+}
+
+.stat-card p {
+  color: var(--wa-text-secondary) !important;
+  font-size: 0.9rem !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+}
+
+/* Card de informações da assinatura */
+.instance-info-card {
+  margin-bottom: 1.5rem !important;
+}
+
+.info-card {
+  background: var(--wa-dark-secondary) !important;
+  border: 1px solid var(--wa-border) !important;
+  border-radius: 12px !important;
+  padding: 1.5rem !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 1rem !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.info-card.admin {
+  border-color: var(--wa-green) !important;
+  background: linear-gradient(135deg, var(--wa-dark-secondary), rgba(0, 168, 132, 0.05)) !important;
+}
+
+.info-card.premium {
+  border-color: var(--wa-yellow) !important;
+  background: linear-gradient(135deg, var(--wa-dark-secondary), rgba(255, 217, 61, 0.05)) !important;
+}
+
+.info-card.free {
+  border-color: var(--wa-red) !important;
+  background: linear-gradient(135deg, var(--wa-dark-secondary), rgba(255, 107, 107, 0.05)) !important;
+}
+
+.info-icon {
+  font-size: 2rem !important;
+  width: 48px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  flex-shrink: 0 !important;
+}
+
+.info-content {
+  flex: 1 !important;
+}
+
+.info-content h3 {
+  color: var(--wa-text-primary) !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  margin: 0 0 0.5rem 0 !important;
+}
+
+.info-content p {
+  color: var(--wa-text-secondary) !important;
+  font-size: 0.9rem !important;
+  margin: 0 0 1rem 0 !important;
+  line-height: 1.5 !important;
+}
+
+.subscription-expiry {
+  font-size: 0.85rem !important;
+  color: var(--wa-text-tertiary) !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.expiry-warning {
+  color: var(--wa-red) !important;
+  font-weight: 600 !important;
+}
+
+.instance-count {
+  font-size: 0.85rem !important;
+  color: var(--wa-text-tertiary) !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.subscription-benefits {
+  font-size: 0.85rem !important;
+  color: var(--wa-text-secondary) !important;
+  line-height: 1.6 !important;
+  margin-bottom: 1rem !important;
+  padding-left: 0.5rem !important;
+}
+
+.btn-upgrade-now {
+  background: var(--wa-yellow) !important;
+  color: #000 !important;
+  border: none !important;
+  padding: 0.75rem 1.5rem !important;
+  border-radius: 8px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-upgrade-now:hover {
+  background: #ffd700 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(255, 217, 61, 0.3) !important;
+}
+
+/* Lista de instâncias */
+.instance-list-simple {
+  margin-bottom: 1.5rem !important;
+}
+
+.instance-list-simple h2 {
+  color: var(--wa-text-primary) !important;
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  margin: 0 0 1rem 0 !important;
+}
+
+.instances {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.75rem !important;
+}
+
+.instance-item {
+  background: var(--wa-dark-secondary) !important;
+  border: 1px solid var(--wa-border) !important;
+  border-radius: 12px !important;
+  padding: 1.25rem !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.instance-item.connected {
+  border-color: var(--wa-green) !important;
+  background: linear-gradient(135deg, var(--wa-dark-secondary), rgba(0, 168, 132, 0.05)) !important;
+}
+
+.instance-item.disconnected {
+  border-color: var(--wa-red) !important;
+  background: linear-gradient(135deg, var(--wa-dark-secondary), rgba(255, 107, 107, 0.05)) !important;
+}
+
+.instance-item:hover {
+  background: var(--wa-hover) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+}
+
+.instance-info {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+}
+
+.instance-status {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+}
+
+.status-dot {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+}
+
+.status-dot.online {
+  background: var(--wa-green) !important;
+  box-shadow: 0 0 6px rgba(0, 168, 132, 0.4) !important;
+}
+
+.status-dot.offline {
+  background: var(--wa-red) !important;
+  box-shadow: 0 0 6px rgba(255, 107, 107, 0.4) !important;
+}
+
+.instance-status span {
+  color: var(--wa-text-primary) !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+}
+
+.instance-details {
+  margin-left: 1.75rem !important;
+}
+
+.online-text {
+  color: var(--wa-green) !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+}
+
+.offline-text {
+  color: var(--wa-red) !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+}
+
+/* Botões de ação */
+.actions-simple {
+  display: flex !important;
+  gap: 1rem !important;
+  flex-wrap: wrap !important;
+}
+
+.btn-simple {
+  padding: 0.875rem 1.5rem !important;
+  border-radius: 8px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  min-width: 160px !important;
+  justify-content: center !important;
+}
+
+.btn-primary {
+  background: var(--wa-green) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(0, 168, 132, 0.3) !important;
+}
+
+.btn-primary:hover {
+  background: var(--wa-green-dark) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0, 168, 132, 0.4) !important;
+}
+
+.btn-secondary {
+  background: var(--wa-dark-tertiary) !important;
+  color: var(--wa-text-primary) !important;
+  border: 1px solid var(--wa-border) !important;
+}
+
+.btn-secondary:hover {
+  background: var(--wa-hover) !important;
+  border-color: var(--wa-text-tertiary) !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-info {
+  background: var(--wa-blue) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(83, 189, 235, 0.3) !important;
+}
+
+.btn-info:hover {
+  background: #3ea6d3 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(83, 189, 235, 0.4) !important;
+}
+
+.btn-locked {
+  background: var(--wa-red) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3) !important;
+}
+
+.btn-locked:hover {
+  background: #ff5252 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4) !important;
+}
+
+.btn-simple:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-simple:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .bot-instance-simple {
+    padding: 1rem !important;
+  }
+
+  .instance-header-simple {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    align-items: flex-start !important;
+  }
+
+  .header-left {
+    width: 100% !important;
+  }
+
+  .btn-logout-simple {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .stats-simple {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .stat-card {
+    padding: 1.25rem !important;
+  }
+
+  .info-card {
+    flex-direction: column !important;
+    text-align: center !important;
+  }
+
+  .actions-simple {
+    flex-direction: column !important;
+  }
+
+  .btn-simple {
+    width: 100% !important;
+    min-width: unset !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .bot-instance-simple {
+    padding: 0.75rem !important;
+  }
+
+  .instance-header-simple,
+  .stat-card,
+  .info-card,
+  .instance-item {
+    padding: 1rem !important;
+  }
+
+  .header-left h1 {
+    font-size: 1.3rem !important;
+  }
+
+  .stat-icon {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .info-icon {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 1.5rem !important;
+  }
+}
+
+/* Animações suaves */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stat-card,
+.info-card,
+.instance-item {
+  animation: fadeIn 0.3s ease-out !important;
+}
+
+/* Estados de loading */
+.btn-simple svg {
+  transition: transform 0.2s ease !important;
+}
+
+.btn-simple:hover svg {
+  transform: scale(1.1) !important;
+}
+
+/* Melhorias visuais */
+.stat-card:hover .stat-icon,
+.info-card:hover .info-icon {
+  transform: scale(1.05) !important;
+  transition: transform 0.2s ease !important;
+}
+
+/* Scrollbar personalizada */
+.bot-instance-simple::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.bot-instance-simple::-webkit-scrollbar-track {
+  background: var(--wa-dark-bg) !important;
+}
+
+.bot-instance-simple::-webkit-scrollbar-thumb {
+  background: var(--wa-border) !important;
+  border-radius: 3px !important;
+}
+
+.bot-instance-simple::-webkit-scrollbar-thumb:hover {
+  background: var(--wa-hover) !important;
+}

@@ -275,9 +275,13 @@ router.get('/human-chats/:id', authenticate, async (req, res) => {
 router.get('/human-chats/:chatId/messages', authenticate, async (req, res) => {
   try {
     const chatId = parseInt(req.params.chatId);
-    const limit = parseInt(req.query.limit as string) || 50;
+    const includeAll = req.query.include_all === 'true';
+    const requestedLimit = parseInt(req.query.limit as string) || 50;
     
-    console.log(`🔍 Debug API - chatId: ${req.params.chatId}, parsed: ${chatId}, limit: ${limit}`);
+    // Se include_all=true, usar limite muito alto para pegar todas as mensagens
+    const limit = includeAll ? Math.max(requestedLimit, 1000) : requestedLimit;
+    
+    console.log(`🔍 Debug API - chatId: ${req.params.chatId}, parsed: ${chatId}, includeAll: ${includeAll}, limit: ${limit}`);
     
     if (!req.user) {
       return res.status(401).json({ error: 'Usuário não autenticado' });
@@ -451,12 +455,17 @@ router.put('/human-chats/:id/status', authenticate, async (req, res) => {
             isReady: instance?.isReady
           });
           
-          if (instance?.client && instance.isReady) {
+          // 🔧 COMPATÍVEL COM BAILEYS E WHATSAPP-WEB.JS
+          if ((instance?.client && instance.isReady) || (instance?.sock && instance.isReady)) {
             const operatorName = operator ? operator.name : 'operador';
-            const phoneNumber = contact.phone_number + '@c.us';
             
-            // Mensagem de encerramento com opções
-            const endMessage = `✅ *CONVERSA ENCERRADA*
+            // Formato correto para Baileys vs whatsapp-web.js
+            const phoneNumber = instance.sock ? 
+              contact.phone_number + '@s.whatsapp.net' :  // Baileys
+              contact.phone_number + '@c.us';             // whatsapp-web.js
+            
+            // Mensagem de encerramento com nome do operador
+            const endMessage = `*${operatorName}:* ✅ *CONVERSA ENCERRADA*
 
 Sua conversa com o operador ${operatorName} foi finalizada.
 
@@ -469,8 +478,17 @@ Você pode a qualquer momento:
 Digite o número da opção desejada! 😊`;
 
             console.log(`📤 Enviando mensagem de pós-encerramento para ${phoneNumber}...`);
-            await instance.client.sendMessage(phoneNumber, endMessage);
-            console.log(`✅ Mensagem de pós-encerramento enviada com sucesso para ${contact.phone_number}`);
+            
+            // Usar Baileys ou whatsapp-web.js conforme disponível
+            if (instance.sock) {
+              // Enviar via Baileys
+              await instance.sock.sendMessage(phoneNumber, { text: endMessage });
+              console.log(`✅ Mensagem de pós-encerramento enviada via BAILEYS para ${contact.phone_number}`);
+            } else if (instance.client) {
+              // Enviar via whatsapp-web.js (fallback)
+              await instance.client.sendMessage(phoneNumber, endMessage);
+              console.log(`✅ Mensagem de pós-encerramento enviada via WHATSAPP-WEB.JS para ${contact.phone_number}`);
+            }
             
             // 💾 SALVAR MENSAGEM DO SISTEMA NO BANCO
             await MessageModel.create({
@@ -647,6 +665,75 @@ router.post('/human-chats/:id/take', authenticate, async (req, res) => {
     
     // Atribuir o chat ao usuário atual
     const updatedChat = await HumanChatModel.assignToUser(chatId, req.user.id);
+    
+    // 🎯 ENVIAR MENSAGEM DE BOAS-VINDAS DO OPERADOR VIA WHATSAPP
+    try {
+      // Buscar informações do contato
+      const contact = await ContactModel.findById(chat.contact_id);
+      if (contact) {
+        // Buscar instância ativa do WhatsApp
+        const instances = (global as any).whatsappInstances;
+        const instance = instances && instances.get(chat.manager_id);
+        
+        if ((instance?.client && instance.isReady) || (instance?.sock && instance.isReady)) {
+          const operatorName = req.user.name || 'Operador';
+          
+          // Formato correto para Baileys vs whatsapp-web.js  
+          const phoneNumber = instance.sock ? 
+            contact.phone_number + '@s.whatsapp.net' :  // Baileys
+            contact.phone_number + '@c.us';             // whatsapp-web.js
+          
+          // Mensagem de apresentação do operador (já inclui o nome)
+          const welcomeMessage = `👋 Olá! Sou *${operatorName}* e estarei te atendendo hoje!
+
+Como posso ajudá-lo? 😊`;
+
+          console.log(`📤 Enviando mensagem de apresentação do operador ${operatorName} para ${phoneNumber}...`);
+          
+          // Usar Baileys ou whatsapp-web.js conforme disponível
+          if (instance.sock) {
+            // Enviar via Baileys
+            await instance.sock.sendMessage(phoneNumber, { text: welcomeMessage });
+            console.log(`✅ Mensagem de apresentação enviada via BAILEYS`);
+          } else if (instance.client) {
+            // Enviar via whatsapp-web.js (fallback)
+            await instance.client.sendMessage(phoneNumber, welcomeMessage);
+            console.log(`✅ Mensagem de apresentação enviada via WHATSAPP-WEB.JS`);
+          }
+          
+          // 💾 SALVAR MENSAGEM DO OPERADOR NO BANCO
+          await MessageModel.create({
+            manager_id: chat.manager_id,
+            chat_id: chatId,
+            contact_id: contact.id,
+            sender_type: 'operator',
+            sender_id: req.user.id,
+            content: welcomeMessage,
+            message_type: 'text'
+          });
+          
+          console.log(`💾 Mensagem de apresentação do operador ${operatorName} salva no banco`);
+          
+          // 🔄 EMITIR PARA FRONTEND EM TEMPO REAL
+          const io = (global as any).io;
+          if (io) {
+            io.to(`manager_${chat.manager_id}`).emit('operator_message_saved', {
+              chatId: contact.phone_number + '@c.us',
+              message: welcomeMessage,
+              messageId: Date.now(), // ID temporário
+              timestamp: new Date(),
+              operatorName: operatorName
+            });
+          }
+          
+        } else {
+          console.log(`⚠️ Instância WhatsApp não disponível para manager ${chat.manager_id}`);
+        }
+      }
+    } catch (messageError) {
+      console.error('❌ Erro ao enviar mensagem de boas-vindas:', messageError);
+      // Não falhar a atribuição do chat por erro na mensagem
+    }
     
     res.json({ 
       success: true,

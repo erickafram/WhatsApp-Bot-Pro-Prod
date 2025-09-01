@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import QRCodePopup from './QRCodePopup'
 import SubscriptionUpgrade from './SubscriptionUpgrade'
+import './BotInstanceDark.css'
 
 interface ConnectionStatus {
   connected: boolean

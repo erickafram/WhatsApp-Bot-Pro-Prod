@@ -6,8 +6,11 @@
   "scripts": {
     "build": "tsc && cd client && npm run build",
     "start": "node dist/server.js",
+    "start:baileys": "node dist/server-baileys.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "dev:baileys": "concurrently \"npm run server:baileys:dev\" \"npm run client:dev\"",
     "server:dev": "tsx watch src/server.ts",
+    "server:baileys:dev": "tsx watch src/server-baileys.ts",
     "client:dev": "cd client && npm run dev",
     "server:build": "tsc",
     "client:build": "cd client && npm run build",
@@ -19,6 +22,7 @@
   },
   "dependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@whiskeysockets/baileys": "^6.7.18",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -27,8 +31,10 @@
     "jsonwebtoken": "^9.0.2",
     "moment-timezone": "^0.5.45",
     "mysql2": "^3.14.3",
+    "node-fetch": "^2.7.0",
     "puppeteer": "^22.15.0",
     "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0",
     "socket.io": "^4.7.4",
     "whatsapp-web.js": "^1.32.0"
   },

@@ -14,7 +14,7 @@ import {
   Calendar,
   Activity
 } from 'lucide-react'
-import '../styles/OperatorManagement.css'
+import '../styles/OperatorsPage.css'
 
 interface Operator {
   id: number

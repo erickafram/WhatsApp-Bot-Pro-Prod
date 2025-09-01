@@ -21,6 +21,8 @@ export interface Message {
     content: string;
     message_type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'location';
     media_url: string | null;
+    file_size?: number;
+    mime_type?: string;
     is_read: boolean;
     delivered_at: Date | null;
     read_at: Date | null;
@@ -78,6 +80,7 @@ export declare class ContactModel {
     static update(id: number, updateData: Partial<CreateContactData>): Promise<Contact | null>;
 }
 export declare class MessageModel {
+    static checkDuplicate(data: CreateMessageData): Promise<Message | null>;
     static create(data: CreateMessageData): Promise<Message>;
     static findById(id: number): Promise<Message | null>;
     static findByContact(contactId: number, limit?: number): Promise<Message[]>;

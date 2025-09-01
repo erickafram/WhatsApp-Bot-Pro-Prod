@@ -131,8 +131,49 @@ class ContactModel {
 exports.ContactModel = ContactModel;
 // ===== MODELO DE MENSAGENS =====
 class MessageModel {
-    // Criar nova mensagem
+    // Verificar se mensagem já existe para evitar duplicatas
+    static async checkDuplicate(data) {
+        // Verificar por whatsapp_message_id primeiro (mais confiável)
+        if (data.whatsapp_message_id) {
+            const query = `
+        SELECT * FROM messages 
+        WHERE whatsapp_message_id = ? AND manager_id = ?
+        LIMIT 1
+      `;
+            const result = await (0, database_1.executeQuery)(query, [data.whatsapp_message_id, data.manager_id]);
+            if (result && result.length > 0) {
+                return result[0];
+            }
+        }
+        // Verificar por conteúdo, remetente e tempo recente (fallback)
+        const query = `
+      SELECT * FROM messages 
+      WHERE contact_id = ? 
+        AND manager_id = ? 
+        AND sender_type = ? 
+        AND content = ? 
+        AND message_type = ?
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 10 SECOND)
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+        const result = await (0, database_1.executeQuery)(query, [
+            data.contact_id,
+            data.manager_id,
+            data.sender_type,
+            data.content,
+            data.message_type || 'text'
+        ]);
+        return result && result.length > 0 ? result[0] : null;
+    }
+    // Criar nova mensagem com verificação de duplicatas
     static async create(data) {
+        // Verificar se mensagem já existe
+        const existingMessage = await this.checkDuplicate(data);
+        if (existingMessage) {
+            console.log(`📝 Mensagem duplicada ignorada - ID existente: ${existingMessage.id}`);
+            return existingMessage;
+        }
         const query = `
       INSERT INTO messages (
         manager_id, chat_id, contact_id, whatsapp_message_id, 
@@ -158,6 +199,7 @@ class MessageModel {
         if (!newMessage) {
             throw new Error('Mensagem criada mas não encontrada');
         }
+        console.log(`💾 Nova mensagem criada - ID: ${newMessage.id}`);
         return newMessage;
     }
     // Buscar mensagem por ID
@@ -195,7 +237,7 @@ class MessageModel {
         console.log(`✅ Debug findByContact - Retornando ${result.length} mensagens para contact ${contactId}`);
         return result;
     }
-    // Buscar mensagens por chat humano
+    // Buscar mensagens por chat humano (incluindo histórico anterior do bot)
     static async findByChat(chatId, limit = 50) {
         console.log(`🔍 Debug findByChat - chatId: ${chatId} (${typeof chatId}), limit: ${limit} (${typeof limit})`);
         if (!chatId || isNaN(chatId)) {
@@ -208,17 +250,49 @@ class MessageModel {
         // Converter para inteiros explicitamente
         const safeChatId = parseInt(chatId.toString());
         const safeLimit = parseInt(limit.toString());
-        // Buscar mensagens diretamente por chat_id
-        const query = `SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC LIMIT ?`;
-        console.log(`🔍 Debug SQL findByChat - Query: ${query}`);
-        console.log(`🔍 Debug SQL findByChat - Params: [${safeChatId}, ${safeLimit}]`);
-        const result = await (0, database_1.executeQuery)(query, [safeChatId, safeLimit]);
-        if (!Array.isArray(result)) {
-            console.log('❌ findByChat: Resultado não é array');
+        try {
+            // Primeiro, buscar informações do chat humano para obter o contact_id
+            const chatQuery = `SELECT contact_id, manager_id FROM human_chats WHERE id = ?`;
+            const chatResult = await (0, database_1.executeQuery)(chatQuery, [safeChatId]);
+            if (!Array.isArray(chatResult) || chatResult.length === 0) {
+                console.error('❌ Chat humano não encontrado:', safeChatId);
+                return [];
+            }
+            const chat = chatResult[0];
+            const contactId = chat.contact_id;
+            const managerId = chat.manager_id;
+            console.log(`🔍 Debug findByChat - contactId: ${contactId}, managerId: ${managerId}`);
+            // Buscar TODAS as mensagens do contato (incluindo as do bot antes da transferência)
+            // Incluir mensagens com chat_id = null (bot antes da transferência) E chat_id = chatId (após transferência)
+            const query = `
+        SELECT * FROM messages 
+        WHERE contact_id = ? 
+          AND manager_id = ?
+          AND (chat_id IS NULL OR chat_id = ?)
+        ORDER BY created_at ASC 
+        LIMIT ?
+      `;
+            console.log(`🔍 Debug SQL findByChat - Query: ${query}`);
+            console.log(`🔍 Debug SQL findByChat - Params: [${contactId}, ${managerId}, ${safeChatId}, ${safeLimit}]`);
+            const result = await (0, database_1.executeQuery)(query, [contactId, managerId, safeChatId, safeLimit]);
+            if (!Array.isArray(result)) {
+                console.log('❌ findByChat: Resultado não é array');
+                return [];
+            }
+            console.log(`✅ Debug findByChat - Retornando ${result.length} mensagens para chat ${chatId} (incluindo histórico do bot)`);
+            console.log(`✅ Debug findByChat - Mensagens encontradas:`, result.map((m) => ({
+                id: m.id,
+                sender_type: m.sender_type,
+                content: m.content?.substring(0, 50) + '...',
+                chat_id: m.chat_id,
+                created_at: m.created_at
+            })));
+            return result;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar mensagens do chat:', error);
             return [];
         }
-        console.log(`✅ Debug findByChat - Retornando ${result.length} mensagens para chat ${chatId}`);
-        return result;
     }
     // Buscar mensagens por gestor (todas as conversas)
     static async findByManager(managerId, limit = 100) {

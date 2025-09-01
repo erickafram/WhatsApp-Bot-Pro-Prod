@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import '../styles/OperatorDashboard.css'
+import '../styles/OperatorDashboardPage.css'
 import {
   Bell,
   MessageCircle,
@@ -106,10 +106,18 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
 
   // Load dashboard data on mount
   useEffect(() => {
-    loadDashboardData()
-    loadPendingChats()
-    loadAlerts()
-    fetchTransferredChats()
+    const initializeDashboard = async () => {
+      try {
+        await loadDashboardData()
+        await loadPendingChats()
+        await loadAlerts()
+        await fetchTransferredChats()
+      } catch (error) {
+        console.error('❌ Erro ao inicializar dashboard do operador:', error)
+      }
+    }
+    
+    initializeDashboard()
   }, [])
 
   // Socket event listeners
@@ -383,7 +391,15 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
   const loadAlerts = async () => {
     try {
       const authToken = localStorage.getItem('authToken')
-      if (!authToken) return
+      const userData = localStorage.getItem('user')
+      
+      if (!authToken || !userData) {
+        console.log('❌ Não há token de autenticação ou dados do usuário para carregar alertas')
+        return
+      }
+
+      const user = JSON.parse(userData)
+      console.log('🔔 Carregando alertas para usuário:', user.role, user.id)
 
       const response = await fetch('/api/operators/alerts', {
         headers: {
@@ -394,40 +410,30 @@ function OperatorDashboard({ socket, onNavigate }: OperatorDashboardProps) {
 
       if (response.ok) {
         const data = await response.json()
-        setAlerts(data.alerts || [])
+        setAlerts(Array.isArray(data.alerts) ? data.alerts : [])
+        console.log('✅ Alertas carregados com sucesso:', data.alerts?.length || 0)
+      } else {
+        console.error('❌ Erro ao carregar alertas:', response.status, response.statusText)
+        // Fallback para alertas mock apenas em desenvolvimento
+        if (process.env.NODE_ENV === 'development') {
+          setAlerts([
+            {
+              id: '1',
+              type: 'pending_chat',
+              title: 'Nova conversa pendente',
+              message: 'João Silva está aguardando há 5 minutos',
+              timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+              priority: 'high',
+              read: false
+            }
+          ])
+        } else {
+          setAlerts([])
+        }
       }
     } catch (error) {
-      console.error('Erro ao carregar alertas:', error)
-      // Mock alerts for development
-      setAlerts([
-        {
-          id: '1',
-          type: 'pending_chat',
-          title: 'Nova conversa pendente',
-          message: 'João Silva está aguardando há 5 minutos',
-          timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-          priority: 'high',
-          read: false
-        },
-        {
-          id: '2',
-          type: 'timeout',
-          title: 'Tempo limite excedido',
-          message: 'Maria Santos aguarda há mais de 10 minutos',
-          timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-          priority: 'high',
-          read: false
-        },
-        {
-          id: '3',
-          type: 'new_message',
-          title: 'Nova mensagem',
-          message: 'Pedro Costa enviou uma nova mensagem',
-          timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-          priority: 'medium',
-          read: true
-        }
-      ])
+      console.error('❌ Erro ao carregar alertas:', error)
+      setAlerts([])
     }
   }
 

@@ -9,8 +9,20 @@ import {
   XCircle,
   ChevronDown,
   Send,
-  Search
+  Search,
+  Play,
+  Pause,
+  Download,
+  FileText,
+  FileImage,
+  File,
+  Music,
+  Video,
+  Bookmark,
+  Reply,
+  X
 } from 'lucide-react'
+import './HumanChatWhatsApp.css'
 
 interface ChatMessage {
   id: string
@@ -20,6 +32,11 @@ interface ChatMessage {
   timestamp: Date
   isFromBot: boolean
   isFromHuman: boolean
+  messageType?: 'text' | 'audio' | 'document' | 'image' | 'video'
+  fileUrl?: string
+  fileName?: string
+  fileSize?: number
+  mimeType?: string
 }
 
 interface HumanChat {
@@ -53,14 +70,364 @@ interface HumanChatProps {
   onUnreadCountChange?: (count: number) => void
 }
 
+// Componente para reprodução de áudio
+const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: string }) => {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const audioRef = useState(new Audio(audioUrl))[0]
+
+  useEffect(() => {
+    const audio = audioRef
+    
+    const updateTime = () => setCurrentTime(audio.currentTime)
+    const updateDuration = () => setDuration(audio.duration)
+    const handleEnded = () => setIsPlaying(false)
+
+    audio.addEventListener('timeupdate', updateTime)
+    audio.addEventListener('loadedmetadata', updateDuration)
+    audio.addEventListener('ended', handleEnded)
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime)
+      audio.removeEventListener('loadedmetadata', updateDuration)
+      audio.removeEventListener('ended', handleEnded)
+      audio.pause()
+    }
+  }, [audioRef])
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      audioRef.pause()
+    } else {
+      audioRef.play()
+    }
+    setIsPlaying(!isPlaying)
+  }
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value)
+    audioRef.currentTime = newTime
+    setCurrentTime(newTime)
+  }
+
+  return (
+    <div className="audio-player">
+      <button 
+        onClick={togglePlay} 
+        className="play-button"
+        style={{
+          background: '#25d366',
+          color: 'white',
+          border: 'none',
+          borderRadius: '50%',
+          width: '40px',
+          height: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer'
+        }}
+      >
+        {isPlaying ? <Pause size={16} style={{ display: 'block' }} /> : <Play size={16} style={{ display: 'block' }} />}
+      </button>
+      <div className="audio-info">
+        <div className="audio-filename">{fileName || 'Áudio'}</div>
+        <div className="audio-controls">
+          <span className="time">{formatTime(currentTime)}</span>
+          <input
+            type="range"
+            min="0"
+            max={duration || 0}
+            value={currentTime}
+            onChange={handleSeek}
+            className="seek-bar"
+          />
+          <span className="time">{formatTime(duration)}</span>
+        </div>
+      </div>
+      <a 
+        href={audioUrl} 
+        download={fileName} 
+        className="download-button"
+        style={{
+          background: 'rgba(255, 255, 255, 0.1)',
+          color: '#e9edef',
+          border: 'none',
+          borderRadius: '6px',
+          width: '28px',
+          height: '28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textDecoration: 'none'
+        }}
+      >
+        <Download size={14} style={{ display: 'block' }} />
+      </a>
+    </div>
+  )
+}
+
+// Componente para documentos
+const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSaveDocument }: { 
+  fileUrl: string, 
+  fileName?: string, 
+  fileSize?: number, 
+  mimeType?: string,
+  messageId?: string,
+  onSaveDocument?: (messageId: string, fileInfo: any) => void
+}) => {
+  const getFileIcon = (mimeType?: string, fileName?: string) => {
+    if (!mimeType && !fileName) return <File size={24} />
+    
+    const type = mimeType || ''
+    const name = fileName || ''
+    
+    if (type.includes('pdf') || name.endsWith('.pdf')) {
+      return <FileText size={24} color="#dc2626" />
+    }
+    if (type.includes('word') || name.includes('.doc') || name.includes('.docx')) {
+      return <FileText size={24} color="#2563eb" />
+    }
+    if (type.includes('excel') || name.includes('.xls') || name.includes('.xlsx')) {
+      return <FileText size={24} color="#16a34a" />
+    }
+    if (type.includes('powerpoint') || name.includes('.ppt') || name.includes('.pptx')) {
+      return <FileText size={24} color="#ea580c" />
+    }
+    if (type.includes('image')) {
+      return <FileImage size={24} color="#7c3aed" />
+    }
+    if (type.includes('video')) {
+      return <Video size={24} color="#dc2626" />
+    }
+    if (type.includes('audio')) {
+      return <Music size={24} color="#059669" />
+    }
+    
+    return <File size={24} />
+  }
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const openDocument = () => {
+    // Tentar abrir o documento em uma nova aba
+    window.open(fileUrl, '_blank')
+  }
+
+  const handleSaveDocument = () => {
+    if (messageId && onSaveDocument) {
+      onSaveDocument(messageId, {
+        fileName,
+        fileSize,
+        mimeType,
+        fileUrl
+      })
+    }
+  }
+
+  return (
+    <div className="document-viewer">
+      <div className="document-icon">
+        {getFileIcon(mimeType, fileName)}
+      </div>
+      <div className="document-info">
+        <div className="document-name">{fileName || 'Documento'}</div>
+        {fileSize && (
+          <div className="document-size">{formatFileSize(fileSize)}</div>
+        )}
+      </div>
+      <div className="document-actions">
+        <button 
+          onClick={openDocument} 
+          className="view-button" 
+          title="Abrir documento"
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: '#e9edef',
+            border: 'none',
+            borderRadius: '6px',
+            width: '28px',
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <FileText size={14} style={{ display: 'block' }} />
+        </button>
+        <a 
+          href={fileUrl} 
+          download={fileName} 
+          className="download-button" 
+          title="Baixar arquivo"
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: '#e9edef',
+            border: 'none',
+            borderRadius: '6px',
+            width: '28px',
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textDecoration: 'none'
+          }}
+        >
+          <Download size={14} style={{ display: 'block' }} />
+        </a>
+        {messageId && onSaveDocument && (
+          <button 
+            onClick={handleSaveDocument} 
+            className="save-button" 
+            title="Catalogar documento no sistema"
+            style={{
+              background: 'rgba(251, 191, 36, 0.1)',
+              color: '#fbbf24',
+              border: '1px solid rgba(251, 191, 36, 0.3)',
+              borderRadius: '6px',
+              width: '28px',
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Bookmark size={14} style={{ display: 'block' }} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Componente para imagens
+const ImageViewer = ({ imageUrl, fileName }: { imageUrl: string, fileName?: string }) => {
+  const [showFullSize, setShowFullSize] = useState(false)
+
+  return (
+    <>
+      <div className="image-viewer">
+        <img 
+          src={imageUrl} 
+          alt={fileName || 'Imagem'} 
+          className="message-image"
+          onClick={() => setShowFullSize(true)}
+        />
+        <div className="image-actions">
+          <a 
+            href={imageUrl} 
+            download={fileName} 
+            className="download-button" 
+            title="Baixar imagem"
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              color: '#e9edef',
+              border: 'none',
+              borderRadius: '6px',
+              width: '28px',
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textDecoration: 'none'
+            }}
+          >
+            <Download size={14} style={{ display: 'block' }} />
+          </a>
+        </div>
+      </div>
+      
+      {showFullSize && (
+        <div className="image-modal" onClick={() => setShowFullSize(false)}>
+          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="image-modal-close" onClick={() => setShowFullSize(false)}>
+              <XCircle size={20} />
+            </button>
+            <img src={imageUrl} alt={fileName || 'Imagem'} className="full-size-image" />
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   // States for Human Chat System
   const [humanChats, setHumanChats] = useState<HumanChat[]>([])
   
   const [selectedChat, setSelectedChat] = useState<string | null>(null)
+
+  // Função para detectar tipo de mensagem baseado no conteúdo
+  const detectMessageType = (message: any): ChatMessage => {
+    // Se a mensagem tem anexo/arquivo
+    if (message.media_url || message.fileUrl || message.hasMedia) {
+      const mimeType = message.mimeType || message.media_type || ''
+      const fileName = message.fileName || message.media_name || undefined // Remover fallback 'arquivo'
+      
+      if (mimeType.includes('audio') || (fileName && fileName.match(/\.(mp3|wav|ogg|m4a|aac)$/i))) {
+        return {
+          ...message,
+          messageType: 'audio',
+          fileUrl: message.media_url || message.fileUrl,
+          fileName: fileName,
+          fileSize: message.fileSize || message.media_size,
+          mimeType: mimeType
+        }
+      } else if (mimeType.includes('image') || (fileName && fileName.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i))) {
+        return {
+          ...message,
+          messageType: 'image',
+          fileUrl: message.media_url || message.fileUrl,
+          fileName: fileName,
+          fileSize: message.fileSize || message.media_size,
+          mimeType: mimeType
+        }
+      } else if (mimeType.includes('video') || (fileName && fileName.match(/\.(mp4|avi|mov|webm|mkv)$/i))) {
+        return {
+          ...message,
+          messageType: 'video',
+          fileUrl: message.media_url || message.fileUrl,
+          fileName: fileName,
+          fileSize: message.fileSize || message.media_size,
+          mimeType: mimeType
+        }
+      } else {
+        return {
+          ...message,
+          messageType: 'document',
+          fileUrl: message.media_url || message.fileUrl,
+          fileName: fileName,
+          fileSize: message.fileSize || message.media_size,
+          mimeType: mimeType
+        }
+      }
+    }
+    
+    // Mensagem de texto padrão
+    return {
+      ...message,
+      messageType: 'text'
+    }
+  }
   
   const [newChatMessage, setNewChatMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [replyingToMessage, setReplyingToMessage] = useState<ChatMessage | null>(null)
+  const [showTakeChatModal, setShowTakeChatModal] = useState<string | null>(null)
+  const [dismissedTakeModals, setDismissedTakeModals] = useState<Set<string>>(new Set())
   const [operatorName] = useState(() => {
     try {
       const userData = localStorage.getItem('user')
@@ -73,6 +440,67 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
     return 'Operador'
   })
+
+  // Função para formatar data/hora de forma robusta
+  const formatMessageTime = (timestamp: Date | string | undefined) => {
+    try {
+      if (!timestamp) return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+      if (isNaN(date.getTime())) {
+        return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      }
+      
+      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    } catch (error) {
+      console.warn('Erro ao formatar data:', error)
+      return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    }
+  }
+
+  // Função para formatar data/hora completa
+  const formatFullDateTime = (timestamp: Date | string | undefined) => {
+    try {
+      if (!timestamp) return new Date().toLocaleString('pt-BR')
+      
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+      if (isNaN(date.getTime())) {
+        return new Date().toLocaleString('pt-BR')
+      }
+      
+      return date.toLocaleString('pt-BR')
+    } catch (error) {
+      console.warn('Erro ao formatar data completa:', error)
+      return new Date().toLocaleString('pt-BR')
+    }
+  }
+
+  // Função para deduplicar chats por contactNumber (manter o mais recente)
+  const deduplicateChats = (chats: HumanChat[]): HumanChat[] => {
+    const seen = new Map<string, HumanChat>()
+    
+    // Processar chats em ordem (manter o mais recente por contactNumber)
+    chats.forEach(chat => {
+      const key = chat.contactNumber
+      const existing = seen.get(key)
+      
+      if (!existing) {
+        seen.set(key, chat)
+      } else {
+        // Comparar datas para manter o mais recente
+        const currentDate = new Date(chat.lastActivity || chat.createdAt)
+        const existingDate = new Date(existing.lastActivity || existing.createdAt)
+        
+        if (currentDate > existingDate) {
+          seen.set(key, chat)
+        }
+      }
+    })
+    
+    const result = Array.from(seen.values())
+    console.log(`🔧 Deduplicação: ${chats.length} → ${result.length} chats`)
+    return result
+  }
 
   // Função para solicitar permissão de notificação
   const requestNotificationPermission = () => {
@@ -119,6 +547,14 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   const [showTransferAcceptModal, setShowTransferAcceptModal] = useState<string | null>(null)
   const [isMobileView, setIsMobileView] = useState(false)
   const [showMobileChatList, setShowMobileChatList] = useState(true)
+  
+  // Estados para salvar documentos
+  const [showSaveDocumentModal, setShowSaveDocumentModal] = useState(false)
+  const [selectedDocumentToSave, setSelectedDocumentToSave] = useState<any>(null)
+  const [documentDescription, setDocumentDescription] = useState('')
+  const [documentCategory, setDocumentCategory] = useState('outros')
+  const [documentTags, setDocumentTags] = useState('')
+  const [isImportantDocument, setIsImportantDocument] = useState(false)
 
   // Função para carregar operadores disponíveis
   const loadOperators = async () => {
@@ -201,9 +637,12 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
           }
         })
 
+        // 🔧 DEDUPLICAR CHATS por contactNumber (manter o mais recente)
+        const deduplicatedChats = deduplicateChats(convertedChats)
+        
         // Preservar mensagens existentes e status atualizados recentemente
         setHumanChats(prevChats => {
-          return convertedChats.map((newChat: HumanChat) => {
+          return deduplicatedChats.map((newChat: HumanChat) => {
             const existingChat = prevChats.find(chat => chat.id === newChat.id)
             if (existingChat) {
               // Preservar mensagens e outros dados locais
@@ -413,6 +852,83 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
   }
 
+  // Função para lidar com salvamento de documento
+  const handleSaveDocument = (messageId: string, fileInfo: any) => {
+    console.log('📁 Iniciando salvamento de documento:', { messageId, fileInfo })
+    
+    // Guardar informações do documento selecionado
+    setSelectedDocumentToSave({
+      messageId,
+      ...fileInfo
+    })
+    
+    // Limpar campos do modal
+    setDocumentDescription('')
+    setDocumentCategory('outros')
+    setDocumentTags('')
+    setIsImportantDocument(false)
+    
+    // Abrir modal
+    setShowSaveDocumentModal(true)
+  }
+
+  // Função para confirmar salvamento do documento
+  const confirmSaveDocument = async () => {
+    if (!selectedDocumentToSave || !documentDescription.trim()) {
+      alert('Por favor, adicione uma descrição para o documento.')
+      return
+    }
+
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        console.error('❌ Token de autenticação não encontrado')
+        return
+      }
+
+      console.log('💾 Salvando documento no sistema...', {
+        messageId: selectedDocumentToSave.messageId,
+        description: documentDescription,
+        category: documentCategory
+      })
+
+      const response = await fetch('/api/documents/save', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messageId: parseInt(selectedDocumentToSave.messageId),
+          description: documentDescription.trim(),
+          category: documentCategory,
+          tags: documentTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
+          isImportant: isImportantDocument
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Documento salvo com sucesso:', data)
+        
+        // Fechar modal
+        setShowSaveDocumentModal(false)
+        setSelectedDocumentToSave(null)
+        
+        // Mostrar confirmação
+        alert('📁 Documento catalogado com sucesso no sistema!')
+        
+      } else {
+        const error = await response.json()
+        console.error('❌ Erro ao salvar documento:', error)
+        alert(error.message || 'Erro ao salvar documento')
+      }
+    } catch (error) {
+      console.error('❌ Erro ao salvar documento:', error)
+      alert('Erro interno ao salvar documento')
+    }
+  }
+
   // Função para carregar mensagens de um chat específico
   const loadChatMessages = async (chatId: string) => {
     try {
@@ -432,8 +948,8 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
         return
       }
 
-      // Usar API correta de mensagens por chat humano
-      const response = await fetch(`/api/messages/human-chats/${chatId}/messages`, {
+      // Usar API correta de mensagens por chat humano - carregar TODAS as mensagens
+      const response = await fetch(`/api/messages/human-chats/${chatId}/messages?include_all=true&limit=1000`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -456,27 +972,45 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
         // Converter mensagens para formato do frontend
         const convertedMessages = data.messages.map((msg: any) => {
           console.log('🔄 Convertendo mensagem:', msg)
-          return {
+          // Garantir que a data seja válida
+          const messageDate = msg.created_at ? new Date(msg.created_at) : new Date()
+          const validDate = isNaN(messageDate.getTime()) ? new Date() : messageDate
+          
+          const baseMessage = {
             id: msg.id.toString(),
             from: msg.sender_type === 'contact' ? `${currentChat.contactNumber}@c.us` : msg.sender_type,
             to: msg.sender_type === 'contact' ? 'operator' : `${currentChat.contactNumber}@c.us`,
-            body: msg.content,
-            timestamp: new Date(msg.created_at),
+            body: msg.content || '',
+            timestamp: validDate,
             isFromBot: msg.sender_type === 'bot',
-            isFromHuman: msg.sender_type === 'operator'
+            isFromHuman: msg.sender_type === 'operator',
+            // Dados de mídia se existirem - CAMPOS CORRETOS DO BANCO
+            messageType: msg.message_type,
+            fileUrl: msg.media_url,
+            fileName: msg.fileName || msg.media_name,
+            fileSize: msg.fileSize || msg.media_size,
+            mimeType: msg.mimeType || msg.media_type,
+            hasMedia: !!msg.media_url && msg.message_type !== 'text'
           }
+          
+          return detectMessageType(baseMessage)
         })
         
         console.log('✅ Mensagens convertidas:', convertedMessages)
         
-        // Atualizar o chat com as mensagens
+        // Atualizar o chat com as mensagens - SEMPRE sobrescrever com histórico completo
         setHumanChats(chats => {
           const updatedChats = chats.map(chat => 
             chat.id === chatId 
-              ? { ...chat, messages: convertedMessages }
+              ? { 
+                  ...chat, 
+                  messages: convertedMessages, // Sobrescrever completamente as mensagens
+                  hasNewMessage: false, // Marcar como lida ao carregar
+                  unreadCount: 0 // Reset contador
+                }
               : chat
           )
-          console.log('✅ Estado atualizado - chat encontrado:', updatedChats.find(c => c.id === chatId))
+          console.log('✅ Estado atualizado com histórico completo - chat encontrado:', updatedChats.find(c => c.id === chatId))
           return updatedChats
         })
         
@@ -637,6 +1171,13 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       if (currentChat) {
         console.log(`🔍 Carregando histórico para chat ${selectedChat}...`)
         loadChatMessages(selectedChat)
+        
+        // Mostrar modal de assumir se a conversa estiver pendente e não atribuída
+        if (currentChat.status === 'pending' && !currentChat.assignedOperator && !dismissedTakeModals.has(selectedChat)) {
+          setTimeout(() => {
+            setShowTakeChatModal(selectedChat)
+          }, 500) // Pequeno delay para melhor UX
+        }
       }
     }
   }, [selectedChat])
@@ -682,18 +1223,30 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       )
     )
     
+    // Preparar mensagem com referência se estiver respondendo
+    let messageText = newChatMessage.trim()
+    if (replyingToMessage) {
+      const replyPrefix = `_Em resposta a:_ "${replyingToMessage.body.substring(0, 50)}${replyingToMessage.body.length > 50 ? '...' : ''}"\n\n`
+      messageText = replyPrefix + messageText
+    }
+    
     // Enviar via socket - a mensagem será adicionada via operator_message_saved
     if (socket) {
       const messageData = {
         chatId: currentChat.contactNumber + '@c.us',
-        message: newChatMessage.trim(),
-        operatorName: operatorName
+        message: messageText,
+        operatorName: operatorName,
+        replyTo: replyingToMessage ? {
+          messageId: replyingToMessage.id,
+          content: replyingToMessage.body.substring(0, 100)
+        } : undefined
       };
       console.log('📤 Enviando mensagem do operador via socket:', messageData);
       socket.emit('send_operator_message', messageData);
     }
     
     setNewChatMessage('')
+    setReplyingToMessage(null) // Limpar resposta após enviar
     
     // Scroll para baixo após enviar (com delay para aguardar mensagem do servidor)
     setTimeout(() => scrollToBottom(), 300)
@@ -774,6 +1327,20 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
         // Só recarregar do banco se não existir localmente
         console.log('🔔 Recarregando chats do banco para novo contato...')
         loadChatsFromDatabase()
+        
+        // Mostrar modal de assumir para nova conversa pendente após recarregar dados
+        setTimeout(() => {
+          // Aguardar o reload e então buscar a nova conversa
+          setTimeout(() => {
+            setHumanChats(currentChats => {
+              const newChat = currentChats.find(chat => chat.contactNumber === data.customerPhone)
+              if (newChat && newChat.status === 'pending' && !newChat.assignedOperator && !dismissedTakeModals.has(newChat.id)) {
+                setShowTakeChatModal(newChat.id)
+              }
+              return currentChats
+            })
+          }, 1000)
+        }, 1000)
       }
       
       // Notificações instantâneas e alertas visuais
@@ -853,12 +1420,16 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
             return chat
           }
           
+          // Garantir que a data seja válida
+          const operatorDate = data.timestamp ? new Date(data.timestamp) : new Date()
+          const validOperatorDate = isNaN(operatorDate.getTime()) ? new Date() : operatorDate
+          
           const newMessage = {
             id: data.messageId.toString(),
             from: 'operator',
             to: data.chatId,
             body: data.message,
-            timestamp: new Date(data.timestamp),
+            timestamp: validOperatorDate,
             isFromBot: false,
             isFromHuman: true
           }
@@ -878,37 +1449,70 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       message: string
       timestamp: Date
       customerName: string
+      messageId?: number  // ✅ ADICIONAR messageId do banco
+      messageType?: string
+      mediaUrl?: string
+      fileName?: string
+      fileSize?: number
+      mimeType?: string
+      hasMedia?: boolean
     }) => {
       console.log('📩 Mensagem do cliente recebida via socket:', data)
       console.log('📩 Chats atuais:', humanChats.map(c => ({id: c.id, contactNumber: c.contactNumber})))
       
       // Mostrar notificação para nova mensagem do cliente
+      const notificationText = data.hasMedia 
+        ? `${data.customerName}: [${data.messageType?.toUpperCase() || 'MÍDIA'}] ${data.fileName || ''}`
+        : `${data.customerName}: ${data.message.substring(0, 50)}...`;
+      
       showNotification(
-        '💬 Nova Mensagem',
-        `${data.customerName}: ${data.message.substring(0, 50)}...`,
+        data.hasMedia ? '📎 Nova Mídia' : '💬 Nova Mensagem',
+        notificationText,
         data.chatId
       )
       
       // Adicionar mensagem do cliente ao chat existente
       const customerPhone = data.chatId.replace('@c.us', '')
+      
+      // Garantir que a data seja válida
+      const customerDate = data.timestamp ? new Date(data.timestamp) : new Date()
+      const validCustomerDate = isNaN(customerDate.getTime()) ? new Date() : customerDate
+      
       const newMessage: ChatMessage = {
-        id: Date.now().toString(),
+        id: data.messageId ? data.messageId.toString() : Date.now().toString(), // ✅ USAR ID REAL DO BANCO
         from: data.chatId,
         to: 'operator',
-        body: data.message,
-        timestamp: new Date(data.timestamp),
+        body: data.message || '',
+        timestamp: validCustomerDate,
         isFromBot: false,
-        isFromHuman: false
+        isFromHuman: false,
+        // Incluir informações de mídia se presente
+        ...(data.hasMedia && {
+          messageType: data.messageType as any,
+          fileUrl: data.mediaUrl,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          mimeType: data.mimeType,
+          hasMedia: true
+        })
       }
       
       setHumanChats(chats =>
         chats.map(chat => {
           if (chat.contactNumber === customerPhone) {
-            // Verificar se a mensagem já existe para evitar duplicatas
-            const messageExists = chat.messages.some(msg =>
-              msg.body === data.message &&
-              Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
-            )
+            // Verificar se a mensagem já existe para evitar duplicatas (verificação mais robusta)
+            const messageExists = chat.messages.some(msg => {
+              // Verificar por ID primeiro (mais confiável)
+              if (data.messageId && msg.id === data.messageId.toString()) {
+                return true
+              }
+              
+              // Verificar por conteúdo e tempo como fallback
+              const timeDiff = Math.abs(new Date(msg.timestamp).getTime() - validCustomerDate.getTime())
+              return msg.body === data.message && 
+                     msg.fileUrl === data.mediaUrl && 
+                     timeDiff < 2000
+            })
 
             if (messageExists) {
               console.log('📝 Mensagem duplicada ignorada')
@@ -916,16 +1520,34 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
             }
 
             // Se o chat estava encerrado, reativar automaticamente
-            const updatedStatus = chat.status === 'resolved' || chat.status === 'finished' ? 'active' : chat.status
+            const wasFinished = chat.status === 'resolved' || chat.status === 'finished'
+            const updatedStatus = wasFinished ? 'active' : chat.status
 
             // Só incrementar unreadCount se o chat não estiver selecionado atualmente
             const shouldIncrementUnread = selectedChat !== chat.id
+
+            // Se era uma conversa pendente e recebeu mensagem, remover do dismissed (dar nova chance de assumir)
+            if (chat.status === 'pending' && !chat.assignedOperator) {
+              setDismissedTakeModals(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(chat.id)
+                return newSet
+              })
+            }
+
+            // Se a conversa estava encerrada e foi reativada, forçar carregamento completo do histórico
+            if (wasFinished && selectedChat === chat.id) {
+              console.log('🔄 Conversa reativada, forçando carregamento do histórico completo')
+              setTimeout(() => {
+                loadChatMessages(chat.id)
+              }, 500)
+            }
 
             return {
               ...chat,
               status: updatedStatus as any,
               messages: [...chat.messages, newMessage],
-              lastActivity: new Date(data.timestamp),
+              lastActivity: validCustomerDate,
               hasNewMessage: true,
               unreadCount: shouldIncrementUnread ? (chat.unreadCount || 0) + 1 : (chat.unreadCount || 0)
             }
@@ -962,6 +1584,19 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       if (data.type === 'new_chat' || data.type === 'transfer_created' || data.type === 'transfer_accepted' || data.type === 'chat_reopened') {
         console.log('🔄 Recarregando chats devido a:', data.type)
         loadChatsFromDatabase()
+        
+        // Se for um novo chat, mostrar modal de assumir após carregar dados
+        if (data.type === 'new_chat') {
+          setTimeout(() => {
+            setHumanChats(currentChats => {
+              const newChat = currentChats.find(chat => chat.id === data.chatId.toString())
+              if (newChat && newChat.status === 'pending' && !newChat.assignedOperator && !dismissedTakeModals.has(newChat.id)) {
+                setShowTakeChatModal(newChat.id)
+              }
+              return currentChats
+            })
+          }, 1500)
+        }
       }
       
       // Atualizar chat existente se for nova mensagem
@@ -1265,10 +1900,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                       )}
                       <div className="status-indicator-compact">
                         <span className="chat-time-compact">
-                          {new Date(chat.lastActivity).toLocaleTimeString('pt-BR', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {formatMessageTime(chat.lastActivity)}
                         </span>
                         {chat.hasNewMessage && chat.unreadCount && chat.unreadCount > 0 && (
                           <span className="unread-badge">{chat.unreadCount}</span>
@@ -1320,7 +1952,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                     {currentChat.status === 'pending' && !currentChat.assignedOperator && (
                       <button 
                         className="btn-take-chat"
-                        onClick={() => handleTakeChat(currentChat.id)}
+                        onClick={() => setShowTakeChatModal(currentChat.id)}
                         title="Assumir conversa"
                       >
                         <Users size={14} />
@@ -1434,9 +2066,86 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                         className={`message ${message.isFromBot ? 'bot' : message.isFromHuman ? 'human' : 'customer'}`}
                       >
                         <div className="message-content">
-                          <div className="message-text">{message.body}</div>
-                          <div className="message-time">
-                            {new Date(message.timestamp).toLocaleTimeString('pt-BR')}
+                          {/* Renderizar conteúdo baseado no tipo de mensagem */}
+                          {message.messageType === 'audio' && message.fileUrl && (
+                            <AudioPlayer 
+                              audioUrl={message.fileUrl} 
+                              fileName={message.fileName}
+                            />
+                          )}
+                          
+                          {message.messageType === 'document' && message.fileUrl && (
+                            <DocumentViewer 
+                              fileUrl={message.fileUrl}
+                              fileName={message.fileName}
+                              fileSize={message.fileSize}
+                              mimeType={message.mimeType}
+                              messageId={message.id}
+                              onSaveDocument={handleSaveDocument}
+                            />
+                          )}
+                          
+                          {message.messageType === 'image' && message.fileUrl && (
+                            <ImageViewer 
+                              imageUrl={message.fileUrl}
+                              fileName={message.fileName}
+                            />
+                          )}
+                          
+                          {message.messageType === 'video' && message.fileUrl && (
+                            <div className="video-viewer">
+                              <video 
+                                controls 
+                                className="message-video"
+                                preload="metadata"
+                              >
+                                <source src={message.fileUrl} type={message.mimeType} />
+                                Seu navegador não suporta reprodução de vídeo.
+                              </video>
+                              <div className="video-actions">
+                                <a 
+                                  href={message.fileUrl} 
+                                  download={message.fileName} 
+                                  className="download-button"
+                                  style={{
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    color: '#e9edef',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    width: '28px',
+                                    height: '28px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    textDecoration: 'none'
+                                  }}
+                                >
+                                  <Download size={14} style={{ display: 'block' }} />
+                                </a>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Mostrar texto da mensagem se existir (pode acompanhar mídia) */}
+                          {message.body && message.body.trim() && (
+                            <div className="message-text">{message.body}</div>
+                          )}
+                          
+                          <div className="message-actions">
+                            <div className="message-time">
+                              {formatMessageTime(message.timestamp)}
+                            </div>
+                            
+                            {/* Botão de responder (apenas para mensagens do cliente) */}
+                            {!message.isFromHuman && !message.isFromBot && (
+                              <button
+                                className="reply-button"
+                                onClick={() => setReplyingToMessage(message)}
+                                title="Responder a esta mensagem"
+                              >
+                                <Reply size={12} />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1444,20 +2153,48 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                   </div>
 
                   <div className="chat-input-fixed">
+                    {/* Indicador de resposta */}
+                    {replyingToMessage && (
+                      <div className="reply-indicator">
+                        <div className="reply-content">
+                          <div className="reply-header">
+                            <Reply size={14} />
+                            <span>Respondendo para {currentChat.contactName}</span>
+                            <button 
+                              className="cancel-reply"
+                              onClick={() => setReplyingToMessage(null)}
+                              title="Cancelar resposta"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                          <div className="reply-preview">
+                            {replyingToMessage.body.substring(0, 80)}
+                            {replyingToMessage.body.length > 80 && '...'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="input-container">
                       <textarea
                         value={newChatMessage}
                         onChange={(e) => setNewChatMessage(e.target.value)}
                         placeholder={
-                          currentChat.status === 'pending' && !currentChat.assignedOperator 
-                            ? `Assuma a conversa para responder...`
-                            : `Responder para ${currentChat.contactName}...`
+                          replyingToMessage
+                            ? `Responder a "${replyingToMessage.body.substring(0, 30)}${replyingToMessage.body.length > 30 ? '...' : ''}"`
+                            : currentChat.status === 'pending' && !currentChat.assignedOperator 
+                              ? `Assuma a conversa para responder...`
+                              : `Responder para ${currentChat.contactName}...`
                         }
                         disabled={currentChat.status === 'pending' && !currentChat.assignedOperator}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
                             sendMessage()
+                          }
+                          if (e.key === 'Escape') {
+                            setReplyingToMessage(null)
                           }
                         }}
                       />
@@ -1468,7 +2205,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                           !newChatMessage.trim() ||
                           (currentChat.status === 'pending' && !currentChat.assignedOperator)
                         }
-                        title="Enviar mensagem"
+                        title={replyingToMessage ? "Enviar resposta" : "Enviar mensagem"}
                       >
                         <Send size={18} />
                       </button>
@@ -1664,6 +2401,212 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                   </div>
                 )
               })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Assumir Conversa */}
+      {showTakeChatModal && (
+        <div className="modal-overlay" onClick={() => setShowTakeChatModal(null)}>
+          <div className="modal-content take-chat-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🤝 Assumir Conversa</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowTakeChatModal(null)}
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {(() => {
+                const chat = humanChats.find(c => c.id === showTakeChatModal)
+                if (!chat) return null
+                
+                return (
+                  <div className="take-chat-content">
+                    <div className="chat-info-card">
+                      <div className="chat-avatar">
+                        <Users size={24} />
+                      </div>
+                      <div className="chat-details">
+                        <h4>{chat.contactName}</h4>
+                        <p className="phone-number">{chat.contactNumber}</p>
+                        <p className="chat-status">
+                          <span className="status-indicator pending"></span>
+                          Aguardando atendimento
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="take-chat-message">
+                      <p>Esta conversa está aguardando atendimento. Você deseja assumir esta conversa e começar a atender este cliente?</p>
+                      
+                      <div className="chat-preview">
+                        {chat.messages.length > 0 ? (
+                          <div className="last-message">
+                            <strong>Última mensagem:</strong>
+                            <p>"{chat.messages[chat.messages.length - 1]?.body.substring(0, 100)}
+                            {chat.messages[chat.messages.length - 1]?.body.length > 100 && '...'}"</p>
+                            <small>
+                              {formatFullDateTime(chat.messages[chat.messages.length - 1]?.timestamp)}
+                            </small>
+                          </div>
+                        ) : (
+                          <p className="no-messages">Ainda não há mensagens nesta conversa.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="btn-cancel"
+                onClick={() => setShowTakeChatModal(null)}
+              >
+                Fechar
+              </button>
+              <button 
+                className="btn-secondary"
+                onClick={() => {
+                  if (showTakeChatModal) {
+                    setDismissedTakeModals(prev => new Set(prev).add(showTakeChatModal))
+                    setShowTakeChatModal(null)
+                  }
+                }}
+              >
+                ⏰ Lembrar Depois
+              </button>
+              <button 
+                className="btn-confirm btn-take"
+                onClick={async () => {
+                  if (showTakeChatModal) {
+                    await handleTakeChat(showTakeChatModal)
+                    setShowTakeChatModal(null)
+                  }
+                }}
+              >
+                <Users size={16} />
+                Assumir Conversa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para salvar documento */}
+      {showSaveDocumentModal && selectedDocumentToSave && (
+        <div className="modal-overlay">
+          <div className="modal-content save-document-modal">
+            <div className="modal-header">
+              <h3>📁 Catalogar Documento</h3>
+              <button className="modal-close" onClick={() => setShowSaveDocumentModal(false)}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="document-preview">
+                <div className="document-icon">
+                  <FileText size={24} />
+                </div>
+                <div className="document-info">
+                  <div className="document-name">
+                    {selectedDocumentToSave.fileName || 'Documento'}
+                  </div>
+                  <div className="document-size">
+                    {selectedDocumentToSave.fileSize ? 
+                      `${(selectedDocumentToSave.fileSize / (1024 * 1024)).toFixed(1)} MB` : 
+                      'Tamanho desconhecido'
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="document-description">
+                  <strong>Descrição *</strong>
+                  <span className="help-text">Ex: Comprovante de pagamento da passagem</span>
+                </label>
+                <textarea
+                  id="document-description"
+                  value={documentDescription}
+                  onChange={(e) => setDocumentDescription(e.target.value)}
+                  placeholder="Descreva o conteúdo e propósito do documento..."
+                  rows={3}
+                  maxLength={500}
+                />
+                <div className="char-count">
+                  {documentDescription.length}/500 caracteres
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="document-category">
+                  <strong>Categoria</strong>
+                </label>
+                <select
+                  id="document-category"
+                  value={documentCategory}
+                  onChange={(e) => setDocumentCategory(e.target.value)}
+                >
+                  <option value="pagamento">💳 Pagamento</option>
+                  <option value="documento_pessoal">👤 Documento Pessoal</option>
+                  <option value="comprovante">📄 Comprovante</option>
+                  <option value="contrato">📋 Contrato</option>
+                  <option value="outros">📂 Outros</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="document-tags">
+                  <strong>Tags (opcional)</strong>
+                  <span className="help-text">Separadas por vírgula</span>
+                </label>
+                <input
+                  type="text"
+                  id="document-tags"
+                  value={documentTags}
+                  onChange={(e) => setDocumentTags(e.target.value)}
+                  placeholder="Ex: passagem, goiania, janeiro"
+                  maxLength={200}
+                />
+              </div>
+
+              <div className="form-group checkbox-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={isImportantDocument}
+                    onChange={(e) => setIsImportantDocument(e.target.checked)}
+                  />
+                  <span className="checkmark"></span>
+                  <strong>⭐ Marcar como importante</strong>
+                </label>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                type="button"
+                className="btn-cancel"
+                onClick={() => setShowSaveDocumentModal(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                className="btn-confirm"
+                onClick={confirmSaveDocument}
+                disabled={!documentDescription.trim()}
+              >
+                💾 Catalogar Documento
+              </button>
             </div>
           </div>
         </div>

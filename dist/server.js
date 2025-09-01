@@ -2115,8 +2115,8 @@ io.on('connection', async (socket) => {
             }
             const delay = (ms) => new Promise(res => setTimeout(res, ms));
             await delay(1000);
-            // Formatar mensagem com nome do operador
-            const operatorName = data.operatorName || 'Operador';
+            // 👤 FORMATAR MENSAGEM COM NOME DO OPERADOR AUTENTICADO
+            const operatorName = authenticatedUser.name || 'Operador';
             const formattedMessage = `*${operatorName}:* ${data.message}`;
             // Enviar mensagem
             await instance.client.sendMessage(targetChatId, formattedMessage);
@@ -2129,24 +2129,24 @@ io.on('connection', async (socket) => {
                 if (dbContact) {
                     // Buscar chat humano ativo
                     const activeChat = await Message_1.HumanChatModel.findActiveByContact(dbContact.id);
-                    // Salvar mensagem do operador no banco
+                    // Salvar mensagem do operador no banco com nome incluído
                     const savedMessage = await Message_1.MessageModel.create({
                         manager_id: managerId,
                         chat_id: activeChat?.id || null,
                         contact_id: dbContact.id,
                         sender_type: 'operator',
                         sender_id: authenticatedUser.id,
-                        content: data.message, // Mensagem sem o prefixo "Operador:"
+                        content: formattedMessage, // Mensagem com nome do operador
                         message_type: 'text'
                     });
                     console.log(`💾 Mensagem do operador salva no banco - ID: ${savedMessage.id}`);
-                    // Emitir mensagem para o painel do operador
+                    // Emitir mensagem para o painel do operador com nome incluído
                     io.to(`manager_${managerId}`).emit('operator_message_saved', {
                         chatId: data.chatId,
-                        message: data.message,
+                        message: formattedMessage, // Mensagem com nome do operador
                         messageId: savedMessage.id,
                         timestamp: new Date(),
-                        operatorName: data.operatorName || 'Operador'
+                        operatorName: operatorName
                     });
                 }
                 else {

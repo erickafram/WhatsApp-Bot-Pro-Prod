@@ -1,0 +1,514 @@
+/* CSS Específico para Operator Dashboard - Dark Theme Completo */
+
+/* Container principal */
+.operator-dashboard {
+  padding: 1rem;
+  background: #202c33 !important;
+  min-height: 100vh;
+  color: white !important;
+}
+
+/* Header do dashboard */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  background: #1f2020 !important;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid #2a2d2e !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-left svg {
+  color: #4299e1 !important;
+}
+
+.header-left h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: white !important;
+  margin: 0 0 0.25rem 0;
+}
+
+.header-left p {
+  font-size: 0.75rem;
+  color: #a0a3a7 !important;
+  margin: 0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.current-time {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #202c33 !important;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #2a2d2e !important;
+  font-size: 0.75rem;
+  color: #a0a3a7 !important;
+}
+
+.current-time svg {
+  color: #4299e1 !important;
+}
+
+/* Cards de estatísticas */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: #1f2020 !important;
+  border: 1px solid #2a2d2e !important;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border-color: #3a3d3e !important;
+}
+
+.stat-card.urgent {
+  border-left: 4px solid #ef4444 !important;
+}
+
+.stat-card.active {
+  border-left: 4px solid #4299e1 !important;
+}
+
+.stat-card.success {
+  border-left: 4px solid #10b981 !important;
+}
+
+.stat-card.info {
+  border-left: 4px solid #8b5cf6 !important;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-card.urgent .stat-icon {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+}
+
+.stat-card.active .stat-icon {
+  background: rgba(66, 153, 225, 0.2) !important;
+  color: #4299e1 !important;
+}
+
+.stat-card.success .stat-icon {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #10b981 !important;
+}
+
+.stat-card.info .stat-icon {
+  background: rgba(139, 92, 246, 0.2) !important;
+  color: #8b5cf6 !important;
+}
+
+.stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-content h3 {
+  font-size: 0.75rem;
+  color: #a0a3a7 !important;
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  margin: 0 0 0.5rem 0;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white !important;
+  margin-bottom: 0.25rem;
+}
+
+.stat-change {
+  font-size: 0.65rem;
+  color: #6b7280 !important;
+  font-weight: 500;
+}
+
+/* Conteúdo do dashboard */
+.dashboard-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Painéis */
+.alerts-panel, .pending-chats-panel {
+  background: #1f2020 !important;
+  border: 1px solid #2a2d2e !important;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #2a2d2e;
+  background: #1a1b1b !important;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white !important;
+}
+
+.panel-title svg {
+  color: #4299e1 !important;
+}
+
+.alert-badge {
+  background: #ef4444 !important;
+  color: white !important;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #4299e1 !important;
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn-link:hover {
+  background: rgba(66, 153, 225, 0.1) !important;
+}
+
+/* Lista de alertas */
+.alerts-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid #2a2d2e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.alert-item:hover {
+  background: #242525 !important;
+}
+
+.alert-item.unread {
+  background: rgba(66, 153, 225, 0.05) !important;
+  border-left: 3px solid #4299e1;
+}
+
+.alert-item.priority-high {
+  border-left-color: #ef4444 !important;
+}
+
+.alert-item.priority-medium {
+  border-left-color: #f59e0b !important;
+}
+
+.alert-item.priority-low {
+  border-left-color: #10b981 !important;
+}
+
+.alert-icon {
+  width: 32px;
+  height: 32px;
+  background: #2a2d2e !important;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a0a3a7 !important;
+  flex-shrink: 0;
+}
+
+.alert-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white !important;
+  margin-bottom: 0.25rem;
+}
+
+.alert-message {
+  font-size: 0.7rem;
+  color: #a0a3a7 !important;
+  margin-bottom: 0.25rem;
+}
+
+.alert-time {
+  font-size: 0.65rem;
+  color: #6b7280 !important;
+}
+
+.alert-dot {
+  width: 8px;
+  height: 8px;
+  background: #4299e1 !important;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Lista de conversas pendentes */
+.pending-chats-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.pending-chat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #2a2d2e;
+  transition: all 0.2s ease;
+}
+
+.pending-chat-item:hover {
+  background: #242525 !important;
+}
+
+.chat-priority {
+  width: 4px;
+  height: 100%;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.chat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.customer-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white !important;
+}
+
+.waiting-time {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  color: #f59e0b !important;
+  font-weight: 500;
+}
+
+.waiting-time svg {
+  color: #f59e0b !important;
+}
+
+.chat-message {
+  font-size: 0.7rem;
+  color: #a0a3a7 !important;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.chat-phone {
+  font-size: 0.65rem;
+  color: #6b7280 !important;
+  margin-top: 0.25rem;
+}
+
+.chat-actions {
+  flex-shrink: 0;
+}
+
+.btn-primary, .btn-success {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #4299e1 !important;
+  color: white !important;
+}
+
+.btn-primary:hover {
+  background: #3182ce !important;
+}
+
+.btn-success {
+  background: #10b981 !important;
+  color: white !important;
+}
+
+.btn-success:hover {
+  background: #059669 !important;
+}
+
+.btn-sm {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.65rem;
+}
+
+/* Estados vazios */
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280 !important;
+}
+
+.empty-state svg {
+  color: #4299e1 !important;
+  margin-bottom: 1rem;
+}
+
+.empty-state p {
+  font-size: 0.8rem;
+  color: white !important;
+  margin: 0 0 0.5rem 0;
+  font-weight: 500;
+}
+
+.empty-state span {
+  font-size: 0.7rem;
+  color: #a0a3a7 !important;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+  .dashboard-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .operator-dashboard {
+    padding: 0.75rem;
+  }
+  
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .dashboard-stats {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  
+  .stat-card {
+    padding: 0.75rem;
+  }
+  
+  .stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .pending-chat-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  
+  .chat-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
+
+/* Scrollbar personalizada */
+.alerts-list::-webkit-scrollbar,
+.pending-chats-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.alerts-list::-webkit-scrollbar-track,
+.pending-chats-list::-webkit-scrollbar-track {
+  background: #1f2020;
+}
+
+.alerts-list::-webkit-scrollbar-thumb,
+.pending-chats-list::-webkit-scrollbar-thumb {
+  background: #2a2d2e;
+  border-radius: 3px;
+}
+
+.alerts-list::-webkit-scrollbar-thumb:hover,
+.pending-chats-list::-webkit-scrollbar-thumb:hover {
+  background: #3a3d3e;
+}

@@ -604,6 +604,53 @@ const migration012 = {
         }
     }
 };
+// Migration 013: Criar tabela para documentos salvos/catalogados
+const migration013 = {
+    id: '013_create_saved_documents',
+    description: 'Criar tabela para documentos salvos/catalogados pelos operadores',
+    up: async () => {
+        const query = `
+      CREATE TABLE IF NOT EXISTS saved_documents (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        manager_id INT NOT NULL,
+        message_id INT NOT NULL,
+        contact_id INT NOT NULL,
+        chat_id INT NULL,
+        operator_id INT NOT NULL,
+        document_name VARCHAR(255) NOT NULL,
+        document_url VARCHAR(500) NOT NULL,
+        original_message_content TEXT NULL,
+        description TEXT NOT NULL,
+        category ENUM('pagamento', 'documento_pessoal', 'comprovante', 'contrato', 'outros') DEFAULT 'outros',
+        file_size BIGINT NULL,
+        mime_type VARCHAR(100) NULL,
+        tags JSON NULL,
+        is_important BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        
+        INDEX idx_manager_id (manager_id),
+        INDEX idx_message_id (message_id),
+        INDEX idx_contact_id (contact_id),
+        INDEX idx_chat_id (chat_id),
+        INDEX idx_operator_id (operator_id),
+        INDEX idx_category (category),
+        INDEX idx_created_at (created_at),
+        INDEX idx_is_important (is_important),
+        
+        FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE,
+        FOREIGN KEY (chat_id) REFERENCES human_chats(id) ON DELETE SET NULL,
+        FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `;
+        await (0, database_1.executeQuery)(query);
+    },
+    down: async () => {
+        await (0, database_1.executeQuery)('DROP TABLE IF EXISTS saved_documents');
+    }
+};
 exports.migrations = [
     migration001,
     migration002,
@@ -616,7 +663,8 @@ exports.migrations = [
     migration009,
     migration010,
     migration011,
-    migration012
+    migration012,
+    migration013
 ];
 // Função para verificar se uma migration já foi executada
 const isMigrationExecuted = async (migrationId) => {

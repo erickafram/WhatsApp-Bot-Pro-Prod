@@ -8,7 +8,7 @@ import {
   BarChart3,
   Users,
   MessageCircle,
-
+  Bookmark,
   UserCheck,
   User,
   ChevronUp,
@@ -27,10 +27,10 @@ import Contacts from './components/Contacts'
 import OperatorManagement from './components/OperatorManagement'
 import OperatorDashboard from './components/OperatorDashboard'
 import ManagerDashboard from './components/ManagerDashboard'
+import SavedDocumentsSimple from './components/SavedDocumentsSimple'
 import './App.css'
 import './styles/LandingPage.css'
 import './styles/Auth.css'
-import './styles/ManagerDashboard.css'
 import './styles/Contacts.css'
 import './styles/no-spinner.css'
 
@@ -337,18 +337,18 @@ function App() {
 
 
   const allMenuItems = [
+    // Ordem para operador (Dashboard primeiro, Chat segundo, depois resto)
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['operator'] },
+    { id: 'chat', label: 'Chat Humano', icon: MessageSquare, allowedRoles: ['admin', 'manager', 'operator'] },
+    { id: 'documents', label: 'Documentos Salvos', icon: Bookmark, allowedRoles: ['admin', 'manager', 'operator'] },
+
     // Ordem para manager/admin
     { id: 'manager-dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['admin', 'manager'] },
     { id: 'instance', label: 'Instância Bot', icon: Bot, active: true, allowedRoles: ['admin', 'manager'] },
-    { id: 'chat', label: 'Chat Humano', icon: MessageSquare, allowedRoles: ['admin', 'manager', 'operator'] },
     { id: 'messages', label: 'Templates', icon: MessageCircle, allowedRoles: ['admin', 'manager'] },
     { id: 'contacts', label: 'Contatos', icon: Users, allowedRoles: ['admin', 'manager'] },
-
     { id: 'analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin', 'manager'] },
-    { id: 'operators', label: 'Operadores', icon: UserCheck, allowedRoles: ['admin', 'manager'] },
-
-    // Ordem para operador
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['operator'] }
+    { id: 'operators', label: 'Operadores', icon: UserCheck, allowedRoles: ['admin', 'manager'] }
   ]
 
   // Filtrar menu baseado no papel do usuário
@@ -412,6 +412,8 @@ function App() {
             <p>Apenas gestores podem gerenciar contatos</p>
           </div>
         )
+      case 'documents':
+        return <SavedDocumentsSimple />
       case 'settings':
         return isManagerOrAdmin() ? (
           <div className="content-placeholder">
