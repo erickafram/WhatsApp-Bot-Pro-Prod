@@ -156,7 +156,11 @@ export class WhatsAppInstanceModel {
     
     if (additionalData?.connected_at) {
       fields.push('connected_at = ?');
-      values.push(additionalData.connected_at);
+      // Converter Date para string formato MySQL (YYYY-MM-DD HH:MM:SS)
+      const formattedDate = additionalData.connected_at instanceof Date 
+        ? additionalData.connected_at.toISOString().slice(0, 19).replace('T', ' ')
+        : additionalData.connected_at;
+      values.push(formattedDate);
     }
     
     if (status === 'connected') {
