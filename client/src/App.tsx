@@ -336,18 +336,25 @@ function App() {
 
 
 
+  // Menu organizado na ordem correta para cada tipo de usuário
   const allMenuItems = [
-    // Ordem para operador (Dashboard primeiro, Chat segundo, depois resto)
+    // 1. Dashboard (primeiro para todos)
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['operator'] },
-    { id: 'chat', label: 'Chat Humano', icon: MessageSquare, allowedRoles: ['admin', 'manager', 'operator'] },
-    { id: 'documents', label: 'Documentos Salvos', icon: Bookmark, allowedRoles: ['admin', 'manager', 'operator'] },
-
-    // Ordem para manager/admin
     { id: 'manager-dashboard', label: 'Dashboard', icon: BarChart3, allowedRoles: ['admin', 'manager'] },
-    { id: 'instance', label: 'Instância Bot', icon: Bot, active: true, allowedRoles: ['admin', 'manager'] },
-    { id: 'messages', label: 'Templates', icon: MessageCircle, allowedRoles: ['admin', 'manager'] },
+    
+    // 2. Instância Bot (segundo para manager/admin)
+    { id: 'instance', label: 'Instância Bot', icon: Bot, allowedRoles: ['admin', 'manager'] },
+    
+    // 3. Chat Humano (segundo para operador, terceiro para manager/admin)
+    { id: 'chat', label: 'Chat Humano', icon: MessageSquare, allowedRoles: ['admin', 'manager', 'operator'] },
+    
+    // 4. Documentos Salvos (terceiro para operador, quarto para manager/admin)
+    { id: 'documents', label: 'Documentos Salvos', icon: Bookmark, allowedRoles: ['admin', 'manager', 'operator'] },
+    
+    // 5. Restante 
+    { id: 'messages', label: 'Templates', icon: MessageCircle, allowedRoles: ['admin'] }, // Apenas admin
     { id: 'contacts', label: 'Contatos', icon: Users, allowedRoles: ['admin', 'manager'] },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin', 'manager'] },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, allowedRoles: ['admin'] }, // Apenas admin
     { id: 'operators', label: 'Operadores', icon: UserCheck, allowedRoles: ['admin', 'manager'] }
   ]
 
