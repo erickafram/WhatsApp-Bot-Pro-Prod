@@ -8,7 +8,7 @@ import { User } from '../models/User';
 const router = express.Router();
 
 // Interface para requests tipados
-interface AuthenticatedRequest extends Request {
+interface AuthenticatedRequest extends express.Request {
   user?: User;
 }
 
