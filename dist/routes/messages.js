@@ -62,7 +62,118 @@ const upload = (0, multer_1.default)({
     }
 });
 // ===== ROTAS DE CONTATOS =====
-// Listar contatos do gestor
+// Listar contatos do gestor com estatísticas
+router.get('/contacts/:managerId', auth_1.authenticate, async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        const managerId = parseInt(req.params.managerId);
+        // Verificar se o usuário tem permissão
+        if (req.user.role !== 'admin' && req.user.id !== managerId) {
+            return res.status(403).json({ error: 'Sem permissão para acessar estes contatos' });
+        }
+        // Buscar contatos com estatísticas
+        const contactsQuery = `
+      SELECT 
+        c.*,
+        COUNT(DISTINCT m.id) as total_messages,
+        COUNT(DISTINCT CASE WHEN m.sender_type = 'contact' THEN m.id END) as messages_received,
+        COUNT(DISTINCT CASE WHEN m.sender_type = 'operator' THEN m.id END) as messages_sent,
+        COUNT(DISTINCT hc.id) as total_chats,
+        COUNT(DISTINCT CASE WHEN hc.status IN ('active', 'pending', 'waiting_payment', 'paid') THEN hc.id END) as active_chats,
+        MAX(m.created_at) as last_message_date,
+        (SELECT content FROM messages WHERE contact_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_content,
+        (SELECT message_type FROM messages WHERE contact_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_type,
+        MAX(hc.status) as last_chat_status
+      FROM contacts c
+      LEFT JOIN messages m ON c.id = m.contact_id
+      LEFT JOIN human_chats hc ON c.id = hc.contact_id
+      WHERE c.manager_id = ?
+      GROUP BY c.id
+      ORDER BY c.updated_at DESC
+    `;
+        const contactsResult = await (0, database_1.executeQuery)(contactsQuery, [managerId]);
+        if (!Array.isArray(contactsResult)) {
+            return res.status(500).json({ error: 'Erro ao buscar contatos' });
+        }
+        // Formatar contatos com estatísticas
+        const contacts = contactsResult.map((contact) => {
+            // Parse tags JSON
+            let tags = null;
+            if (contact.tags && typeof contact.tags === 'string') {
+                try {
+                    tags = JSON.parse(contact.tags);
+                }
+                catch (e) {
+                    tags = null;
+                }
+            }
+            return {
+                id: contact.id,
+                phone_number: contact.phone_number,
+                name: contact.name || contact.phone_number,
+                avatar: contact.avatar,
+                tags: tags,
+                notes: contact.notes,
+                is_blocked: contact.is_blocked || false,
+                created_at: contact.created_at,
+                updated_at: contact.updated_at,
+                statistics: {
+                    total_messages: parseInt(contact.total_messages) || 0,
+                    messages_sent: parseInt(contact.messages_sent) || 0,
+                    messages_received: parseInt(contact.messages_received) || 0,
+                    last_message: {
+                        content: contact.last_message_content || undefined,
+                        date: contact.last_message_date || undefined,
+                        type: contact.last_message_type || undefined
+                    },
+                    chats: {
+                        total: parseInt(contact.total_chats) || 0,
+                        active: parseInt(contact.active_chats) || 0,
+                        last_status: contact.last_chat_status || undefined
+                    }
+                }
+            };
+        });
+        // Calcular resumo
+        const summaryQuery = `
+      SELECT 
+        COUNT(DISTINCT c.id) as total_contacts,
+        COUNT(DISTINCT CASE WHEN hc.status IN ('active', 'pending', 'waiting_payment', 'paid') THEN hc.id END) as active_chats,
+        COUNT(DISTINCT m.id) as total_messages,
+        COUNT(DISTINCT CASE WHEN m.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN m.id END) as recent_activity_24h
+      FROM contacts c
+      LEFT JOIN messages m ON c.id = m.contact_id
+      LEFT JOIN human_chats hc ON c.id = hc.contact_id
+      WHERE c.manager_id = ?
+    `;
+        const summaryResult = await (0, database_1.executeQuery)(summaryQuery, [managerId]);
+        const summaryData = summaryResult && Array.isArray(summaryResult) ? summaryResult[0] : {};
+        const summary = {
+            total_contacts: parseInt(summaryData.total_contacts) || 0,
+            active_chats: parseInt(summaryData.active_chats) || 0,
+            total_messages: parseInt(summaryData.total_messages) || 0,
+            recent_activity_24h: parseInt(summaryData.recent_activity_24h) || 0,
+            timestamp: new Date().toISOString()
+        };
+        res.json({
+            success: true,
+            data: {
+                contacts,
+                summary
+            }
+        });
+    }
+    catch (error) {
+        console.error('Erro ao listar contatos com estatísticas:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Erro interno do servidor'
+        });
+    }
+});
+// Listar contatos simples (mantido para compatibilidade)
 router.get('/contacts', auth_1.authenticate, async (req, res) => {
     try {
         if (!req.user) {
@@ -73,28 +184,6 @@ router.get('/contacts', auth_1.authenticate, async (req, res) => {
     }
     catch (error) {
         console.error('Erro ao listar contatos:', error);
-        res.status(500).json({ error: 'Erro interno do servidor' });
-    }
-});
-// Buscar contato por ID
-router.get('/contacts/:id', auth_1.authenticate, async (req, res) => {
-    try {
-        const contactId = parseInt(req.params.id);
-        if (!req.user) {
-            return res.status(401).json({ error: 'Usuário não autenticado' });
-        }
-        const contact = await Message_1.ContactModel.findById(contactId);
-        if (!contact) {
-            return res.status(404).json({ error: 'Contato não encontrado' });
-        }
-        // Verificar permissão
-        if (req.user.role !== 'admin' && contact.manager_id !== req.user.id) {
-            return res.status(403).json({ error: 'Sem permissão para acessar este contato' });
-        }
-        res.json({ contact });
-    }
-    catch (error) {
-        console.error('Erro ao buscar contato:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
@@ -164,6 +253,28 @@ router.get('/messages', auth_1.authenticate, async (req, res) => {
     }
     catch (error) {
         console.error('Erro ao listar mensagens:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Buscar contato por ID (específico - deve vir após a rota parametrizada)
+router.get('/contacts/detail/:id', auth_1.authenticate, async (req, res) => {
+    try {
+        const contactId = parseInt(req.params.id);
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        const contact = await Message_1.ContactModel.findById(contactId);
+        if (!contact) {
+            return res.status(404).json({ error: 'Contato não encontrado' });
+        }
+        // Verificar permissão
+        if (req.user.role !== 'admin' && contact.manager_id !== req.user.id) {
+            return res.status(403).json({ error: 'Sem permissão para acessar este contato' });
+        }
+        res.json({ contact });
+    }
+    catch (error) {
+        console.error('Erro ao buscar contato:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });

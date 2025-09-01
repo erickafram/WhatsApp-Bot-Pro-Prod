@@ -1350,12 +1350,13 @@
 }
 
 .modal-footer {
-  background: var(--wa-dark-secondary) !important;
-  padding: 1rem 1.5rem !important;
-  border-top: 1px solid var(--wa-border) !important;
-  display: flex !important;
+  background: #1f2020 !important;
+  padding: 0rem 2.5rem !important;
+  border-top: 1px solid #1f2020 !important;
+  display: flex !important
+;
   justify-content: flex-end !important;
-  gap: 0.75rem !important;
+  gap: .75rem !important;
 }
 
 /* Botões dos modais */
@@ -1463,6 +1464,37 @@
   color: var(--wa-text-primary) !important;
   font-size: 0.9rem !important;
   font-weight: 500 !important;
+}
+
+/* Checkbox group específico */
+.form-group.checkbox-group {
+  margin-bottom: 1rem !important;
+}
+
+.form-group.checkbox-group label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 0 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.form-group.checkbox-group input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+  accent-color: var(--wa-green) !important;
+}
+
+.form-group.checkbox-group span {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: 1 !important;
+  font-weight: bold !important;
+  color: var(--wa-text-primary) !important;
 }
 
 .form-group input,

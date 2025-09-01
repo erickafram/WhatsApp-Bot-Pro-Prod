@@ -15,6 +15,7 @@ import {
   TrendingUp,
   RefreshCw
 } from 'lucide-react'
+import '../styles/Contacts.css'
 
 interface Contact {
   id: number
@@ -93,22 +94,49 @@ export default function Contacts() {
         return
       }
 
-      const response = await fetch(`/api/contacts/${userData.id}`, {
+      console.log('🔍 Carregando contatos para o usuário:', userData.id)
+
+      const response = await fetch(`/api/messages/contacts/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         }
       })
 
+      console.log('📡 Resposta da API de contatos:', response.status, response.statusText)
+
       if (response.ok) {
         const data: ContactsResponse = await response.json()
+        console.log('✅ Dados de contatos recebidos:', data)
         setContacts(data.data.contacts)
         setSummary(data.data.summary)
       } else {
-        console.error('Erro ao carregar contatos:', response.statusText)
+        const errorText = await response.text()
+        console.error('❌ Erro ao carregar contatos:', response.statusText, errorText)
+        
+        // Se não há contatos, ainda mostrar a interface
+        if (response.status === 404 || response.status === 403) {
+          setContacts([])
+          setSummary({
+            total_contacts: 0,
+            active_chats: 0,
+            total_messages: 0,
+            recent_activity_24h: 0,
+            timestamp: new Date().toISOString()
+          })
+        }
       }
     } catch (error) {
-      console.error('Erro ao carregar contatos:', error)
+      console.error('❌ Erro ao carregar contatos:', error)
+      // Definir valores padrão em caso de erro
+      setContacts([])
+      setSummary({
+        total_contacts: 0,
+        active_chats: 0,
+        total_messages: 0,
+        recent_activity_24h: 0,
+        timestamp: new Date().toISOString()
+      })
     } finally {
       setLoading(false)
     }

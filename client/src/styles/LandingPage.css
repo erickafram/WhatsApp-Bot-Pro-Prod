@@ -462,10 +462,18 @@ html {
 .hero-stats {
   display: flex;
   gap: 3rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .stat {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 100px;
 }
 
 .stat-number {
@@ -475,13 +483,16 @@ html {
   margin-bottom: 0.25rem;
   color: #ffffff;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  text-align: center;
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #000000;
+  color: #cccccc;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
   font-weight: 500;
+  text-align: center;
+  display: block;
 }
 
 /* Hero Visual */
@@ -1401,14 +1412,30 @@ html {
     gap: 1.5rem;
     flex-wrap: wrap;
     margin-top: 2rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .stat {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .stat-number {
     font-size: 1.5rem;
+    display: block;
+    margin-bottom: 0.25rem;
   }
 
   .stat-label {
     font-size: 0.8rem;
+    display: block;
+    color: #cccccc;
   }
 
   .hero-visual {
@@ -1536,19 +1563,31 @@ html {
   .hero-stats {
     gap: 1rem;
     margin-top: 1.5rem;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .stat {
     flex: 1;
-    min-width: 80px;
+    min-width: 70px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .stat-number {
     font-size: 1.25rem;
+    display: block;
+    margin-bottom: 0.25rem;
   }
 
   .stat-label {
     font-size: 0.75rem;
+    display: block;
   }
 
   .hero-mockup {
@@ -1763,19 +1802,31 @@ html {
     gap: 0.75rem;
     margin-top: 1.25rem;
     flex-wrap: wrap;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
   }
 
   .stat {
     flex: 1;
-    min-width: 70px;
+    min-width: 65px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .stat-number {
     font-size: 1.1rem;
+    display: block;
+    margin-bottom: 0.25rem;
   }
 
   .stat-label {
     font-size: 0.7rem;
+    display: block;
+    color: #cccccc;
   }
 
   .hero-visual {

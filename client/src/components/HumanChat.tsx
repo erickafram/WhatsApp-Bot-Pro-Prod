@@ -619,43 +619,60 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
 
   // Função para detectar tipo de mensagem baseado no conteúdo
   const detectMessageType = (message: any): ChatMessage => {
+    console.log('🔍 Detectando tipo de mensagem:', message)
+    
     // Se a mensagem tem anexo/arquivo
-    if (message.media_url || message.fileUrl || message.hasMedia) {
+    if (message.media_url || message.fileUrl || message.hasMedia || message.message_type !== 'text') {
       const mimeType = message.mimeType || message.media_type || ''
-      const fileName = message.fileName || message.media_name || undefined // Remover fallback 'arquivo'
+      const fileName = message.fileName || message.media_name || undefined
+      const fileUrl = message.media_url || message.fileUrl
+      const messageType = message.message_type || message.messageType
       
-      if (mimeType.includes('audio') || (fileName && fileName.match(/\.(mp3|wav|ogg|m4a|aac)$/i))) {
+      console.log('📁 Detectando tipo de arquivo:', { 
+        mimeType, 
+        fileName, 
+        fileUrl, 
+        messageType,
+        originalMessageType: message.message_type 
+      })
+      
+      // Verificar primeiro pelo message_type do banco de dados
+      if (messageType === 'audio' || mimeType.includes('audio') || (fileName && fileName.match(/\.(mp3|wav|ogg|m4a|aac)$/i))) {
+        console.log('🔊 Detectado como áudio')
         return {
           ...message,
           messageType: 'audio',
-          fileUrl: message.media_url || message.fileUrl,
+          fileUrl: fileUrl,
           fileName: fileName,
           fileSize: message.fileSize || message.media_size,
           mimeType: mimeType
         }
-      } else if (mimeType.includes('image') || (fileName && fileName.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i))) {
+      } else if (messageType === 'image' || mimeType.includes('image') || (fileName && fileName.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i))) {
+        console.log('🖼️ Detectado como imagem')
         return {
           ...message,
           messageType: 'image',
-          fileUrl: message.media_url || message.fileUrl,
+          fileUrl: fileUrl,
           fileName: fileName,
           fileSize: message.fileSize || message.media_size,
           mimeType: mimeType
         }
-      } else if (mimeType.includes('video') || (fileName && fileName.match(/\.(mp4|avi|mov|webm|mkv)$/i))) {
+      } else if (messageType === 'video' || mimeType.includes('video') || (fileName && fileName.match(/\.(mp4|avi|mov|webm|mkv)$/i))) {
+        console.log('🎥 Detectado como vídeo')
         return {
           ...message,
           messageType: 'video',
-          fileUrl: message.media_url || message.fileUrl,
+          fileUrl: fileUrl,
           fileName: fileName,
           fileSize: message.fileSize || message.media_size,
           mimeType: mimeType
         }
-      } else {
+      } else if (messageType === 'document' || fileUrl) {
+        console.log('📄 Detectado como documento')
         return {
           ...message,
           messageType: 'document',
-          fileUrl: message.media_url || message.fileUrl,
+          fileUrl: fileUrl,
           fileName: fileName,
           fileSize: message.fileSize || message.media_size,
           mimeType: mimeType
@@ -664,6 +681,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
     
     // Mensagem de texto padrão
+    console.log('📝 Detectado como texto')
     return {
       ...message,
       messageType: 'text'
@@ -1225,32 +1243,45 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
           return
         }
         
-        // Converter mensagens para formato do frontend
-        const convertedMessages = data.messages.map((msg: any) => {
-          console.log('🔄 Convertendo mensagem:', msg)
-          // Garantir que a data seja válida
-          const messageDate = msg.created_at ? new Date(msg.created_at) : new Date()
-          const validDate = isNaN(messageDate.getTime()) ? new Date() : messageDate
-          
-          const baseMessage = {
-            id: msg.id.toString(),
-            from: msg.sender_type === 'contact' ? `${currentChat.contactNumber}@c.us` : msg.sender_type,
-            to: msg.sender_type === 'contact' ? 'operator' : `${currentChat.contactNumber}@c.us`,
-            body: msg.content || '',
-            timestamp: validDate,
-            isFromBot: msg.sender_type === 'bot',
-            isFromHuman: msg.sender_type === 'operator',
-            // Dados de mídia se existirem - CAMPOS CORRETOS DO BANCO
-            messageType: msg.message_type,
-            fileUrl: msg.media_url,
-            fileName: msg.fileName || msg.media_name,
-            fileSize: msg.fileSize || msg.media_size,
-            mimeType: msg.mimeType || msg.media_type,
-            hasMedia: !!msg.media_url && msg.message_type !== 'text'
-          }
-          
-          return detectMessageType(baseMessage)
-        })
+                 // Converter mensagens para formato do frontend
+         const convertedMessages = data.messages.map((msg: any) => {
+           console.log('🔄 Convertendo mensagem do banco:', msg)
+           // Garantir que a data seja válida
+           const messageDate = msg.created_at ? new Date(msg.created_at) : new Date()
+           const validDate = isNaN(messageDate.getTime()) ? new Date() : messageDate
+           
+           const baseMessage = {
+             id: msg.id.toString(),
+             from: msg.sender_type === 'contact' ? `${currentChat.contactNumber}@c.us` : msg.sender_type,
+             to: msg.sender_type === 'contact' ? 'operator' : `${currentChat.contactNumber}@c.us`,
+             body: msg.content || '',
+             timestamp: validDate,
+             isFromBot: msg.sender_type === 'bot',
+             isFromHuman: msg.sender_type === 'operator',
+             // Dados de mídia se existirem - MAPEAMENTO COMPLETO DOS CAMPOS
+             message_type: msg.message_type, // Campo original do banco
+             messageType: msg.message_type, // Para compatibilidade
+             media_url: msg.media_url, // URL da mídia
+             fileUrl: msg.media_url, // Para compatibilidade
+             media_name: msg.media_name, // Nome original do arquivo
+             fileName: msg.media_name || msg.fileName, // Para compatibilidade
+             media_size: msg.media_size, // Tamanho do arquivo
+             fileSize: msg.media_size || msg.fileSize, // Para compatibilidade
+             media_type: msg.media_type, // MIME type
+             mimeType: msg.media_type || msg.mimeType, // Para compatibilidade
+             hasMedia: !!msg.media_url && msg.message_type !== 'text'
+           }
+           
+           console.log('🔄 Mensagem base criada:', {
+             id: baseMessage.id,
+             messageType: baseMessage.message_type,
+             fileUrl: baseMessage.media_url,
+             fileName: baseMessage.media_name,
+             mimeType: baseMessage.media_type
+           })
+           
+           return detectMessageType(baseMessage)
+         })
         
         console.log('✅ Mensagens convertidas:', convertedMessages)
         
@@ -2561,107 +2592,131 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
 
                 <div className="chat-messages">
                   <div className="messages-content">
-                    {currentChat.messages.map(message => (
-                      <div
-                        key={message.id}
-                        className={`message ${message.isFromBot ? 'bot' : message.isFromHuman ? 'human' : 'customer'}`}
-                      >
-                        <div className="message-content">
-                          {/* Renderizar conteúdo baseado no tipo de mensagem */}
-                          {message.messageType === 'audio' && message.fileUrl && (
-                            <AudioPlayer 
-                              audioUrl={message.fileUrl} 
-                              fileName={message.fileName}
-                            />
-                          )}
-                          
-                          {message.messageType === 'document' && message.fileUrl && (
-                            <DocumentViewer 
-                              fileUrl={message.fileUrl}
-                              fileName={message.fileName}
-                              fileSize={message.fileSize}
-                              mimeType={message.mimeType}
-                              messageId={message.id}
-                              onSaveDocument={handleSaveDocument}
-                            />
-                          )}
-                          
-                          {message.messageType === 'image' && message.fileUrl && (
-                            <ImageViewer 
-                              imageUrl={message.fileUrl}
-                              fileName={message.fileName}
-                            />
-                          )}
-                          
-                          {message.messageType === 'video' && message.fileUrl && (
-                            <div className="video-viewer">
-                              <video 
-                                controls 
-                                className="message-video"
-                                preload="metadata"
-                                onError={(e) => {
-                                  console.error('❌ Erro ao carregar vídeo:', message.fileUrl)
-                                  e.currentTarget.style.display = 'none'
-                                  const errorDiv = document.createElement('div')
-                                  errorDiv.innerHTML = '⚠️ Erro ao carregar vídeo'
-                                  errorDiv.style.cssText = 'padding: 20px; background: #f3f4f6; border-radius: 8px; text-align: center; color: #6b7280;'
-                                  e.currentTarget.parentNode?.appendChild(errorDiv)
-                                }}
-                                onLoadedData={() => {
-                                  console.log('✅ Vídeo carregado:', message.fileUrl)
-                                }}
-                              >
-                                <source src={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} type={message.mimeType} />
-                                Seu navegador não suporta reprodução de vídeo.
-                              </video>
-                              <div className="video-actions">
-                                <a 
-                                  href={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} 
-                                  download={message.fileName} 
-                                  className="download-button"
-                                  style={{
-                                    background: 'rgba(255, 255, 255, 0.1)',
-                                    color: '#e9edef',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    width: '28px',
-                                    height: '28px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    textDecoration: 'none'
-                                  }}
-                                >
-                                  <Download size={14} style={{ display: 'block' }} />
-                                </a>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Mostrar texto da mensagem se existir (pode acompanhar mídia) */}
-                          {message.body && message.body.trim() && (
-                            <div className="message-text">{message.body}</div>
-                          )}
-                          
-                          <div className="message-actions">
-                            <div className="message-time">
-                              {formatMessageTime(message.timestamp)}
-                            </div>
-                            
-                            {/* Botão de responder (apenas para mensagens do cliente) */}
-                            {!message.isFromHuman && !message.isFromBot && (
-                              <button
-                                className="reply-button"
-                                onClick={() => setReplyingToMessage(message)}
-                                title="Responder a esta mensagem"
-                              >
-                                <Reply size={12} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                                         {currentChat.messages.map(message => {
+                       // Debug da renderização de mensagens
+                       console.log('🎨 Renderizando mensagem:', {
+                         id: message.id,
+                         messageType: message.messageType,
+                         hasFileUrl: !!message.fileUrl,
+                         fileUrl: message.fileUrl,
+                         fileName: message.fileName,
+                         body: message.body?.substring(0, 50)
+                       })
+                       
+                       return (
+                         <div
+                           key={message.id}
+                           className={`message ${message.isFromBot ? 'bot' : message.isFromHuman ? 'human' : 'customer'}`}
+                         >
+                           <div className="message-content">
+                             {/* Debug visual do tipo da mensagem */}
+                             {process.env.NODE_ENV === 'development' && (
+                               <div style={{ 
+                                 fontSize: '10px', 
+                                 color: '#999', 
+                                 marginBottom: '4px',
+                                 fontFamily: 'monospace'
+                               }}>
+                                 DEBUG: tipo={message.messageType} | hasFile={!!message.fileUrl}
+                               </div>
+                             )}
+                             
+                             {/* Renderizar conteúdo baseado no tipo de mensagem */}
+                             {message.messageType === 'audio' && message.fileUrl && (
+                               <AudioPlayer 
+                                 audioUrl={message.fileUrl} 
+                                 fileName={message.fileName}
+                               />
+                             )}
+                             
+                             {message.messageType === 'document' && message.fileUrl && (
+                               <DocumentViewer 
+                                 fileUrl={message.fileUrl}
+                                 fileName={message.fileName}
+                                 fileSize={message.fileSize}
+                                 mimeType={message.mimeType}
+                                 messageId={message.id}
+                                 onSaveDocument={handleSaveDocument}
+                               />
+                             )}
+                             
+                             {message.messageType === 'image' && message.fileUrl && (
+                               <ImageViewer 
+                                 imageUrl={message.fileUrl}
+                                 fileName={message.fileName}
+                               />
+                             )}
+                             
+                             {message.messageType === 'video' && message.fileUrl && (
+                               <div className="video-viewer">
+                                 <video 
+                                   controls 
+                                   className="message-video"
+                                   preload="metadata"
+                                   onError={(e) => {
+                                     console.error('❌ Erro ao carregar vídeo:', message.fileUrl)
+                                     e.currentTarget.style.display = 'none'
+                                     const errorDiv = document.createElement('div')
+                                     errorDiv.innerHTML = '⚠️ Erro ao carregar vídeo'
+                                     errorDiv.style.cssText = 'padding: 20px; background: #f3f4f6; border-radius: 8px; text-align: center; color: #6b7280;'
+                                     e.currentTarget.parentNode?.appendChild(errorDiv)
+                                   }}
+                                   onLoadedData={() => {
+                                     console.log('✅ Vídeo carregado:', message.fileUrl)
+                                   }}
+                                 >
+                                   <source src={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} type={message.mimeType} />
+                                   Seu navegador não suporta reprodução de vídeo.
+                                 </video>
+                                 <div className="video-actions">
+                                   <a 
+                                     href={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} 
+                                     download={message.fileName} 
+                                     className="download-button"
+                                     style={{
+                                       background: 'rgba(255, 255, 255, 0.1)',
+                                       color: '#e9edef',
+                                       border: 'none',
+                                       borderRadius: '6px',
+                                       width: '28px',
+                                       height: '28px',
+                                       display: 'flex',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       textDecoration: 'none'
+                                     }}
+                                   >
+                                     <Download size={14} style={{ display: 'block' }} />
+                                   </a>
+                                 </div>
+                               </div>
+                             )}
+                             
+                             {/* Mostrar texto da mensagem se existir (pode acompanhar mídia) */}
+                             {message.body && message.body.trim() && (
+                               <div className="message-text">{message.body}</div>
+                             )}
+                             
+                             <div className="message-actions">
+                               <div className="message-time">
+                                 {formatMessageTime(message.timestamp)}
+                               </div>
+                               
+                               {/* Botão de responder (apenas para mensagens do cliente) */}
+                               {!message.isFromHuman && !message.isFromBot && (
+                                 <button
+                                   className="reply-button"
+                                   onClick={() => setReplyingToMessage(message)}
+                                   title="Responder a esta mensagem"
+                                 >
+                                   <Reply size={12} />
+                                 </button>
+                               )}
+                             </div>
+                           </div>
+                         </div>
+                       )
+                     })}
                   </div>
 
                   <div className="chat-input-fixed">
@@ -3149,14 +3204,35 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
               </div>
 
               <div className="form-group checkbox-group">
-                <label>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  marginBottom: '0',
+                  flexDirection: 'row',
+                  justifyContent: 'flex-start'
+                }}>
                   <input
                     type="checkbox"
                     checked={isImportantDocument}
                     onChange={(e) => setIsImportantDocument(e.target.checked)}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      cursor: 'pointer',
+                      margin: '0',
+                      flexShrink: 0
+                    }}
                   />
-                  <span className="checkmark"></span>
-                  <strong>⭐ Marcar como importante</strong>
+                  <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    lineHeight: '16px',
+                    whiteSpace: 'nowrap',
+                    fontWeight: 'bold'
+                  }}>⭐ Marcar como importante</span>
                 </label>
               </div>
             </div>
@@ -3184,38 +3260,51 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
 
       {/* Modal para preview de imagem colada */}
       {showPastedImagePreview && pastedImagePreview && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3>📋 Enviar Imagem Colada</h3>
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content" style={{ 
+            maxWidth: '450px', 
+            width: '90%',
+            maxHeight: '80vh',
+            fontSize: '14px',
+            position: 'relative',
+            margin: '20px'
+          }}>
+            <div className="modal-header" style={{ 
+              padding: '1rem 1.5rem',
+              fontSize: '16px'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '16px' }}>📋 Enviar Imagem Colada</h3>
               <button className="modal-close" onClick={cancelPastedImage}>
-                <XCircle size={20} />
+                <XCircle size={18} />
               </button>
             </div>
             
-            <div className="modal-body">
-              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <p>Você colou uma imagem. Deseja enviá-la para o cliente?</p>
+            <div className="modal-body" style={{ 
+              padding: '1rem 1.5rem',
+              fontSize: '14px'
+            }}>
+              <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+                <p style={{ margin: 0, fontSize: '14px' }}>Você colou uma imagem. Deseja enviá-la para o cliente?</p>
               </div>
               
               <div className="pasted-image-preview" style={{
                 textAlign: 'center',
-                marginBottom: '20px',
+                marginBottom: '15px',
                 border: '2px dashed #e5e7eb',
                 borderRadius: '8px',
-                padding: '20px'
+                padding: '15px'
               }}>
                 <img 
                   src={pastedImagePreview} 
                   alt="Imagem colada" 
                   style={{
                     maxWidth: '100%',
-                    maxHeight: '300px',
+                    maxHeight: '200px',
                     borderRadius: '4px',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                   }}
                 />
-                <div style={{ marginTop: '10px', fontSize: '14px', color: '#6b7280' }}>
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
                   {pastedImage && (
                     <>
                       Tipo: {pastedImage.type} | 
@@ -3226,11 +3315,29 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
               </div>
             </div>
             
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ 
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              background: '#f8fafc',
+              borderBottomLeftRadius: '12px',
+              borderBottomRightRadius: '12px'
+            }}>
               <button 
                 type="button"
                 className="btn-cancel"
                 onClick={cancelPastedImage}
+                style={{
+                  padding: '0.5rem 1rem',
+                  fontSize: '13px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#718096',
+                  cursor: 'pointer'
+                }}
               >
                 ❌ Cancelar
               </button>
@@ -3239,8 +3346,14 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 className="btn-confirm"
                 onClick={sendPastedImage}
                 style={{
+                  padding: '0.5rem 1rem',
+                  fontSize: '13px',
                   background: '#25d366',
-                  borderColor: '#25d366'
+                  borderColor: '#25d366',
+                  color: 'white',
+                  border: '1px solid #25d366',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
                 }}
               >
                 📤 Enviar Imagem
