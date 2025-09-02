@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc && cd client && npm run build",
-    "start": "node dist/server.js",
+    "start": "node dist/server-baileys.js",
     "start:baileys": "node dist/server-baileys.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
     "dev:baileys": "concurrently \"npm run server:baileys:dev\" \"npm run client:dev\"",

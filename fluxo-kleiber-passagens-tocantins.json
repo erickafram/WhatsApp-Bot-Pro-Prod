@@ -67,7 +67,7 @@
           "brigada",
           "thank"
         ],
-        "response": "🙏 Por nada! Foi um prazer ajudá-lo(a)!\n\nSe precisar de mais alguma coisa, estarei sempre aqui! 😊\n\nTenha um ótimo dia/tarde/noite! 🚌✨",
+        "response": "Imagina! 😊 Fico feliz em ajudar!\n\nQualquer coisa que precisar, é só chamar que eu tô aqui, tá bom?\n\nTenha um dia maravilhoso! 🚌✨",
         "active": 1,
         "stop_processing": true
       },
@@ -235,7 +235,7 @@
           "documento",
           "mídia"
         ],
-        "response": "🚌 Olá! {name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊",
+        "response": "Oi {name}! 😊 Tudo bem? \n\nSou da *Kleiber Passagens Tocantins* e estou aqui pra te ajudar! \n\nO que você precisa hoje?\n\n*1* - 🎫 Quero comprar uma passagem\n*2* - 🕐 Ver os horários dos ônibus\n*3* - 📦 Enviar encomendas ou cargas\n*4* - 🚐 Turismo e locação de veículos\n*5* - 🚌 Atendimento Real Expresso\n\nÉ só digitar o número da opção que te interessa! 👍",
         "active": 1
       },
       "connections": [
@@ -263,7 +263,7 @@
           "bilhete",
           "ticket"
         ],
-        "response": "🎫 *COMPRAR PASSAGEM*\n\nPara prosseguir com a compra, preciso das seguintes informações:\n\n📍 *Qual cidade de origem?*\n📍 *Qual cidade de destino?*\n📅 *Qual a data da viagem?*\n\n💡 *Dica:* Digite as informações no formato:\nOrigem - Destino - Data\n\n*Exemplo:* Palmas - Goiânia - 01/09/2025\n\nDigite as informações da sua viagem! 🚌",
+        "response": "Perfeito! Vou te ajudar a comprar sua passagem! 🎫\n\nPra eu conseguir te ajudar melhor, me conta:\n\n📍 De qual cidade você vai sair?\n📍 Pra onde você quer ir?\n📅 Que dia você pretende viajar?\n\nVocê pode me falar assim:\n*Exemplo:* Palmas - Goiânia - 01/09/2025\n\nOu se preferir, pode me contar de um jeito mais natural mesmo! 😊",
         "active": 1
       },
       "connections": [
@@ -280,7 +280,7 @@
       "data": {
         "title": "Processar Solicitação de Passagem",
         "description": "Captura informações de viagem e transfere para operador",
-        "response": "✅ *Recebemos sua solicitação de passagem!*\n\n👨‍💼 *Transferindo para operador especializado...*\n\nNosso atendente verificará:\n• Disponibilidade de horários\n• Valores das passagens\n• Formas de pagamento\n• Finalização da compra\n\n⏰ *Horário de Atendimento:*\nSegunda a Sexta: 08:00 às 19:00\nSábado e Domingo: 08:00 às 12:00 e 14:00 às 19:00\n\nEm alguns instantes um operador entrará em contato! 🚌✨",
+        "response": "Ótimo! 😊 Já anotei tudo aqui!\n\nAgora vou te conectar com um dos nossos atendentes que vai:\n• Conferir se tem vaga pro dia que você quer\n• Te passar o valor certinho\n• Explicar as formas de pagamento\n• Finalizar tudo pra você\n\n⏰ *Nosso horário de atendimento:*\nSegunda a Sexta: 08:00 às 19:00\nSábado e Domingo: 08:00 às 12:00 e 14:00 às 19:00\n\nJá já alguém vai falar com você! Só um minutinho... 🚌✨",
         "active": 1
       },
       "connections": []
@@ -391,7 +391,7 @@
         "title": "Fallback Automático",
         "description": "Transfere automaticamente para operador quando não há correspondência",
         "triggers": ["*"],
-        "response": "👨‍💼 Vou transferir você para nosso atendimento especializado!\n\n🤔 Não consegui processar sua mensagem automaticamente, mas nossa equipe poderá ajudá-lo melhor.\n\nEm alguns instantes um operador entrará em contato!",
+        "response": "Opa! Não consegui entender direito o que você precisa... 😅\n\nMas não se preocupa! Vou te conectar com um dos nossos atendentes que vai conseguir te ajudar melhor!\n\nSó um minutinho que alguém já vai falar com você! 👍",
         "priority": 999
       },
       "connections": []
