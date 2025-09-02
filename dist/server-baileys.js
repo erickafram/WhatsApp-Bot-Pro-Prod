@@ -416,6 +416,18 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
                 console.log(`📨 Aguardando mensagens...\n`);
                 instanceData.isReady = true;
                 instanceData.qrCode = undefined;
+                
+                // TESTE CRÍTICO: Verificar se presence update funciona
+                setTimeout(async () => {
+                    try {
+                        console.log(`🧪 TESTANDO presence update para gestor ${managerId}...`);
+                        await sock.sendPresenceUpdate('available');
+                        console.log(`✅ sendPresenceUpdate FUNCIONA para gestor ${managerId}!`);
+                    } catch (testError) {
+                        console.error(`❌ ERRO CRÍTICO: sendPresenceUpdate NÃO funciona:`, testError);
+                        console.error(`🔧 Possível solução: Atualizar @whiskeysockets/baileys`);
+                    }
+                }, 3000);
                 // Emitir status de conexão
                 io.to(`manager_${managerId}`).emit('connection_status', {
                     managerId,
@@ -492,6 +504,40 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
 // Função para processar mensagens com Baileys
 async function processMessageBaileys(msg, managerId, instanceData) {
     const delay = (ms) => new Promise(res => setTimeout(res, ms));
+    
+    // Função para simular digitação - VERSÃO ATUALIZADA AGOSTO 2024/2025
+    const simulateTyping = async (sock, chatId, messageLength) => {
+        try {
+            const typingTime = Math.min(Math.max(messageLength * 80, 2000), 5000);
+            
+            console.log(`⌨️ Iniciando digitação para ${chatId} (${typingTime}ms)`);
+            
+            if (!sock?.sendPresenceUpdate) {
+                console.log('❌ sendPresenceUpdate não disponível');
+                await delay(typingTime);
+                return;
+            }
+            
+            // NOVA ABORDAGEM 2024/2025: Sequência correta de presence updates
+            await sock.sendPresenceUpdate('available', chatId);
+            await delay(100);
+            
+            await sock.sendPresenceUpdate('composing', chatId);
+            console.log(`📝 Mostrando "digitando..." por ${typingTime}ms`);
+            
+            await delay(typingTime);
+            
+            await sock.sendPresenceUpdate('paused', chatId);
+            await delay(300);
+            
+            console.log(`✅ Digitação concluída`);
+            
+        } catch (error) {
+            console.error('❌ Erro na digitação:', error);
+            await delay(2000);
+        }
+    };
+    
     try {
         // Detectar tipo de conteúdo da mensagem
         const messageType = (0, baileys_1.getContentType)(msg.message || {});
@@ -633,8 +679,9 @@ async function processMessageBaileys(msg, managerId, instanceData) {
                     response = response.replace(/{operatorName}/g, operatorName);
                     // Executar ações específicas baseadas no node
                     await executeNodeAction(flowResult.node, activeChat, managerId, dbContact, contactName, phoneNumber);
-                    // Enviar resposta
+                    // Enviar resposta com digitação
                     if (instanceData.sock && instanceData.isReady) {
+                        await simulateTyping(instanceData.sock, sender, response.length);
                         await instanceData.sock.sendMessage(sender, { text: response });
                         console.log(`✅ Resposta pós-encerramento enviada: ${flowResult.node.id}`);
                         // Salvar resposta no banco
@@ -730,6 +777,7 @@ async function processMessageBaileys(msg, managerId, instanceData) {
                     let response = flowResult.response.replace(/{name}/g, name);
                     response = response.replace(/{operatorName}/g, 'operador');
                     if (instanceData.sock && instanceData.isReady && response.trim()) {
+                        await simulateTyping(instanceData.sock, sender, response.trim().length);
                         await instanceData.sock.sendMessage(sender, { text: response.trim() });
                         console.log(`✅ Resposta enviada via fluxo JSON para ${sender}: "${response.substring(0, 50)}..."`);
                         // 🗄️ SALVAR RESPOSTA DO BOT NO BANCO
