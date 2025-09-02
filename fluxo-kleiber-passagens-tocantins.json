@@ -1,9 +1,32 @@
 {
   "metadata": {
-    "version": "1.1",
+    "version": "1.2",
     "created": "2025-09-01T03:43:00.200Z",
-    "updated": "2025-09-01T04:00:00.000Z",
-    "description": "Fluxo de conversação automática - Versão corrigida"
+    "updated": "2025-09-02T13:45:00.000Z",
+    "description": "Fluxo de conversação automática - Com simulação de digitação"
+  },
+  "settings": {
+    "typing": {
+      "enabled": true,
+      "wordsPerMinute": 35,
+      "maxDuration": 6000,
+      "minDuration": 1500,
+      "randomVariation": 2000,
+      "pauseBeforeSend": 300,
+      "description": "Configurações de simulação de digitação para parecer mais natural e evitar bloqueios"
+    },
+    "delays": {
+      "betweenMessages": 2500,
+      "afterMediaReceived": 2000,
+      "beforeTransferToHuman": 1500,
+      "initialDelay": 800,
+      "description": "Delays entre ações para evitar detecção como bot"
+    },
+    "presence": {
+      "markAsRead": true,
+      "showOnline": true,
+      "description": "Configurações de presença online e leitura de mensagens"
+    }
   },
   "nodes": [
     {
@@ -280,7 +303,7 @@
       "data": {
         "title": "Processar Solicitação de Passagem",
         "description": "Captura informações de viagem e transfere para operador",
-        "response": "Ótimo! 😊 Já anotei tudo aqui!\n\nAgora vou te conectar com um dos nossos atendentes que vai:\n• Conferir se tem vaga pro dia que você quer\n• Te passar o valor certinho\n• Explicar as formas de pagamento\n• Finalizar tudo pra você\n\n⏰ *Nosso horário de atendimento:*\nSegunda a Sexta: 08:00 às 19:00\nSábado e Domingo: 08:00 às 12:00 e 14:00 às 19:00\n\nJá já alguém vai falar com você! Só um minutinho... 🚌✨",
+        "response": "Ótimo! 😊 Já anotei tudo aqui!\n\nAgora vou te conectar com um dos nossos atendentes que vai:\n• Conferir se tem vaga pro dia que você quer\n• Te passar o valor certinho\n• Explicar as formas de pagamento\n• Finalizar tudo pra você\n\nJá já alguém vai falar com você! Só um minutinho... 🚌✨",
         "active": 1
       },
       "connections": []

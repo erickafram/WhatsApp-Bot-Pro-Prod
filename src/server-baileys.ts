@@ -151,6 +151,16 @@ function loadFlowFromJSON(): FlowData | null {
         const flowContent = fs.readFileSync(flowPath, 'utf8');
         cachedFlow = JSON.parse(flowContent);
         console.log('✅ Fluxo JSON carregado com sucesso!');
+        
+        // Log das configurações de typing se existirem
+        if (cachedFlow?.settings?.typing) {
+            console.log('⌨️ Configurações de digitação carregadas:', {
+                enabled: cachedFlow.settings.typing.enabled,
+                wordsPerMinute: cachedFlow.settings.typing.wordsPerMinute,
+                maxDuration: cachedFlow.settings.typing.maxDuration
+            });
+        }
+        
         return cachedFlow;
     } catch (error) {
         console.error('❌ Erro ao carregar fluxo JSON:', error);
@@ -382,10 +392,42 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
         // Configuração de autenticação
         const { state, saveCreds } = await useMultiFileAuthState(authDir);
         
-        // Criar socket do WhatsApp - CONFIGURAÇÃO SIMPLES COMO SEU EXEMPLO
+        // Criar socket do WhatsApp com configurações otimizadas
         const sock = makeWASocket({
             auth: state,
-            printQRInTerminal: false // Usar configuração mínima igual seu exemplo
+            printQRInTerminal: false,
+            
+            // Configurações essenciais para presença e leitura
+            syncFullHistory: false,
+            markOnlineOnConnect: true,
+            generateHighQualityLinkPreview: false,
+            
+            // Browser info para parecer mais natural
+            browser: ['WhatsApp Bot Pro', 'Chrome', '120.0.0'],
+            
+            // Timeouts aumentados para estabilidade
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 60000,
+            
+            // Configurações de presença aprimoradas
+            emitOwnEvents: true,
+            qrTimeout: 60000,
+            
+            // Configurações para melhor funcionamento de receipts e presença
+            shouldIgnoreJid: () => false,
+            shouldSyncHistoryMessage: () => true,
+            
+            // Importante: habilitar recebimento de confirmações de leitura
+            getMessage: async (key) => {
+                return {
+                    conversation: 'hello'
+                };
+            },
+            
+            // Cache para retry de mensagens - removido por conflito de tipos
+            
+            // Logger desabilitado para reduzir ruído
+            logger: undefined
         });
         
         // Salvar instância
@@ -519,6 +561,26 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
                 instanceData.isReady = true;
                 instanceData.qrCode = undefined;
                 
+                // CONFIGURAÇÕES INICIAIS DE PRESENÇA PARA MELHOR FUNCIONAMENTO
+                try {
+                    console.log(`🔧 Configurando presença inicial...`);
+                    
+                    // Marcar como disponível globalmente
+                    await sock.sendPresenceUpdate('available');
+                    console.log(`✅ Bot marcado como disponível`);
+                    
+                    // Aguardar um pouco para estabilizar
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Tentar configurar presença para ser mais visível
+                    await sock.sendPresenceUpdate('available');
+                    console.log(`✅ Configuração de presença concluída`);
+                    
+                } catch (presenceError) {
+                    const errorMsg = presenceError instanceof Error ? presenceError.message : String(presenceError);
+                    console.warn(`⚠️ Erro ao configurar presença inicial:`, errorMsg);
+                }
+                
                 // Emitir status de conexão
                 io.to(`manager_${managerId}`).emit('connection_status', {
                     managerId,
@@ -600,6 +662,183 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
             errorMessage: errorMessage,
             errorCode: (error as any)?.code || 'Sem código'
         });
+    }
+}
+
+// Função para marcar mensagem como lida com múltiplas tentativas
+async function markMessageAsRead(sock: WASocket, msg: WAMessage) {
+    try {
+        console.log(`📬 Marcando mensagem como lida: ${msg.key.id}`);
+        
+        // Método 1: readMessages (padrão do Baileys)
+        try {
+            await sock.readMessages([{
+                remoteJid: msg.key.remoteJid!,
+                id: msg.key.id!,
+                participant: msg.key.participant
+            }]);
+            console.log(`✅ Mensagem marcada como lida via readMessages`);
+            
+            // Aguardar um pouco antes de enviar o receipt
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Enviar confirmação de leitura
+            await sock.sendReceipt(msg.key.remoteJid!, msg.key.participant || undefined, [msg.key.id!], 'read');
+            console.log(`✅ Receipt de leitura enviado (✓✓ azul)`);
+            
+            return; // Sucesso, sair da função
+            
+        } catch (readError) {
+            const errorMsg = readError instanceof Error ? readError.message : String(readError);
+            console.warn(`⚠️ Método readMessages falhou:`, errorMsg);
+        }
+        
+        // Método 2: chatModify (fallback)
+        try {
+            await sock.chatModify(
+                { markRead: true, lastMessages: [msg] },
+                msg.key.remoteJid!
+            );
+            console.log(`✅ Marcado como lido via chatModify`);
+            
+            // Tentar enviar receipt mesmo assim
+            try {
+                await sock.sendReceipt(msg.key.remoteJid!, msg.key.participant || undefined, [msg.key.id!], 'read');
+                console.log(`✅ Receipt enviado via método alternativo`);
+            } catch (receiptError) {
+                const errorMsg = receiptError instanceof Error ? receiptError.message : String(receiptError);
+                console.warn(`⚠️ Receipt alternativo falhou:`, errorMsg);
+            }
+            
+            return; // Sucesso, sair da função
+            
+        } catch (modifyError) {
+            const errorMsg = modifyError instanceof Error ? modifyError.message : String(modifyError);
+            console.warn(`⚠️ Método chatModify falhou:`, errorMsg);
+        }
+        
+        // Método 3: sendReceipt direto (último recurso)
+        try {
+            await sock.sendReceipt(msg.key.remoteJid!, msg.key.participant || undefined, [msg.key.id!], 'read');
+            console.log(`✅ Receipt direto enviado (último recurso)`);
+            
+        } catch (directReceiptError) {
+            const errorMsg = directReceiptError instanceof Error ? directReceiptError.message : String(directReceiptError);
+            console.warn(`⚠️ Receipt direto falhou:`, errorMsg);
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro geral ao marcar mensagem como lida:', error);
+        // Não lançar erro - continuar processamento mesmo se falhar
+    }
+}
+
+// Função para simular digitação humana
+async function simulateTyping(sock: WASocket, remoteJid: string, message: string) {
+    try {
+        // Carregar configurações do fluxo
+        const flowData = loadFlowFromJSON();
+        const typingConfig = flowData?.settings?.typing;
+        
+        // Se typing estiver desabilitado, retornar imediatamente
+        if (typingConfig && typingConfig.enabled === false) {
+            console.log('⌨️ Simulação de digitação desabilitada');
+            return;
+        }
+        
+        // Usar configurações do JSON ou valores padrão
+        const wordsPerMinute = typingConfig?.wordsPerMinute || 40;
+        const maxDuration = typingConfig?.maxDuration || 5000;
+        const minDuration = typingConfig?.minDuration || 1000;
+        const randomVariationMax = typingConfig?.randomVariation || 1500;
+        const pauseBeforeSend = typingConfig?.pauseBeforeSend || 200;
+        
+        console.log(`⌨️ Iniciando simulação de digitação para: ${remoteJid}`);
+        
+        try {
+            // NOVA IMPLEMENTAÇÃO MAIS ROBUSTA
+            
+            // 1. Subscrever às atualizações de presença do chat
+            await sock.presenceSubscribe(remoteJid);
+            console.log(`✅ Subscrito às atualizações de presença: ${remoteJid}`);
+            
+            // 2. Marcar como disponível globalmente
+            await sock.sendPresenceUpdate('available');
+            console.log(`✅ Status global: disponível`);
+            
+            // 3. Delay mínimo para processamento
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // 4. Enviar status "digitando" para o chat específico
+            await sock.sendPresenceUpdate('composing', remoteJid);
+            console.log(`✅ Status 'digitando...' enviado para ${remoteJid}`);
+            
+            // 5. Re-enviar o status periodicamente durante a digitação
+            const intervalId = setInterval(async () => {
+                try {
+                    await sock.sendPresenceUpdate('composing', remoteJid);
+                    console.log(`🔄 Re-enviando status 'digitando...'`);
+                } catch (e) {
+                    console.warn('⚠️ Erro ao re-enviar status de digitação');
+                }
+            }, 2000);
+            
+            // Calcular tempo de digitação baseado no tamanho da mensagem
+            const charsPerSecond = (wordsPerMinute * 5) / 60; // Média de 5 caracteres por palavra
+            const messageLength = message.length;
+            
+            // Tempo base de digitação com variação aleatória
+            const baseTypingTime = (messageLength / charsPerSecond) * 1000;
+            const randomVariation = Math.random() * randomVariationMax;
+            let typingDuration = baseTypingTime + randomVariation;
+            
+            // Aplicar limites mínimo e máximo
+            typingDuration = Math.max(minDuration, Math.min(typingDuration, maxDuration));
+            
+            console.log(`⏱️ Aguardando ${typingDuration.toFixed(0)}ms (${messageLength} caracteres)`);
+            
+            // Aguardar o tempo de digitação
+            await new Promise(resolve => setTimeout(resolve, typingDuration));
+            
+            // Parar o re-envio do status
+            clearInterval(intervalId);
+            
+            // Parar de mostrar "digitando..."
+            try {
+                await sock.sendPresenceUpdate('paused', remoteJid);
+                console.log(`✅ Status pausado`);
+            } catch (pauseError) {
+                console.warn(`⚠️ Erro ao pausar digitação:`, pauseError);
+            }
+            
+            // Pequena pausa antes de enviar
+            await new Promise(resolve => setTimeout(resolve, pauseBeforeSend));
+            
+            console.log(`✅ Simulação de digitação concluída: ${typingDuration.toFixed(0)}ms`);
+            
+        } catch (presenceError) {
+            console.error(`❌ Erro na simulação de digitação:`, presenceError);
+            
+            // Tentar método de fallback mais simples
+            try {
+                console.log(`🔄 Tentando método de fallback...`);
+                await sock.sendPresenceUpdate('available');
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await sock.sendPresenceUpdate('composing', remoteJid);
+                
+                // Aguardar um tempo mínimo
+                await new Promise(resolve => setTimeout(resolve, Math.max(1500, Math.min(3000, message.length * 50))));
+                
+                await sock.sendPresenceUpdate('paused', remoteJid);
+                console.log(`✅ Fallback de digitação concluído`);
+            } catch (fallbackError) {
+                console.error(`❌ Fallback também falhou:`, fallbackError);
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro geral na simulação de digitação:', error);
+        // Continuar mesmo se houver erro
     }
 }
 
@@ -779,8 +1018,17 @@ async function processMessageBaileys(msg: WAMessage, managerId: number, instance
                     // Executar ações específicas baseadas no node
                     await executeNodeAction(flowResult.node, activeChat, managerId, dbContact, contactName, phoneNumber);
                     
-                    // Enviar resposta
+                    // Enviar resposta com simulação de digitação
                 if (instanceData.sock && instanceData.isReady) {
+                    // Adicionar pequeno delay inicial
+                    await delay(300);
+                    
+                    // Marcar como lido antes de responder - IMPLEMENTAÇÃO ROBUSTA
+                    await markMessageAsRead(instanceData.sock, msg);
+                    
+                    // Simular digitação antes de enviar
+                    await simulateTyping(instanceData.sock, sender, response);
+                    
                     await instanceData.sock.sendMessage(sender, { text: response });
                         console.log(`✅ Resposta pós-encerramento enviada: ${flowResult.node.id}`);
                     
@@ -890,14 +1138,21 @@ async function processMessageBaileys(msg: WAMessage, managerId: number, instance
                         console.log(`⏹️ Nó configurado para parar processamento: ${flowResult.node.id}`);
                     }
                         
-                        await delay(2000);
-                        
                         // Substituir placeholders
                         const name = msg.pushName ? msg.pushName.split(" ")[0] : 'amigo';
                         let response = flowResult.response.replace(/{name}/g, name);
                         response = response.replace(/{operatorName}/g, 'operador');
                         
                         if (instanceData.sock && instanceData.isReady && response.trim()) {
+                            // Adicionar pequeno delay inicial para parecer mais natural
+                            await delay(500);
+                            
+                            // Marcar como lido antes de responder - IMPLEMENTAÇÃO ROBUSTA
+                            await markMessageAsRead(instanceData.sock, msg);
+                            
+                            // Simular digitação antes de enviar
+                            await simulateTyping(instanceData.sock, sender, response.trim());
+                            
                             await instanceData.sock.sendMessage(sender, { text: response.trim() });
                             console.log(`✅ Resposta enviada via fluxo JSON para ${sender}: "${response.substring(0, 50)}..."`);
                             
@@ -925,7 +1180,11 @@ async function processMessageBaileys(msg: WAMessage, managerId: number, instance
                             console.log(`👨‍💼 Nó de transferência humana detectado no FLUXO JSON (${flowResult.node.id}) - iniciando transferência`);
                             // Limpar contexto pois a conversa será transferida
                             userContexts.delete(sender);
-                            await delay(1000);
+                            
+                            // Usar delay configurável antes de transferir
+                            const delayConfig = flowData?.settings?.delays;
+                            const transferDelay = delayConfig?.beforeTransferToHuman || 1000;
+                            await delay(transferDelay);
 
                             // Criar chat humano explicitamente
                             await createHumanChatExplicit(managerId, sender, contactName, dbContact);
@@ -1533,6 +1792,9 @@ io.on('connection', async (socket) => {
             // 👤 INCLUIR NOME DO OPERADOR NA MENSAGEM PARA WHATSAPP
             const operatorName = authenticatedUser.name || 'Operador';
             const messageWithName = `*${operatorName}:* ${data.message}`;
+            
+            // Simular digitação antes de enviar mensagem do operador
+            await simulateTyping(instance.sock, baileyChatId, messageWithName);
             
             // Enviar mensagem via Baileys
             await instance.sock.sendMessage(baileyChatId, { text: messageWithName });

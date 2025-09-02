@@ -103,12 +103,13 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
   const plans = [
     {
       name: "Starter",
-      price: "399",
+      price: "599",
       period: "/mês",
       description: "Ideal para pequenos negócios",
       features: [
         "Até 1.000 mensagens/mês",
         "1 número WhatsApp",
+        "API Oficial",
         "Respostas automáticas",
         "Suporte por email"
       ],
@@ -116,12 +117,13 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
     },
     {
       name: "Professional",
-      price: "499", 
+      price: "699", 
       period: "/mês",
       description: "Para empresas em crescimento",
       features: [
         "Até 10.000 mensagens/mês",
         "3 números WhatsApp",
+        "API Oficial",
         "Chatbot avançado",
         "Analytics completo",
         "Suporte prioritário"
@@ -130,12 +132,13 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
     },
     {
       name: "Enterprise",
-      price: "599",
+      price: "899",
       period: "/mês", 
       description: "Para grandes empresas",
       features: [
         "Mensagens ilimitadas",
         "Números ilimitados",
+        "API Oficial",
         "IA personalizada",
         "Integrações customizadas",
         "Suporte 24/7"

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import QRCodePopup from './QRCodePopup'
 import SubscriptionUpgrade from './SubscriptionUpgrade'
+import TermsOfResponsibility from './TermsOfResponsibility'
 import './BotInstanceDark.css'
 
 interface ConnectionStatus {
@@ -41,6 +42,7 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
     endDate: null
   })
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
   const [instanceStats, setInstanceStats] = useState({
     activeCount: 0,
     totalCount: 0,
@@ -289,6 +291,12 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
       return
     }
 
+    // Mostrar termos de responsabilidade primeiro
+    setShowTermsModal(true)
+  }
+
+  const proceedWithInstanceStart = async () => {
+    setShowTermsModal(false)
     setIsLoading(true)
     setIsConnecting(true)
     setMessageCount(0)
@@ -716,6 +724,13 @@ function BotInstance({ socket, setSocket }: BotInstanceProps) {
         isVisible={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
         onUpgrade={handleSubscriptionUpgrade}
+      />
+
+      {/* Terms of Responsibility Modal */}
+      <TermsOfResponsibility 
+        isVisible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={proceedWithInstanceStart}
       />
     </div>
   )
