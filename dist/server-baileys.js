@@ -1486,9 +1486,10 @@ io.on('connection', async (socket) => {
             const messageWithName = `*${operatorName}:* ${data.message}`;
             // Simular digitação antes de enviar mensagem do operador
             await simulateTyping(instance.sock, baileyChatId, messageWithName);
-            // Enviar mensagem via Baileys
-            await instance.sock.sendMessage(baileyChatId, { text: messageWithName });
+            // Enviar mensagem via Baileys e capturar o ID da mensagem
+            const sentMessage = await instance.sock.sendMessage(baileyChatId, { text: messageWithName });
             console.log(`✅ Mensagem do operador ${operatorName} enviada com sucesso via Baileys`);
+            console.log(`🆔 WhatsApp Message ID:`, sentMessage?.key?.id);
             // 💾 SALVAR MENSAGEM DO OPERADOR NO BANCO DE DADOS
             try {
                 // Extrair número de telefone do chatId (suporte a ambos os formatos)
@@ -1501,6 +1502,7 @@ io.on('connection', async (socket) => {
                         manager_id: managerId,
                         chat_id: activeChat?.id || null,
                         contact_id: dbContact.id,
+                        whatsapp_message_id: sentMessage?.key?.id || undefined, // 🆔 SALVAR ID DO WHATSAPP
                         sender_type: 'operator',
                         sender_id: authenticatedUser.id,
                         content: messageWithName, // Salvar no banco com nome do operador

@@ -88,6 +88,7 @@ export declare class MessageModel {
     static findByManager(managerId: number, limit?: number): Promise<Message[]>;
     static markAsRead(id: number): Promise<void>;
     static markContactMessagesAsRead(contactId: number): Promise<void>;
+    static delete(id: number): Promise<boolean>;
 }
 export declare class HumanChatModel {
     static create(data: CreateHumanChatData): Promise<HumanChat>;

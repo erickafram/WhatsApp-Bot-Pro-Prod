@@ -867,10 +867,12 @@ Como posso ajudá-lo? 😊`;
           console.log(`📤 Enviando mensagem de apresentação do operador ${operatorName} para ${phoneNumber}...`);
           
           // Usar Baileys ou whatsapp-web.js conforme disponível
+          let sentMessage: any = null;
           if (instance.sock) {
             // Enviar via Baileys
-            await instance.sock.sendMessage(phoneNumber, { text: welcomeMessage });
+            sentMessage = await instance.sock.sendMessage(phoneNumber, { text: welcomeMessage });
             console.log(`✅ Mensagem de apresentação enviada via BAILEYS`);
+            console.log(`🆔 WhatsApp Message ID:`, sentMessage?.key?.id);
           } else if (instance.client) {
             // Enviar via whatsapp-web.js (fallback)
             await instance.client.sendMessage(phoneNumber, welcomeMessage);
@@ -882,6 +884,7 @@ Como posso ajudá-lo? 😊`;
             manager_id: chat.manager_id,
             chat_id: chatId,
             contact_id: contact.id,
+            whatsapp_message_id: sentMessage?.key?.id || undefined, // 🆔 SALVAR ID DO WHATSAPP
             sender_type: 'operator',
             sender_id: req.user.id,
             content: welcomeMessage,
@@ -1295,15 +1298,16 @@ router.post('/upload-file', authenticate, upload.single('file'), async (req: Req
         console.log(`📤 Enviando arquivo via Baileys para ${phoneNumber}...`);
         console.log(`📁 Arquivo: ${req.file.originalname} (${req.file.mimetype})`);
         
-        // Enviar arquivo via Baileys
-        await instance.sock.sendMessage(phoneNumber, mediaMessage);
+        // Enviar arquivo via Baileys e capturar ID da mensagem
+        const sentMessage = await instance.sock.sendMessage(phoneNumber, mediaMessage);
         
         console.log(`✅ Arquivo ${req.file.originalname} enviado com sucesso via Baileys!`);
+        console.log(`🆔 WhatsApp Message ID:`, sentMessage?.key?.id);
         
-        // Atualizar mensagem no banco com status de envio
+        // Atualizar mensagem no banco com status de envio e WhatsApp ID
         await executeQuery(
-          'UPDATE messages SET content = ? WHERE id = ?',
-          [`*${operatorName}:* 📎 ${req.file.originalname} ✅`, message.id]
+          'UPDATE messages SET content = ?, whatsapp_message_id = ? WHERE id = ?',
+          [`*${operatorName}:* 📎 ${req.file.originalname} ✅`, sentMessage?.key?.id || undefined, message.id]
         );
         
         // 📡 NOTIFICAR VIA SOCKET.IO QUE ARQUIVO FOI ENVIADO
@@ -1662,6 +1666,112 @@ router.put('/messages/:id', authenticate, async (req, res) => {
 });
 
 // Deletar mensagem automática
+// Deletar mensagem de chat
+router.delete('/:id/delete', authenticate, async (req, res) => {
+  try {
+    const messageId = parseInt(req.params.id);
+    
+    if (!req.user) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (isNaN(messageId)) {
+      return res.status(400).json({ error: 'ID da mensagem inválido' });
+    }
+    
+    const message = await MessageModel.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Mensagem não encontrada' });
+    }
+    
+    // Verificar permissões
+    let canDelete = false;
+    
+    // Admin pode deletar qualquer mensagem
+    if (req.user.role === 'admin') {
+      canDelete = true;
+    } 
+    // Manager pode deletar mensagens do seu gerenciamento
+    else if (req.user.role === 'manager' && message.manager_id === req.user.id) {
+      canDelete = true;
+    }
+    // Operador pode deletar apenas suas próprias mensagens
+    else if (req.user.role === 'operator' && 
+             message.sender_type === 'operator' && 
+             message.sender_id === req.user.id) {
+      canDelete = true;
+    }
+    
+    if (!canDelete) {
+      return res.status(403).json({ error: 'Sem permissão para deletar esta mensagem' });
+    }
+    
+    // 🗑️ DELETAR MENSAGEM NO WHATSAPP PRIMEIRO (se tiver whatsapp_message_id)
+    let whatsappDeleted = false;
+    if (message.whatsapp_message_id) {
+      try {
+        // Buscar instância ativa do WhatsApp
+        const instances = (global as any).whatsappInstances;
+        const instance = instances && instances.get(message.manager_id);
+        
+        if (instance?.sock && instance.isReady) {
+          // Buscar informações do contato para obter o chat ID
+          const contact = await ContactModel.findById(message.contact_id);
+          if (contact) {
+            const chatId = contact.phone_number + '@s.whatsapp.net';
+            
+            console.log(`🗑️ Tentando deletar mensagem ${message.whatsapp_message_id} no WhatsApp...`);
+            
+            // Criar key da mensagem para deleção
+            const messageKey = {
+              remoteJid: chatId,
+              fromMe: true, // Mensagem enviada por nós
+              id: message.whatsapp_message_id
+            };
+            
+            // Deletar mensagem no WhatsApp usando Baileys
+            await instance.sock.sendMessage(chatId, { 
+              delete: messageKey 
+            });
+            
+            whatsappDeleted = true;
+            console.log(`✅ Mensagem deletada no WhatsApp com sucesso!`);
+          }
+        } else {
+          console.warn(`⚠️ Instância WhatsApp não disponível para manager ${message.manager_id}`);
+        }
+      } catch (whatsappError) {
+        console.error('❌ Erro ao deletar mensagem no WhatsApp:', whatsappError);
+        // Não falhar a operação se não conseguir deletar no WhatsApp
+        // A mensagem ainda será deletada do banco de dados
+      }
+    } else {
+      console.warn(`⚠️ Mensagem ${messageId} não possui whatsapp_message_id, não pode ser deletada no WhatsApp`);
+    }
+    
+    // Deletar mensagem do banco de dados
+    const deleted = await MessageModel.delete(messageId);
+    
+    if (!deleted) {
+      return res.status(500).json({ error: 'Falha ao deletar mensagem do banco de dados' });
+    }
+    
+    console.log(`✅ Mensagem ${messageId} deletada por ${req.user.name} (${req.user.role})`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Mensagem deletada com sucesso',
+      whatsappDeleted: whatsappDeleted,
+      details: whatsappDeleted ? 
+        'Mensagem deletada do sistema e do WhatsApp' : 
+        'Mensagem deletada apenas do sistema (WhatsApp não disponível ou sem ID)'
+    });
+  } catch (error) {
+    console.error('❌ Erro ao deletar mensagem de chat:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 router.delete('/messages/:id', authenticate, async (req, res) => {
   try {
     const messageId = parseInt(req.params.id);

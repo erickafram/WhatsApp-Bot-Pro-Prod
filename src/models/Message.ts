@@ -467,6 +467,13 @@ export class MessageModel {
     const query = `UPDATE messages SET is_read = TRUE, read_at = NOW() WHERE contact_id = ? AND is_read = FALSE`;
     await executeQuery(query, [contactId]);
   }
+
+  // Deletar mensagem por ID
+  static async delete(id: number): Promise<boolean> {
+    const query = `DELETE FROM messages WHERE id = ?`;
+    const result = await executeQuery(query, [id]);
+    return (result as any).affectedRows > 0;
+  }
 }
 
 // ===== MODELO DE CHAT HUMANO =====

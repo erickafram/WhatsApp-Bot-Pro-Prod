@@ -10,15 +10,11 @@ import {
   ChevronDown,
   Send,
   Search,
-  Play,
-  Pause,
-  Download,
   FileText,
   FileImage,
   File,
   Music,
   Video,
-  Bookmark,
   Reply,
   X,
   Smile,
@@ -73,7 +69,12 @@ interface HumanChatProps {
 }
 
 // Componente para reprodução de áudio
-const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: string }) => {
+const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: { 
+  audioUrl: string, 
+  fileName?: string,
+  messageId?: string,
+  onDeleteMessage?: (messageId: string) => void
+}) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -241,7 +242,7 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
           opacity: error || isLoading ? 0.7 : 1
         }}
       >
-        {error ? '⚠️' : isLoading ? '⏳' : (isPlaying ? <Pause size={16} style={{ display: 'block' }} /> : <Play size={16} style={{ display: 'block' }} />)}
+        {error ? '⚠️' : isLoading ? '⏳' : (isPlaying ? '⏸️' : '▶️')}
       </button>
       <div className="audio-info">
         <div className="audio-filename">{fileName || 'Áudio'}</div>
@@ -280,23 +281,50 @@ const AudioPlayer = ({ audioUrl, fileName }: { audioUrl: string, fileName?: stri
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          textDecoration: 'none'
+          textDecoration: 'none',
+          fontSize: '12px'
         }}
       >
-        <Download size={14} style={{ display: 'block' }} />
+        📥
       </a>
+      {messageId && onDeleteMessage && (
+        <button 
+          onClick={() => {
+            if (confirm('Tem certeza que deseja apagar este áudio para todos? Esta ação não pode ser desfeita.')) {
+              onDeleteMessage(messageId)
+            }
+          }}
+          className="delete-button"
+          title="Apagar para todos"
+          style={{
+            background: 'rgba(220, 38, 38, 0.1)',
+            color: '#dc2626',
+            border: '1px solid rgba(220, 38, 38, 0.3)',
+            borderRadius: '6px',
+            width: '28px',
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px'
+          }}
+        >
+          🗑️
+        </button>
+      )}
     </div>
   )
 }
 
 // Componente para documentos
-const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSaveDocument }: { 
+const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSaveDocument, onDeleteMessage }: { 
   fileUrl: string, 
   fileName?: string, 
   fileSize?: number, 
   mimeType?: string,
   messageId?: string,
-  onSaveDocument?: (messageId: string, fileInfo: any) => void
+  onSaveDocument?: (messageId: string, fileInfo: any) => void,
+  onDeleteMessage?: (messageId: string) => void
 }) => {
   const getFileIcon = (mimeType?: string, fileName?: string) => {
     if (!mimeType && !fileName) return <File size={24} />
@@ -418,10 +446,11 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             height: '28px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            fontSize: '12px'
           }}
         >
-          <FileText size={14} style={{ display: 'block' }} />
+          👁️
         </button>
         <a 
           href={getAbsoluteUrl(fileUrl)} 
@@ -438,10 +467,11 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            textDecoration: 'none'
+            textDecoration: 'none',
+            fontSize: '12px'
           }}
         >
-          <Download size={14} style={{ display: 'block' }} />
+          📥
         </a>
         {messageId && onSaveDocument && (
           <button 
@@ -457,10 +487,36 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
               height: '28px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              fontSize: '12px'
             }}
           >
-            <Bookmark size={14} style={{ display: 'block' }} />
+            📑
+          </button>
+        )}
+        {messageId && onDeleteMessage && (
+          <button 
+            onClick={() => {
+              if (confirm('Tem certeza que deseja apagar este documento para todos? Esta ação não pode ser desfeita.')) {
+                onDeleteMessage(messageId)
+              }
+            }}
+            className="delete-button" 
+            title="Apagar para todos"
+            style={{
+              background: 'rgba(220, 38, 38, 0.1)',
+              color: '#dc2626',
+              border: '1px solid rgba(220, 38, 38, 0.3)',
+              borderRadius: '6px',
+              width: '28px',
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px'
+            }}
+          >
+            🗑️
           </button>
         )}
       </div>
@@ -469,7 +525,12 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
 }
 
 // Componente para imagens
-const ImageViewer = ({ imageUrl, fileName }: { imageUrl: string, fileName?: string }) => {
+const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage }: { 
+  imageUrl: string, 
+  fileName?: string,
+  messageId?: string,
+  onDeleteMessage?: (messageId: string) => void
+}) => {
   const [showFullSize, setShowFullSize] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -488,6 +549,43 @@ const ImageViewer = ({ imageUrl, fileName }: { imageUrl: string, fileName?: stri
     absolute: absoluteUrl,
     fileName 
   })
+
+  // Função para fazer download da imagem
+  const handleDownloadImage = async () => {
+    try {
+      console.log('📥 Iniciando download da imagem:', absoluteUrl)
+      
+      // Buscar a imagem
+      const response = await fetch(absoluteUrl)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      // Converter para blob
+      const blob = await response.blob()
+      
+      // Criar URL temporária para o blob
+      const blobUrl = window.URL.createObjectURL(blob)
+      
+      // Criar elemento de download
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = fileName || `imagem_${Date.now()}.jpg`
+      
+      // Adicionar ao DOM temporariamente e clicar
+      document.body.appendChild(link)
+      link.click()
+      
+      // Limpar
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+      
+      console.log('✅ Download da imagem iniciado com sucesso')
+    } catch (error) {
+      console.error('❌ Erro ao fazer download da imagem:', error)
+      alert('Erro ao fazer download da imagem. Tente novamente.')
+    }
+  }
 
   return (
     <>
@@ -555,12 +653,10 @@ const ImageViewer = ({ imageUrl, fileName }: { imageUrl: string, fileName?: stri
             />
           </div>
         )}
-        <div className="image-actions" style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-          <a 
-            href={absoluteUrl} 
-            download={fileName} 
-            className="download-button" 
-            title="Baixar imagem"
+        <div className="image-actions" style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button 
+            onClick={handleDownloadImage}
+            title="Salvar imagem"
             style={{
               background: '#25d366',
               color: 'white',
@@ -571,11 +667,12 @@ const ImageViewer = ({ imageUrl, fileName }: { imageUrl: string, fileName?: stri
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              textDecoration: 'none'
+              cursor: 'pointer',
+              fontSize: '14px'
             }}
           >
-            <Download size={16} style={{ display: 'block' }} />
-          </a>
+            📥
+          </button>
           <button 
             onClick={() => window.open(absoluteUrl, '_blank')}
             title="Abrir em nova aba"
@@ -589,11 +686,37 @@ const ImageViewer = ({ imageUrl, fileName }: { imageUrl: string, fileName?: stri
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '14px'
             }}
           >
             🔗
           </button>
+          {messageId && onDeleteMessage && (
+            <button 
+              onClick={() => {
+                if (confirm('Tem certeza que deseja apagar esta imagem para todos? Esta ação não pode ser desfeita.')) {
+                  onDeleteMessage(messageId)
+                }
+              }}
+              title="Apagar para todos"
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              🗑️
+            </button>
+          )}
         </div>
       </div>
       
@@ -1200,6 +1323,63 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     } catch (error) {
       console.error('❌ Erro ao salvar documento:', error)
       alert('Erro interno ao salvar documento')
+    }
+  }
+
+  // Função para deletar mensagem para todos
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) {
+        console.error('❌ Token de autenticação não encontrado')
+        return
+      }
+
+      console.log('🗑️ Deletando mensagem para todos:', messageId)
+
+      const response = await fetch(`/api/messages/${messageId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Mensagem deletada com sucesso:', data)
+        
+        // Remover mensagem do estado local
+        setHumanChats(chats => chats.map(chat => ({
+          ...chat,
+          messages: chat.messages.filter(msg => msg.id !== messageId)
+        })))
+        
+        // Notificar via socket sobre a deleção
+        if (socket) {
+          const currentChat = humanChats.find(chat => 
+            chat.messages.some(msg => msg.id === messageId)
+          )
+          
+          if (currentChat) {
+            socket.emit('delete_message_for_all', {
+              messageId: messageId,
+              chatId: currentChat.contactNumber + '@c.us',
+              operatorName: operatorName
+            })
+          }
+        }
+        
+        console.log('✅ Mensagem deletada para todos')
+        
+      } else {
+        const error = await response.json()
+        console.error('❌ Erro ao deletar mensagem:', error)
+        alert(error.message || 'Erro ao deletar mensagem')
+      }
+    } catch (error) {
+      console.error('❌ Erro ao deletar mensagem:', error)
+      alert('Erro interno ao deletar mensagem')
     }
   }
 
@@ -2626,6 +2806,8 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                <AudioPlayer 
                                  audioUrl={message.fileUrl} 
                                  fileName={message.fileName}
+                                 messageId={message.id}
+                                 onDeleteMessage={handleDeleteMessage}
                                />
                              )}
                              
@@ -2637,6 +2819,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                  mimeType={message.mimeType}
                                  messageId={message.id}
                                  onSaveDocument={handleSaveDocument}
+                                 onDeleteMessage={handleDeleteMessage}
                                />
                              )}
                              
@@ -2644,6 +2827,8 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                <ImageViewer 
                                  imageUrl={message.fileUrl}
                                  fileName={message.fileName}
+                                 messageId={message.id}
+                                 onDeleteMessage={handleDeleteMessage}
                                />
                              )}
                              
@@ -2668,11 +2853,12 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                    <source src={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} type={message.mimeType} />
                                    Seu navegador não suporta reprodução de vídeo.
                                  </video>
-                                 <div className="video-actions">
+                                 <div className="video-actions" style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                                    <a 
                                      href={message.fileUrl.startsWith('http') ? message.fileUrl : window.location.origin + (message.fileUrl.startsWith('/') ? '' : '/') + message.fileUrl} 
                                      download={message.fileName} 
                                      className="download-button"
+                                     title="Baixar vídeo"
                                      style={{
                                        background: 'rgba(255, 255, 255, 0.1)',
                                        color: '#e9edef',
@@ -2683,11 +2869,35 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        display: 'flex',
                                        alignItems: 'center',
                                        justifyContent: 'center',
-                                       textDecoration: 'none'
+                                       textDecoration: 'none',
+                                       fontSize: '12px'
                                      }}
                                    >
-                                     <Download size={14} style={{ display: 'block' }} />
+                                     📥
                                    </a>
+                                   <button 
+                                     onClick={() => {
+                                       if (confirm('Tem certeza que deseja apagar este vídeo para todos? Esta ação não pode ser desfeita.')) {
+                                         handleDeleteMessage(message.id)
+                                       }
+                                     }}
+                                     title="Apagar para todos"
+                                     style={{
+                                       background: 'rgba(220, 38, 38, 0.1)',
+                                       color: '#dc2626',
+                                       border: '1px solid rgba(220, 38, 38, 0.3)',
+                                       borderRadius: '6px',
+                                       width: '28px',
+                                       height: '28px',
+                                       display: 'flex',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       cursor: 'pointer',
+                                       fontSize: '12px'
+                                     }}
+                                   >
+                                     🗑️
+                                   </button>
                                  </div>
                                </div>
                              )}
@@ -2702,16 +2912,61 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                  {formatMessageTime(message.timestamp)}
                                </div>
                                
-                               {/* Botão de responder (apenas para mensagens do cliente) */}
-                               {!message.isFromHuman && !message.isFromBot && (
-                                 <button
-                                   className="reply-button"
-                                   onClick={() => setReplyingToMessage(message)}
-                                   title="Responder a esta mensagem"
-                                 >
-                                   <Reply size={12} />
-                                 </button>
-                               )}
+                               <div className="message-buttons">
+                                 {/* Botão de responder (apenas para mensagens do cliente) */}
+                                 {!message.isFromHuman && !message.isFromBot && (
+                                   <button
+                                     className="reply-button"
+                                     onClick={() => setReplyingToMessage(message)}
+                                     title="Responder a esta mensagem"
+                                     style={{
+                                       background: 'rgba(255, 255, 255, 0.1)',
+                                       color: '#e9edef',
+                                       border: 'none',
+                                       borderRadius: '4px',
+                                       width: '24px',
+                                       height: '24px',
+                                       display: 'flex',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       cursor: 'pointer',
+                                       marginLeft: '4px',
+                                       fontSize: '12px'
+                                     }}
+                                   >
+                                     ↩️
+                                   </button>
+                                 )}
+                                 
+                                 {/* Botão de deletar para todos (apenas para operadores/gestores) */}
+                                 {(message.isFromHuman || message.isFromBot) && (
+                                   <button
+                                     className="delete-button"
+                                     onClick={() => {
+                                       if (confirm('Tem certeza que deseja apagar esta mensagem para todos? Esta ação não pode ser desfeita.')) {
+                                         handleDeleteMessage(message.id)
+                                       }
+                                     }}
+                                     title="Apagar para todos"
+                                     style={{
+                                       background: 'rgba(220, 38, 38, 0.1)',
+                                       color: '#dc2626',
+                                       border: '1px solid rgba(220, 38, 38, 0.2)',
+                                       borderRadius: '4px',
+                                       width: '24px',
+                                       height: '24px',
+                                       display: 'flex',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       cursor: 'pointer',
+                                       marginLeft: '4px',
+                                       fontSize: '12px'
+                                     }}
+                                   >
+                                     🗑️
+                                   </button>
+                                 )}
+                               </div>
                              </div>
                            </div>
                          </div>

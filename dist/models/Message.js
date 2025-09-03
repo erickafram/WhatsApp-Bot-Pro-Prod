@@ -320,6 +320,12 @@ class MessageModel {
         const query = `UPDATE messages SET is_read = TRUE, read_at = NOW() WHERE contact_id = ? AND is_read = FALSE`;
         await (0, database_1.executeQuery)(query, [contactId]);
     }
+    // Deletar mensagem por ID
+    static async delete(id) {
+        const query = `DELETE FROM messages WHERE id = ?`;
+        const result = await (0, database_1.executeQuery)(query, [id]);
+        return result.affectedRows > 0;
+    }
 }
 exports.MessageModel = MessageModel;
 // ===== MODELO DE CHAT HUMANO =====
