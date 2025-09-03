@@ -304,34 +304,40 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
         }
         // Configuração de autenticação
         const { state, saveCreds } = await (0, baileys_1.useMultiFileAuthState)(authDir);
-        // Criar socket do WhatsApp com configurações otimizadas
+        // Criar socket do WhatsApp com configurações compatíveis com produção
         const sock = (0, baileys_1.default)({
             auth: state,
             printQRInTerminal: false,
-            // Configurações essenciais para presença e leitura
+            // Configurações essenciais - simplificadas para evitar erros
             syncFullHistory: false,
-            markOnlineOnConnect: true,
+            markOnlineOnConnect: false, // Desabilitar para evitar problemas
             generateHighQualityLinkPreview: false,
-            // Browser info para parecer mais natural
-            browser: ['WhatsApp Bot Pro', 'Chrome', '120.0.0'],
-            // Timeouts aumentados para estabilidade
-            connectTimeoutMs: 60000,
-            defaultQueryTimeoutMs: 60000,
-            // Configurações de presença aprimoradas
-            emitOwnEvents: true,
+            // Browser info simples
+            browser: ['Ubuntu', 'Chrome', '120.0.0'],
+            // Timeouts reduzidos para ambiente de produção
+            connectTimeoutMs: 30000,
+            defaultQueryTimeoutMs: 30000,
             qrTimeout: 60000,
-            // Configurações para melhor funcionamento de receipts e presença
+            // Configurações mínimas para evitar conflitos
             shouldIgnoreJid: () => false,
-            shouldSyncHistoryMessage: () => true,
             // Importante: habilitar recebimento de confirmações de leitura
             getMessage: async (key) => {
                 return {
                     conversation: 'hello'
                 };
             },
-            // Cache para retry de mensagens - removido por conflito de tipos
             // Logger desabilitado para reduzir ruído
-            logger: undefined
+            logger: undefined,
+            // Configurações específicas para evitar erro do noise-handler
+            retryRequestDelayMs: 250,
+            maxMsgRetryCount: 5,
+            // Desabilitar algumas funcionalidades que podem causar problemas
+            emitOwnEvents: false,
+            fireInitQueries: true,
+            // Configuração de versão para compatibilidade
+            version: [2, 2323, 4],
+            // Configurações de keep alive
+            keepAliveIntervalMs: 30000
         });
         // Salvar instância
         const instanceData = {
@@ -516,6 +522,20 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
         console.error(`❌ Erro ao inicializar cliente WhatsApp Baileys para gestor ${managerId}:`, error);
         console.error(`🔍 Stack trace:`, error instanceof Error ? error.stack : 'Sem stack trace');
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        // Verificar se é o erro específico do noise-handler
+        if (errorMessage.includes("Cannot read properties of undefined (reading 'child')")) {
+            console.error('🚨 ERRO DETECTADO: Problema com dependências cripto do Baileys');
+            console.error('🔧 SOLUÇÃO: Execute o script fix-production-dependencies.sh');
+            console.error('📝 Comando: chmod +x fix-production-dependencies.sh && ./fix-production-dependencies.sh');
+            // Emitir erro específico via Socket.IO
+            io.to(`manager_${managerId}`).emit('whatsapp_crypto_error', {
+                managerId,
+                instanceId,
+                error: 'Dependências cripto não encontradas. Execute o script de correção.',
+                solution: 'Execute: chmod +x fix-production-dependencies.sh && ./fix-production-dependencies.sh',
+                timestamp: new Date().toISOString()
+            });
+        }
         // Emitir erro para o cliente
         io.to(`manager_${managerId}`).emit('connection_error', {
             managerId,

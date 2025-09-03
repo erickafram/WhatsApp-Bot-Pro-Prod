@@ -434,8 +434,7 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
             // Configuração de versão para compatibilidade
             version: [2, 2323, 4],
             
-            // Configurações de autenticação mais robustas
-            authTimeout: 60,
+            // Configurações de keep alive
             keepAliveIntervalMs: 30000
         });
         
