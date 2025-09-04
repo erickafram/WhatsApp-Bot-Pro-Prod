@@ -285,7 +285,11 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
           fontSize: '12px'
         }}
       >
-        📥
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7,10 12,15 17,10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
       </a>
       {messageId && onDeleteMessage && (
         <button 
@@ -309,7 +313,12 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
             fontSize: '12px'
           }}
         >
-          🗑️
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <polyline points="3,6 5,6 21,6"/>
+            <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
         </button>
       )}
     </div>
@@ -450,7 +459,10 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             fontSize: '12px'
           }}
         >
-          👁️
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
         </button>
         <a 
           href={getAbsoluteUrl(fileUrl)} 
@@ -471,7 +483,11 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             fontSize: '12px'
           }}
         >
-          📥
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7,10 12,15 17,10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
         </a>
         {messageId && onSaveDocument && (
           <button 
@@ -491,7 +507,10 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
               fontSize: '12px'
             }}
           >
-            📑
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+              <path d="M12 15l-3-3h2V9h2v3h2l-3 3z"/>
+            </svg>
           </button>
         )}
         {messageId && onDeleteMessage && (
@@ -516,7 +535,12 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
               fontSize: '12px'
             }}
           >
-            🗑️
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <polyline points="3,6 5,6 21,6"/>
+              <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
           </button>
         )}
       </div>
@@ -671,7 +695,11 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage }: {
               fontSize: '14px'
             }}
           >
-            📥
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
           </button>
           <button 
             onClick={() => window.open(absoluteUrl, '_blank')}
@@ -690,7 +718,11 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage }: {
               fontSize: '14px'
             }}
           >
-            🔗
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15,3 21,3 21,9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
           </button>
           {messageId && onDeleteMessage && (
             <button 
@@ -714,7 +746,12 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage }: {
                 fontSize: '14px'
               }}
             >
-              🗑️
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <polyline points="3,6 5,6 21,6"/>
+                <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
             </button>
           )}
         </div>
@@ -2873,7 +2910,11 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     📥
+                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                       <polyline points="7,10 12,15 17,10"/>
+                                       <line x1="12" y1="15" x2="12" y2="3"/>
+                                     </svg>
                                    </a>
                                    <button 
                                      onClick={() => {
@@ -2896,7 +2937,12 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     🗑️
+                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                       <polyline points="3,6 5,6 21,6"/>
+                                       <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+                                       <line x1="10" y1="11" x2="10" y2="17"/>
+                                       <line x1="14" y1="11" x2="14" y2="17"/>
+                                     </svg>
                                    </button>
                                  </div>
                                </div>
@@ -2934,7 +2980,10 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     ↩️
+                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                       <polyline points="9,17 4,12 9,7"/>
+                                       <path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+                                     </svg>
                                    </button>
                                  )}
                                  
@@ -2963,7 +3012,12 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     🗑️
+                                     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                       <polyline points="3,6 5,6 21,6"/>
+                                       <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+                                       <line x1="10" y1="11" x2="10" y2="17"/>
+                                       <line x1="14" y1="11" x2="14" y2="17"/>
+                                     </svg>
                                    </button>
                                  )}
                                </div>

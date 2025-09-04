@@ -835,11 +835,16 @@ async function markMessageAsRead(sock: WASocket, msg: WAMessage) {
 }
 
 // Função para simular digitação humana
-async function simulateTyping(sock: WASocket, remoteJid: string, message: string) {
+async function simulateTyping(sock: WASocket, remoteJid: string, message: string, customConfig?: any) {
     try {
-        // Carregar configurações do fluxo
-        const flowData = loadFlowFromJSON();
-        const typingConfig = flowData?.settings?.typing;
+        // Usar configuração personalizada ou carregar do fluxo
+        let typingConfig;
+        if (customConfig) {
+            typingConfig = customConfig;
+        } else {
+            const flowData = loadFlowFromJSON();
+            typingConfig = flowData?.settings?.typing;
+        }
         
         // Se typing estiver desabilitado, retornar imediatamente
         if (typingConfig && typingConfig.enabled === false) {
@@ -847,11 +852,11 @@ async function simulateTyping(sock: WASocket, remoteJid: string, message: string
             return;
         }
         
-        // Usar configurações do JSON ou valores padrão
-        const wordsPerMinute = typingConfig?.wordsPerMinute || 40;
-        const maxDuration = typingConfig?.maxDuration || 5000;
-        const minDuration = typingConfig?.minDuration || 1000;
-        const randomVariationMax = typingConfig?.randomVariation || 1500;
+        // Usar configurações personalizadas ou valores padrão OTIMIZADOS
+        const wordsPerMinute = typingConfig?.wordsPerMinute || 120; // Mais rápido: 120 WPM
+        const maxDuration = typingConfig?.maxDuration || 2000; // Máximo 2 segundos
+        const minDuration = typingConfig?.minDuration || 500; // Mínimo 0.5 segundo
+        const randomVariationMax = typingConfig?.randomVariation || 300; // Menos variação
         const pauseBeforeSend = typingConfig?.pauseBeforeSend || 200;
         
         console.log(`⌨️ Iniciando simulação de digitação para: ${remoteJid}`);
@@ -1894,8 +1899,32 @@ io.on('connection', async (socket) => {
             const operatorName = authenticatedUser.name || 'Operador';
             const messageWithName = `*${operatorName}:* ${data.message}`;
             
-            // Simular digitação antes de enviar mensagem do operador
-            await simulateTyping(instance.sock, baileyChatId, messageWithName);
+                         // 🚀 SIMULAÇÃO DE DIGITAÇÃO OTIMIZADA PARA OPERADORES
+             // Verificar se há configuração para desabilitar simulação de operadores
+             const disableOperatorTyping = process.env.DISABLE_OPERATOR_TYPING === 'true';
+             
+             if (!disableOperatorTyping) {
+                 // Configuração otimizada para operadores (muito mais rápida)
+                 const operatorTypingConfig = {
+                     enabled: true,
+                     wordsPerMinute: 200, // Super rápido para operadores
+                     maxDuration: 1200,   // Máximo 1.2 segundos
+                     minDuration: 200,    // Mínimo 0.2 segundo
+                     randomVariation: 100, // Muito pouca variação
+                     pauseBeforeSend: 50
+                 };
+                 
+                 // Para mensagens muito curtas (< 10 chars), usar delay mínimo
+                 if (messageWithName.length < 10) {
+                     operatorTypingConfig.maxDuration = 500;
+                     operatorTypingConfig.minDuration = 100;
+                 }
+                 
+                 console.log(`⚡ Simulação rápida para operador: ${operatorTypingConfig.maxDuration}ms max`);
+                 await simulateTyping(instance.sock, baileyChatId, messageWithName, operatorTypingConfig);
+             } else {
+                 console.log('⚡ Simulação de digitação desabilitada para operadores - Envio instantâneo');
+             }
             
             // Enviar mensagem via Baileys e capturar o ID da mensagem
             const sentMessage = await instance.sock.sendMessage(baileyChatId, { text: messageWithName });
