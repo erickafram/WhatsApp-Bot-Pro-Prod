@@ -266,54 +266,55 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
           </div>
         )}
       </div>
-      <a 
-        href={getAbsoluteUrl(audioUrl)} 
-        download={fileName} 
-        className="download-button"
-        title={error ? "Baixar arquivo (reprodução indisponível)" : "Baixar áudio"}
-        style={{
-          background: 'rgba(255, 255, 255, 0.1)',
-          color: '#e9edef',
-          border: 'none',
-          borderRadius: '6px',
-          width: 'auto',
-          height: '28px',
-          padding: '0 8px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textDecoration: 'none',
-          fontSize: '10px',
-          fontWeight: 'bold'
-        }}
-      >
-        ↓
-      </a>
+             <a 
+         href={getAbsoluteUrl(audioUrl)} 
+         download={fileName} 
+         className="download-button"
+         title={error ? "Baixar arquivo (reprodução indisponível)" : "Baixar áudio"}
+         style={{
+           background: '#25d366',
+           color: 'white',
+           border: 'none',
+           borderRadius: '6px',
+           width: 'auto',
+           height: '32px',
+           padding: '0 8px',
+           display: 'flex',
+           alignItems: 'center',
+           justifyContent: 'center',
+           textDecoration: 'none',
+           fontSize: '12px',
+           fontWeight: 'bold'
+         }}
+       >
+         BAIXAR
+       </a>
       {messageId && onDeleteMessage && (
-        <button 
-          onClick={() => {
-            if (confirm('Tem certeza que deseja apagar este áudio para todos? Esta ação não pode ser desfeita.')) {
-              onDeleteMessage(messageId)
-            }
-          }}
-          className="delete-button"
-          title="Apagar para todos"
-          style={{
-            background: 'rgba(220, 38, 38, 0.1)',
-            color: '#dc2626',
-            border: '1px solid rgba(220, 38, 38, 0.3)',
-            borderRadius: '6px',
-            width: '28px',
-            height: '28px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '16px',
-            fontWeight: 'bold'
-          }}
-        >
-          DEL
-        </button>
+                 <button 
+           onClick={() => {
+             if (confirm('Tem certeza que deseja apagar este áudio para todos? Esta ação não pode ser desfeita.')) {
+               onDeleteMessage(messageId)
+             }
+           }}
+           className="delete-button"
+           title="Apagar para todos"
+           style={{
+             background: '#dc2626',
+             color: 'white',
+             border: 'none',
+             borderRadius: '6px',
+             width: 'auto',
+             height: '32px',
+             padding: '0 8px',
+             display: 'flex',
+             alignItems: 'center',
+             justifyContent: 'center',
+             fontSize: '12px',
+             fontWeight: 'bold'
+           }}
+         >
+           APAGAR
+         </button>
       )}
     </div>
   )
@@ -436,95 +437,99 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
         )}
       </div>
       <div className="document-actions">
-        <button 
-          onClick={openDocument} 
-          className="view-button" 
-          title="Abrir documento"
-          style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            color: '#e9edef',
-            border: 'none',
-            borderRadius: '6px',
-            width: '28px',
-            height: '28px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '16px',
-            fontWeight: 'bold'
-          }}
-        >
-          VER
-        </button>
-        <a 
-          href={getAbsoluteUrl(fileUrl)} 
-          download={fileName} 
-          className="download-button" 
-          title="Baixar arquivo"
-          style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            color: '#e9edef',
-            border: 'none',
-            borderRadius: '6px',
-            width: '28px',
-            height: '28px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textDecoration: 'none',
-            fontSize: '16px',
-            fontWeight: 'bold'
-          }}
-        >
-          BAIXAR
-        </a>
+                 <button 
+           onClick={openDocument} 
+           className="view-button" 
+           title="Abrir documento"
+           style={{
+             background: '#128c7e',
+             color: 'white',
+             border: 'none',
+             borderRadius: '6px',
+             width: 'auto',
+             height: '32px',
+             padding: '0 8px',
+             display: 'flex',
+             alignItems: 'center',
+             justifyContent: 'center',
+             fontSize: '12px',
+             fontWeight: 'bold'
+           }}
+         >
+           ABRIR
+         </button>
+                 <a 
+           href={getAbsoluteUrl(fileUrl)} 
+           download={fileName} 
+           className="download-button" 
+           title="Baixar arquivo"
+           style={{
+             background: '#25d366',
+             color: 'white',
+             border: 'none',
+             borderRadius: '6px',
+             width: 'auto',
+             height: '32px',
+             padding: '0 8px',
+             display: 'flex',
+             alignItems: 'center',
+             justifyContent: 'center',
+             textDecoration: 'none',
+             fontSize: '12px',
+             fontWeight: 'bold'
+           }}
+         >
+           BAIXAR
+         </a>
         {messageId && onSaveDocument && (
-          <button 
-            onClick={handleSaveDocument} 
-            className="save-button" 
-            title="Catalogar documento no sistema"
-            style={{
-              background: 'rgba(251, 191, 36, 0.1)',
-              color: '#fbbf24',
-              border: '1px solid rgba(251, 191, 36, 0.3)',
-              borderRadius: '6px',
-              width: '28px',
-              height: '28px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '16px',
-              fontWeight: 'bold'
-            }}
-          >
-            SALVAR
-          </button>
+                     <button 
+             onClick={handleSaveDocument} 
+             className="save-button" 
+             title="Catalogar documento no sistema"
+             style={{
+               background: '#fbbf24',
+               color: 'white',
+               border: 'none',
+               borderRadius: '6px',
+               width: 'auto',
+               height: '32px',
+               padding: '0 8px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               fontSize: '12px',
+               fontWeight: 'bold'
+             }}
+           >
+             SALVAR
+           </button>
         )}
         {messageId && onDeleteMessage && (
-          <button 
-            onClick={() => {
-              if (confirm('Tem certeza que deseja apagar este documento para todos? Esta ação não pode ser desfeita.')) {
-                onDeleteMessage(messageId)
-              }
-            }}
-            className="delete-button" 
-            title="Apagar para todos"
-            style={{
-              background: 'rgba(220, 38, 38, 0.1)',
-              color: '#dc2626',
-              border: '1px solid rgba(220, 38, 38, 0.3)',
-              borderRadius: '6px',
-              width: '28px',
-              height: '28px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '16px',
-              fontWeight: 'bold'
-            }}
-          >
-            DEL
-          </button>
+                     <button 
+             onClick={() => {
+               if (confirm('Tem certeza que deseja apagar este documento para todos? Esta ação não pode ser desfeita.')) {
+                 onDeleteMessage(messageId)
+               }
+             }}
+             className="delete-button" 
+             title="Apagar para todos"
+             style={{
+               background: '#dc2626',
+               color: 'white',
+               border: 'none',
+               borderRadius: '6px',
+               width: 'auto',
+               height: '32px',
+               padding: '0 8px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               fontSize: '12px',
+               fontWeight: 'bold'
+             }}
+           >
+             APAGAR
+           </button>
         )}
       </div>
     </div>
@@ -682,97 +687,97 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
           </div>
         )}
         <div className="image-actions" style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button 
-            onClick={handleDownloadImage}
-            title="Salvar imagem"
-            style={{
-              background: '#25d366',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-                          width: 'auto',
-            height: '32px',
-            padding: '0 10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: '10px',
-              fontWeight: 'bold'
-            }}
-          >
-            BAIXAR
-          </button>
-          <button 
-            onClick={() => window.open(absoluteUrl, '_blank')}
-            title="Abrir em nova aba"
-            style={{
-              background: '#128c7e',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-                          width: 'auto',
-            height: '32px',
-            padding: '0 10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: '10px',
-              fontWeight: 'bold'
-            }}
-          >
-            ABRIR
-          </button>
+                     <button 
+             onClick={handleDownloadImage}
+             title="Salvar imagem"
+             style={{
+               background: '#25d366',
+               color: 'white',
+               border: 'none',
+               borderRadius: '6px',
+               width: 'auto',
+               height: '32px',
+               padding: '0 10px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               cursor: 'pointer',
+               fontSize: '12px',
+               fontWeight: 'bold'
+             }}
+           >
+             BAIXAR
+           </button>
+                     <button 
+             onClick={() => window.open(absoluteUrl, '_blank')}
+             title="Abrir em nova aba"
+             style={{
+               background: '#128c7e',
+               color: 'white',
+               border: 'none',
+               borderRadius: '6px',
+               width: 'auto',
+               height: '32px',
+               padding: '0 10px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               cursor: 'pointer',
+               fontSize: '12px',
+               fontWeight: 'bold'
+             }}
+           >
+             ABRIR
+           </button>
           {messageId && onSaveDocument && (
-            <button 
-              onClick={handleSaveImageAsDocument}
-              title="Catalogar imagem no sistema"
-              style={{
-                background: 'rgba(251, 191, 36, 0.1)',
-                color: '#fbbf24',
-                border: '1px solid rgba(251, 191, 36, 0.3)',
-                borderRadius: '6px',
-                            width: 'auto',
-            height: '32px',
-            padding: '0 10px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold'
-              }}
-            >
-              SALVAR
-            </button>
+                         <button 
+               onClick={handleSaveImageAsDocument}
+               title="Catalogar imagem no sistema"
+               style={{
+                 background: '#fbbf24',
+                 color: 'white',
+                 border: 'none',
+                 borderRadius: '6px',
+                 width: 'auto',
+                 height: '32px',
+                 padding: '0 10px',
+                 display: 'flex',
+                 alignItems: 'center',
+                 justifyContent: 'center',
+                 cursor: 'pointer',
+                 fontSize: '12px',
+                 fontWeight: 'bold'
+               }}
+             >
+               SALVAR
+             </button>
           )}
           {messageId && onDeleteMessage && (
-            <button 
-              onClick={() => {
-                if (confirm('Tem certeza que deseja apagar esta imagem para todos? Esta ação não pode ser desfeita.')) {
-                  onDeleteMessage(messageId)
-                }
-              }}
-              title="Apagar para todos"
-              style={{
-                background: '#dc2626',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                            width: 'auto',
-            height: '32px',
-            padding: '0 10px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold'
-              }}
-            >
-              DEL
-            </button>
+                         <button 
+               onClick={() => {
+                 if (confirm('Tem certeza que deseja apagar esta imagem para todos? Esta ação não pode ser desfeita.')) {
+                   onDeleteMessage(messageId)
+                 }
+               }}
+               title="Apagar para todos"
+               style={{
+                 background: '#dc2626',
+                 color: 'white',
+                 border: 'none',
+                 borderRadius: '6px',
+                 width: 'auto',
+                 height: '32px',
+                 padding: '0 10px',
+                 display: 'flex',
+                 alignItems: 'center',
+                 justifyContent: 'center',
+                 cursor: 'pointer',
+                 fontSize: '12px',
+                 fontWeight: 'bold'
+               }}
+             >
+               APAGAR
+             </button>
           )}
         </div>
       </div>
