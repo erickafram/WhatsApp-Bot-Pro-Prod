@@ -294,6 +294,23 @@ async function initializeSystem() {
 // Função para inicializar cliente WhatsApp com Baileys para um gestor específico
 async function initializeWhatsAppClientBaileys(managerId, instanceId) {
     console.log(`🔄 Inicializando cliente WhatsApp Baileys para gestor ${managerId}, instância ${instanceId}...`);
+    // Verificar se já existe uma instância ativa para este gestor
+    const existingInstance = whatsappInstances.get(managerId);
+    if (existingInstance && existingInstance.isReady) {
+        console.log(`⚠️ Instância já ativa para gestor ${managerId}, ignorando nova inicialização`);
+        return;
+    }
+    // Limpar instância anterior se existir
+    if (existingInstance) {
+        try {
+            existingInstance.sock.end(undefined);
+            whatsappInstances.delete(managerId);
+            console.log(`🧹 Instância anterior removida para gestor ${managerId}`);
+        }
+        catch (cleanupError) {
+            console.warn(`⚠️ Erro ao limpar instância anterior:`, cleanupError);
+        }
+    }
     try {
         // Configurar diretório de autenticação específico para cada gestor
         const authDir = path_1.default.join(__dirname, '..', 'auth_baileys', `manager_${managerId}_instance_${instanceId}`);
@@ -344,11 +361,15 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
         catch (dbError) {
             console.error('❌ Erro ao salvar status connecting no banco:', dbError);
         }
-        // Evento para QR Code - EXATAMENTE COMO SEU EXEMPLO QUE FUNCIONA
+        // Variável para controlar se já está conectado ou conectando
+        let isConnecting = false;
+        let isConnected = false;
+        // Evento para QR Code - CORRIGIDO PARA EVITAR LOOP INFINITO
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
             console.log(`🔍 Connection update para gestor ${managerId}:`, { connection, hasQR: !!qr, hasError: !!lastDisconnect?.error });
-            if (qr) {
+            if (qr && !isConnected && !isConnecting) {
+                isConnecting = true;
                 console.log(`\n📱 QR CODE para gestor ${managerId} - Escaneie com seu WhatsApp:`);
                 console.log('==========================================');
                 console.log('🎯 QR RAW STRING:', qr.substring(0, 50) + '...');
@@ -417,6 +438,9 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
             if (connection === 'close') {
                 const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== baileys_1.DisconnectReason.loggedOut;
                 console.log(`❌ Conexão fechada para gestor ${managerId} devido a:`, lastDisconnect?.error, ', reconectando:', shouldReconnect);
+                // Reset das variáveis de controle
+                isConnected = false;
+                isConnecting = false;
                 instanceData.isReady = false;
                 // Emitir status de desconexão
                 io.to(`manager_${managerId}`).emit('connection_status', {
@@ -438,22 +462,36 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
                 catch (dbError) {
                     console.error('❌ Erro ao atualizar status de desconexão no banco:', dbError);
                 }
-                if (shouldReconnect) {
-                    // Aumentar delay para evitar rate limiting
-                    const reconnectDelay = Math.min(15000, 3000 * Math.random() + 2000); // 2-5s + até 15s
-                    console.log(`🔄 Tentando reconectar em ${Math.round(reconnectDelay / 1000)}s...`);
-                    setTimeout(() => {
-                        initializeWhatsAppClientBaileys(managerId, instanceId);
-                    }, reconnectDelay);
+                if (shouldReconnect && !isConnected) {
+                    // Verificar se não estamos em um loop de reconexão
+                    const now = Date.now();
+                    const lastReconnectKey = `reconnect_${managerId}`;
+                    const lastReconnect = global[lastReconnectKey] || 0;
+                    // Só reconectar se passou pelo menos 30 segundos da última tentativa
+                    if (now - lastReconnect > 30000) {
+                        global[lastReconnectKey] = now;
+                        // Aumentar delay para evitar rate limiting
+                        const reconnectDelay = Math.min(15000, 3000 * Math.random() + 2000); // 2-5s + até 15s
+                        console.log(`🔄 Tentando reconectar em ${Math.round(reconnectDelay / 1000)}s...`);
+                        setTimeout(() => {
+                            initializeWhatsAppClientBaileys(managerId, instanceId);
+                        }, reconnectDelay);
+                    }
+                    else {
+                        console.log(`⏳ Aguardando cooldown de reconexão para evitar loop...`);
+                    }
                 }
                 else {
-                    console.log(`❌ Não reconectando - usuário foi deslogado`);
+                    console.log(`❌ Não reconectando - usuário foi deslogado ou já está conectado`);
                 }
             }
             else if (connection === 'open') {
                 console.log(`🎉 CONECTADO COM SUCESSO! Gestor ${managerId}`);
                 console.log(`📱 Bot está pronto e funcionando para gestor ${managerId}!`);
                 console.log(`📨 Aguardando mensagens...\n`);
+                // Marcar como conectado para evitar loop de QR
+                isConnected = true;
+                isConnecting = false;
                 instanceData.isReady = true;
                 instanceData.qrCode = undefined;
                 // 🆕 Limpar QR code no frontend quando conectar
