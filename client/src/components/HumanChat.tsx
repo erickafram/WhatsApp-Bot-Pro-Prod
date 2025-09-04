@@ -616,10 +616,10 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
     <>
       <div className="image-viewer">
         {imageError ? (
-          <div className="image-error" style={{ 
-            padding: '20px', 
-            background: '#f3f4f6', 
-            borderRadius: '8px', 
+          <div className="image-error" style={{
+            padding: '20px',
+            background: '#f3f4f6',
+            borderRadius: '8px',
             textAlign: 'center',
             color: '#6b7280',
             border: '1px solid #e5e7eb'
@@ -632,134 +632,140 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
             </div>
           </div>
         ) : (
-          <div style={{ position: 'relative' }}>
-            {isLoading && (
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                background: 'rgba(0,0,0,0.7)',
-                color: 'white',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                zIndex: 1
-              }}>
-                ⏳ Carregando...
-              </div>
-            )}
-            <img 
-              src={absoluteUrl} 
-              alt={fileName || 'Imagem'} 
-              className="message-image"
-              onClick={() => !imageError && setShowFullSize(true)}
-              onError={() => {
-                console.error('❌ Erro ao carregar imagem:', { 
-                  url: absoluteUrl, 
-                  original: imageUrl,
-                  fileName 
-                })
-                setImageError(true)
-                setIsLoading(false)
-              }}
-              onLoad={() => {
-                console.log('✅ Imagem carregada com sucesso:', absoluteUrl)
-                setImageError(false)
-                setIsLoading(false)
-              }}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '300px',
-                borderRadius: '8px',
-                cursor: imageError ? 'default' : 'pointer',
-                display: 'block'
-              }}
-            />
-            <div className="image-actions">
-                     <button 
-             onClick={handleDownloadImage}
-             title="Salvar imagem"
-             style={{
-               background: '#25d366',
-               color: 'white',
-               border: 'none',
-               borderRadius: '6px',
-               width: '32px',
-               height: '32px',
-               display: 'flex',
-               alignItems: 'center',
-               justifyContent: 'center',
-               cursor: 'pointer'
-             }}
-           >
-             <Download size={16} />
-           </button>
-                     <button 
-             onClick={() => window.open(absoluteUrl, '_blank')}
-             title="Abrir em nova aba"
-             style={{
-               background: '#128c7e',
-               color: 'white',
-               border: 'none',
-               borderRadius: '6px',
-               width: '32px',
-               height: '32px',
-               display: 'flex',
-               alignItems: 'center',
-               justifyContent: 'center',
-               cursor: 'pointer'
-             }}
-           >
-             <Link size={16} />
-           </button>
+          <>
+            <div style={{ position: 'relative' }}>
+              {isLoading && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  zIndex: 1
+                }}>
+                  ⏳ Carregando...
+                </div>
+              )}
+              <img
+                src={absoluteUrl}
+                alt={fileName || 'Imagem'}
+                className="message-image"
+                onClick={() => !imageError && setShowFullSize(true)}
+                onError={() => {
+                  console.error('❌ Erro ao carregar imagem:', {
+                    url: absoluteUrl,
+                    original: imageUrl,
+                    fileName
+                  })
+                  setImageError(true)
+                  setIsLoading(false)
+                }}
+                onLoad={() => {
+                  console.log('✅ Imagem carregada com sucesso:', absoluteUrl)
+                  setImageError(false)
+                  setIsLoading(false)
+                }}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '300px',
+                  borderRadius: '8px',
+                  cursor: imageError ? 'default' : 'pointer',
+                  display: 'block'
+                }}
+              />
+            </div>
+          </>
+        )}
+        <div className="image-actions">
+          <button
+            onClick={handleDownloadImage}
+            className="download-button"
+            title="Salvar imagem"
+            style={{
+              background: '#25d366',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            <Download size={16} />
+          </button>
+          <button
+            onClick={() => window.open(absoluteUrl, '_blank')}
+            className="view-button"
+            title="Abrir em nova aba"
+            style={{
+              background: '#128c7e',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            <Link size={16} />
+          </button>
           {messageId && onSaveDocument && (
-                         <button 
-               onClick={handleSaveImageAsDocument}
-               title="Catalogar imagem no sistema"
-               style={{
-                 background: '#fbbf24',
-                 color: 'white',
-                 border: 'none',
-                 borderRadius: '6px',
-                 width: '32px',
-                 height: '32px',
-                 display: 'flex',
-                 alignItems: 'center',
-                 justifyContent: 'center',
-                 cursor: 'pointer'
-               }}
-             >
-               <Save size={16} />
-             </button>
+            <button
+              onClick={handleSaveImageAsDocument}
+              className="save-button"
+              title="Catalogar imagem no sistema"
+              style={{
+                background: '#fbbf24',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <Save size={16} />
+            </button>
           )}
           {messageId && onDeleteMessage && (
-                         <button 
-               onClick={() => {
-                 if (confirm('Tem certeza que deseja apagar esta imagem para todos? Esta ação não pode ser desfeita.')) {
-                   onDeleteMessage(messageId)
-                 }
-               }}
-               title="Apagar para todos"
-               style={{
-                 background: '#dc2626',
-                 color: 'white',
-                 border: 'none',
-                 borderRadius: '6px',
-                 width: '32px',
-                 height: '32px',
-                 display: 'flex',
-                 alignItems: 'center',
-                 justifyContent: 'center',
-                 cursor: 'pointer'
-               }}
-             >
-               <Trash2 size={16} />
-             </button>
+            <button
+              onClick={() => {
+                if (confirm('Tem certeza que deseja apagar esta imagem para todos? Esta ação não pode ser desfeita.')) {
+                  onDeleteMessage(messageId)
+                }
+              }}
+              className="delete-button"
+              title="Apagar para todos"
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <Trash2 size={16} />
+            </button>
           )}
-            </div>
-          </div>
-        )}
+        </div>
       </div>
       
       {showFullSize && !imageError && (
