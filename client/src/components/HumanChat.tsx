@@ -18,7 +18,13 @@ import {
   Reply,
   X,
   Smile,
-  Paperclip
+  Paperclip,
+  Download,
+  Trash2,
+  Eye,
+  Save,
+  Link,
+  CornerUpLeft
 } from 'lucide-react'
 import './HumanChatWhatsApp.css'
 
@@ -288,9 +294,7 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
            textDecoration: 'none'
          }}
        >
-         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-           <path d="M12 16L7 11h3V3h4v8h3l-5 5zm5.5 6H6.5c-1.1 0-2-.9-2-2s.9-2 2-2h11c1.1 0 2 .9 2 2s-.9 2-2 2z"/>
-         </svg>
+         <Download size={16} />
        </a>
       {messageId && onDeleteMessage && (
                  <button 
@@ -313,9 +317,7 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
              justifyContent: 'center'
            }}
          >
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-           </svg>
+           <Trash2 size={16} />
          </button>
       )}
     </div>
@@ -455,9 +457,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              justifyContent: 'center'
            }}
          >
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-           </svg>
+           <Eye size={16} />
          </button>
                  <a 
            href={getAbsoluteUrl(fileUrl)} 
@@ -477,9 +477,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              textDecoration: 'none'
            }}
          >
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M12 16L7 11h3V3h4v8h3l-5 5zm5.5 6H6.5c-1.1 0-2-.9-2-2s.9-2 2-2h11c1.1 0 2 .9 2 2s-.9 2-2 2z"/>
-           </svg>
+           <Download size={16} />
          </a>
         {messageId && onSaveDocument && (
                      <button 
@@ -498,9 +496,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
                justifyContent: 'center'
              }}
            >
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-               <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
-             </svg>
+             <Save size={16} />
            </button>
         )}
         {messageId && onDeleteMessage && (
@@ -524,9 +520,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
                justifyContent: 'center'
              }}
            >
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-             </svg>
+             <Trash2 size={16} />
            </button>
         )}
       </div>
@@ -699,9 +693,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                cursor: 'pointer'
              }}
            >
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-               <path d="M12 16L7 11h3V3h4v8h3l-5 5zm5.5 6H6.5c-1.1 0-2-.9-2-2s.9-2 2-2h11c1.1 0 2 .9 2 2s-.9 2-2 2z"/>
-             </svg>
+             <Download size={16} />
            </button>
                      <button 
              onClick={() => window.open(absoluteUrl, '_blank')}
@@ -719,9 +711,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                cursor: 'pointer'
              }}
            >
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-               <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
-             </svg>
+             <Link size={16} />
            </button>
           {messageId && onSaveDocument && (
                          <button 
@@ -740,9 +730,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                  cursor: 'pointer'
                }}
              >
-               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                 <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-               </svg>
+               <Save size={16} />
              </button>
           )}
           {messageId && onDeleteMessage && (
@@ -766,9 +754,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                  cursor: 'pointer'
                }}
              >
-               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-               </svg>
+               <Trash2 size={16} />
              </button>
           )}
             </div>
@@ -2930,9 +2916,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M12 16L7 11h3V3h4v8h3l-5 5zm5.5 6H6.5c-1.1 0-2-.9-2-2s.9-2 2-2h11c1.1 0 2 .9 2 2s-.9 2-2 2z"/>
-                                     </svg>
+                                     <Download size={16} />
                                    </a>
                                    <button 
                                      onClick={() => {
@@ -2955,9 +2939,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                     </svg>
+                                     <Trash2 size={16} />
                                    </button>
                                  </div>
                                </div>
@@ -2995,9 +2977,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
-                                     </svg>
+                                     <CornerUpLeft size={12} />
                                    </button>
                                  )}
                                  
@@ -3026,9 +3006,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                     </svg>
+                                     <Trash2 size={16} />
                                    </button>
                                  )}
                                </div>
@@ -3571,9 +3549,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 onClick={confirmSaveDocument}
                 disabled={!documentDescription.trim()}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '4px' }}>
-                  <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
-                </svg>
+                <Save size={16} style={{ marginRight: '4px' }} />
                 Catalogar Documento
               </button>
             </div>
