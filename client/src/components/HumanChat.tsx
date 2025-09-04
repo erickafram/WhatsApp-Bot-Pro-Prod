@@ -2942,7 +2942,9 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     ⬇️
+                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                       <path d="M12 16L7 11h3V3h4v8h3l-5 5zm5.5 6H6.5c-1.1 0-2-.9-2-2s.9-2 2-2h11c1.1 0 2 .9 2 2s-.9 2-2 2z"/>
+                                     </svg>
                                    </a>
                                    <button 
                                      onClick={() => {
@@ -2965,7 +2967,9 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     🗑️
+                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                     </svg>
                                    </button>
                                  </div>
                                </div>
@@ -3003,7 +3007,9 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     ↩️
+                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                       <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
+                                     </svg>
                                    </button>
                                  )}
                                  
@@ -3032,7 +3038,9 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     🗑️
+                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                     </svg>
                                    </button>
                                  )}
                                </div>
