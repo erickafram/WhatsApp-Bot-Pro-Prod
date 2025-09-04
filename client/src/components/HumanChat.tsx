@@ -282,10 +282,11 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
           alignItems: 'center',
           justifyContent: 'center',
           textDecoration: 'none',
-          fontSize: '12px'
+          fontSize: '16px',
+          fontWeight: 'bold'
         }}
       >
-        ⬇
+        ↓
       </a>
       {messageId && onDeleteMessage && (
         <button 
@@ -306,10 +307,11 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '12px'
+            fontSize: '16px',
+            fontWeight: 'bold'
           }}
         >
-          ✕
+          X
         </button>
       )}
     </div>
@@ -447,7 +449,8 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '12px'
+            fontSize: '16px',
+            fontWeight: 'bold'
           }}
         >
           👁
@@ -468,10 +471,11 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             alignItems: 'center',
             justifyContent: 'center',
             textDecoration: 'none',
-            fontSize: '12px'
+            fontSize: '16px',
+            fontWeight: 'bold'
           }}
         >
-          ⬇
+          ↓
         </a>
         {messageId && onSaveDocument && (
           <button 
@@ -488,7 +492,8 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '12px'
+              fontSize: '16px',
+              fontWeight: 'bold'
             }}
           >
             💾
@@ -513,10 +518,11 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '12px'
+              fontSize: '16px',
+              fontWeight: 'bold'
             }}
           >
-            ✕
+            X
           </button>
         )}
       </div>
@@ -689,10 +695,11 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              fontSize: '14px'
+              fontSize: '18px',
+              fontWeight: 'bold'
             }}
           >
-            ⬇
+            ↓
           </button>
           <button 
             onClick={() => window.open(absoluteUrl, '_blank')}
@@ -708,7 +715,8 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              fontSize: '14px'
+              fontSize: '18px',
+              fontWeight: 'bold'
             }}
           >
             🔗
@@ -728,7 +736,8 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                fontSize: '14px'
+                fontSize: '18px',
+                fontWeight: 'bold'
               }}
             >
               💾
@@ -753,10 +762,11 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                fontSize: '14px'
+                fontSize: '18px',
+                fontWeight: 'bold'
               }}
             >
-              ✕
+              X
             </button>
           )}
         </div>
