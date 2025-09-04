@@ -224,26 +224,30 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
 
   return (
     <div className="audio-player">
-      <button 
-        onClick={togglePlay} 
-        className="play-button"
-        disabled={!!error || isLoading}
-        style={{
-          background: error ? '#ef4444' : isLoading ? '#fbbf24' : '#25d366',
-          color: 'white',
-          border: 'none',
-          borderRadius: '50%',
-          width: '40px',
-          height: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: error || isLoading ? 'not-allowed' : 'pointer',
-          opacity: error || isLoading ? 0.7 : 1
-        }}
-      >
-{error ? '⚠️' : isLoading ? '⏳' : (isPlaying ? '⏸️' : '▶️')}
-      </button>
+             <button 
+         onClick={togglePlay} 
+         className="play-button"
+         disabled={!!error || isLoading}
+         style={{
+           background: error ? '#ef4444' : isLoading ? '#fbbf24' : '#25d366',
+           color: 'white',
+           border: 'none',
+           borderRadius: '50%',
+           width: '40px',
+           height: '40px',
+           display: 'flex',
+           alignItems: 'center',
+           justifyContent: 'center',
+           cursor: error || isLoading ? 'not-allowed' : 'pointer',
+           opacity: error || isLoading ? 0.7 : 1,
+           fontSize: '16px',
+           lineHeight: '1',
+           fontFamily: 'Arial, sans-serif',
+           fontWeight: 'bold'
+         }}
+       >
+{error ? '!' : isLoading ? '...' : (isPlaying ? '||' : '>')}
+       </button>
       <div className="audio-info">
         <div className="audio-filename">{fileName || 'Áudio'}</div>
         {error ? (
@@ -277,6 +281,7 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
            border: 'none',
            borderRadius: '6px',
            width: 'auto',
+           minWidth: '60px',
            height: '32px',
            padding: '0 8px',
            display: 'flex',
@@ -284,7 +289,10 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
            justifyContent: 'center',
            textDecoration: 'none',
            fontSize: '12px',
-           fontWeight: 'bold'
+           fontWeight: 'bold',
+           lineHeight: '1',
+           whiteSpace: 'nowrap',
+           fontFamily: 'Arial, sans-serif'
          }}
        >
          BAIXAR
@@ -304,13 +312,17 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
              border: 'none',
              borderRadius: '6px',
              width: 'auto',
+             minWidth: '60px',
              height: '32px',
              padding: '0 8px',
              display: 'flex',
              alignItems: 'center',
              justifyContent: 'center',
              fontSize: '12px',
-             fontWeight: 'bold'
+             fontWeight: 'bold',
+             lineHeight: '1',
+             whiteSpace: 'nowrap',
+             fontFamily: 'Arial, sans-serif'
            }}
          >
            APAGAR
@@ -447,13 +459,17 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              border: 'none',
              borderRadius: '6px',
              width: 'auto',
+             minWidth: '60px',
              height: '32px',
              padding: '0 8px',
              display: 'flex',
              alignItems: 'center',
              justifyContent: 'center',
              fontSize: '12px',
-             fontWeight: 'bold'
+             fontWeight: 'bold',
+             lineHeight: '1',
+             whiteSpace: 'nowrap',
+             fontFamily: 'Arial, sans-serif'
            }}
          >
            ABRIR
@@ -469,6 +485,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              border: 'none',
              borderRadius: '6px',
              width: 'auto',
+             minWidth: '60px',
              height: '32px',
              padding: '0 8px',
              display: 'flex',
@@ -476,7 +493,10 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              justifyContent: 'center',
              textDecoration: 'none',
              fontSize: '12px',
-             fontWeight: 'bold'
+             fontWeight: 'bold',
+             lineHeight: '1',
+             whiteSpace: 'nowrap',
+             fontFamily: 'Arial, sans-serif'
            }}
          >
            BAIXAR
@@ -492,13 +512,17 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
                border: 'none',
                borderRadius: '6px',
                width: 'auto',
+               minWidth: '60px',
                height: '32px',
                padding: '0 8px',
                display: 'flex',
                alignItems: 'center',
                justifyContent: 'center',
                fontSize: '12px',
-               fontWeight: 'bold'
+               fontWeight: 'bold',
+               lineHeight: '1',
+               whiteSpace: 'nowrap',
+               fontFamily: 'Arial, sans-serif'
              }}
            >
              SALVAR
@@ -519,13 +543,17 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
                border: 'none',
                borderRadius: '6px',
                width: 'auto',
+               minWidth: '60px',
                height: '32px',
                padding: '0 8px',
                display: 'flex',
                alignItems: 'center',
                justifyContent: 'center',
                fontSize: '12px',
-               fontWeight: 'bold'
+               fontWeight: 'bold',
+               lineHeight: '1',
+               whiteSpace: 'nowrap',
+               fontFamily: 'Arial, sans-serif'
              }}
            >
              APAGAR
@@ -696,6 +724,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                border: 'none',
                borderRadius: '6px',
                width: 'auto',
+               minWidth: '60px',
                height: '32px',
                padding: '0 10px',
                display: 'flex',
@@ -703,7 +732,10 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                justifyContent: 'center',
                cursor: 'pointer',
                fontSize: '12px',
-               fontWeight: 'bold'
+               fontWeight: 'bold',
+               lineHeight: '1',
+               whiteSpace: 'nowrap',
+               fontFamily: 'Arial, sans-serif'
              }}
            >
              BAIXAR
@@ -717,6 +749,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                border: 'none',
                borderRadius: '6px',
                width: 'auto',
+               minWidth: '60px',
                height: '32px',
                padding: '0 10px',
                display: 'flex',
@@ -724,7 +757,10 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                justifyContent: 'center',
                cursor: 'pointer',
                fontSize: '12px',
-               fontWeight: 'bold'
+               fontWeight: 'bold',
+               lineHeight: '1',
+               whiteSpace: 'nowrap',
+               fontFamily: 'Arial, sans-serif'
              }}
            >
              ABRIR
@@ -739,6 +775,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                  border: 'none',
                  borderRadius: '6px',
                  width: 'auto',
+                 minWidth: '60px',
                  height: '32px',
                  padding: '0 10px',
                  display: 'flex',
@@ -746,7 +783,10 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                  justifyContent: 'center',
                  cursor: 'pointer',
                  fontSize: '12px',
-                 fontWeight: 'bold'
+                 fontWeight: 'bold',
+                 lineHeight: '1',
+                 whiteSpace: 'nowrap',
+                 fontFamily: 'Arial, sans-serif'
                }}
              >
                SALVAR
@@ -766,6 +806,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                  border: 'none',
                  borderRadius: '6px',
                  width: 'auto',
+                 minWidth: '60px',
                  height: '32px',
                  padding: '0 10px',
                  display: 'flex',
@@ -773,7 +814,10 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                  justifyContent: 'center',
                  cursor: 'pointer',
                  fontSize: '12px',
-                 fontWeight: 'bold'
+                 fontWeight: 'bold',
+                 lineHeight: '1',
+                 whiteSpace: 'nowrap',
+                 fontFamily: 'Arial, sans-serif'
                }}
              >
                APAGAR
