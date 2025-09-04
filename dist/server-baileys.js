@@ -56,8 +56,9 @@ const migrations_1 = require("./migrations/migrations");
 const User_1 = require("./models/User");
 const WhatsAppInstance_1 = require("./models/WhatsAppInstance");
 const Message_1 = require("./models/Message");
+const auth_1 = require("./middleware/auth");
 // Importar rotas
-const auth_1 = __importDefault(require("./routes/auth"));
+const auth_2 = __importDefault(require("./routes/auth"));
 const users_1 = __importDefault(require("./routes/users"));
 const whatsapp_1 = __importDefault(require("./routes/whatsapp"));
 const messages_1 = __importDefault(require("./routes/messages"));
@@ -291,26 +292,31 @@ async function initializeSystem() {
     }
 }
 // ===== GERENCIAMENTO DE INSTÂNCIAS WHATSAPP COM BAILEYS =====
+// Função para limpar sessões antigas e corruptas
+async function cleanupAuthSessions(managerId, instanceId) {
+    try {
+        const authDir = path_1.default.join(__dirname, '..', 'auth_baileys', `manager_${managerId}_instance_${instanceId}`);
+        if (fs.existsSync(authDir)) {
+            console.log(`🧹 Limpando sessões antigas para gestor ${managerId}, instância ${instanceId}`);
+            // Remover apenas arquivos de sessão específicos que podem estar corruptos
+            const sessionFiles = fs.readdirSync(authDir).filter(file => file.startsWith('session-') ||
+                file.includes('app-state-sync') ||
+                file.startsWith('pre-key-'));
+            for (const file of sessionFiles) {
+                const filePath = path_1.default.join(authDir, file);
+                fs.unlinkSync(filePath);
+                console.log(`🗑️ Removido: ${file}`);
+            }
+            console.log(`✅ Limpeza concluída. Mantido creds.json para evitar novo QR.`);
+        }
+    }
+    catch (error) {
+        console.error(`❌ Erro ao limpar sessões para gestor ${managerId}:`, error);
+    }
+}
 // Função para inicializar cliente WhatsApp com Baileys para um gestor específico
 async function initializeWhatsAppClientBaileys(managerId, instanceId) {
     console.log(`🔄 Inicializando cliente WhatsApp Baileys para gestor ${managerId}, instância ${instanceId}...`);
-    // Verificar se já existe uma instância ativa para este gestor
-    const existingInstance = whatsappInstances.get(managerId);
-    if (existingInstance && existingInstance.isReady) {
-        console.log(`⚠️ Instância já ativa para gestor ${managerId}, ignorando nova inicialização`);
-        return;
-    }
-    // Limpar instância anterior se existir
-    if (existingInstance) {
-        try {
-            existingInstance.sock.end(undefined);
-            whatsappInstances.delete(managerId);
-            console.log(`🧹 Instância anterior removida para gestor ${managerId}`);
-        }
-        catch (cleanupError) {
-            console.warn(`⚠️ Erro ao limpar instância anterior:`, cleanupError);
-        }
-    }
     try {
         // Configurar diretório de autenticação específico para cada gestor
         const authDir = path_1.default.join(__dirname, '..', 'auth_baileys', `manager_${managerId}_instance_${instanceId}`);
@@ -350,7 +356,8 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
             isReady: false,
             messageCount: 0,
             startTime: new Date(),
-            authState: state
+            authState: state,
+            reconnectAttempts: 0 // Adicionar contador de tentativas de reconexão
         };
         whatsappInstances.set(managerId, instanceData);
         // Atualizar status no banco como "connecting"
@@ -361,15 +368,11 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
         catch (dbError) {
             console.error('❌ Erro ao salvar status connecting no banco:', dbError);
         }
-        // Variável para controlar se já está conectado ou conectando
-        let isConnecting = false;
-        let isConnected = false;
-        // Evento para QR Code - CORRIGIDO PARA EVITAR LOOP INFINITO
+        // Evento para QR Code - EXATAMENTE COMO SEU EXEMPLO QUE FUNCIONA
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
             console.log(`🔍 Connection update para gestor ${managerId}:`, { connection, hasQR: !!qr, hasError: !!lastDisconnect?.error });
-            if (qr && !isConnected && !isConnecting) {
-                isConnecting = true;
+            if (qr) {
                 console.log(`\n📱 QR CODE para gestor ${managerId} - Escaneie com seu WhatsApp:`);
                 console.log('==========================================');
                 console.log('🎯 QR RAW STRING:', qr.substring(0, 50) + '...');
@@ -438,9 +441,6 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
             if (connection === 'close') {
                 const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== baileys_1.DisconnectReason.loggedOut;
                 console.log(`❌ Conexão fechada para gestor ${managerId} devido a:`, lastDisconnect?.error, ', reconectando:', shouldReconnect);
-                // Reset das variáveis de controle
-                isConnected = false;
-                isConnecting = false;
                 instanceData.isReady = false;
                 // Emitir status de desconexão
                 io.to(`manager_${managerId}`).emit('connection_status', {
@@ -462,38 +462,47 @@ async function initializeWhatsAppClientBaileys(managerId, instanceId) {
                 catch (dbError) {
                     console.error('❌ Erro ao atualizar status de desconexão no banco:', dbError);
                 }
-                if (shouldReconnect && !isConnected) {
-                    // Verificar se não estamos em um loop de reconexão
-                    const now = Date.now();
-                    const lastReconnectKey = `reconnect_${managerId}`;
-                    const lastReconnect = global[lastReconnectKey] || 0;
-                    // Só reconectar se passou pelo menos 30 segundos da última tentativa
-                    if (now - lastReconnect > 30000) {
-                        global[lastReconnectKey] = now;
-                        // Aumentar delay para evitar rate limiting
-                        const reconnectDelay = Math.min(15000, 3000 * Math.random() + 2000); // 2-5s + até 15s
-                        console.log(`🔄 Tentando reconectar em ${Math.round(reconnectDelay / 1000)}s...`);
-                        setTimeout(() => {
-                            initializeWhatsAppClientBaileys(managerId, instanceId);
-                        }, reconnectDelay);
+                if (shouldReconnect) {
+                    // 🚨 CONTROLE DE RECONEXÃO PARA PRODUÇÃO
+                    const maxReconnectAttempts = 3;
+                    let reconnectAttempts = instanceData.reconnectAttempts || 0;
+                    if (reconnectAttempts >= maxReconnectAttempts) {
+                        console.log(`❌ Máximo de tentativas de reconexão atingido (${maxReconnectAttempts}) para gestor ${managerId}`);
+                        console.log(`💡 Para reconectar, limpe as sessões e reinicie manualmente`);
+                        // Remover instância para evitar loop infinito
+                        whatsappInstances.delete(managerId);
+                        // Emitir erro final para frontend
+                        io.to(`manager_${managerId}`).emit('connection_error', {
+                            managerId,
+                            instanceId,
+                            message: 'Falha na conexão após múltiplas tentativas. Limpe as sessões e tente novamente.',
+                            requiresManualRestart: true
+                        });
+                        return;
                     }
-                    else {
-                        console.log(`⏳ Aguardando cooldown de reconexão para evitar loop...`);
-                    }
+                    // Incrementar contador de tentativas
+                    instanceData.reconnectAttempts = reconnectAttempts + 1;
+                    // Aumentar delay progressivamente para evitar rate limiting
+                    const baseDelay = 10000; // 10 segundos base
+                    const reconnectDelay = Math.min(60000, baseDelay * Math.pow(2, reconnectAttempts)); // Exponential backoff até 60s
+                    console.log(`🔄 Tentativa ${reconnectAttempts + 1}/${maxReconnectAttempts} - Reconectando em ${Math.round(reconnectDelay / 1000)}s...`);
+                    setTimeout(() => {
+                        initializeWhatsAppClientBaileys(managerId, instanceId);
+                    }, reconnectDelay);
                 }
                 else {
-                    console.log(`❌ Não reconectando - usuário foi deslogado ou já está conectado`);
+                    console.log(`❌ Não reconectando - usuário foi deslogado`);
+                    // Limpar instância quando usuário foi deslogado
+                    whatsappInstances.delete(managerId);
                 }
             }
             else if (connection === 'open') {
                 console.log(`🎉 CONECTADO COM SUCESSO! Gestor ${managerId}`);
                 console.log(`📱 Bot está pronto e funcionando para gestor ${managerId}!`);
                 console.log(`📨 Aguardando mensagens...\n`);
-                // Marcar como conectado para evitar loop de QR
-                isConnected = true;
-                isConnecting = false;
                 instanceData.isReady = true;
                 instanceData.qrCode = undefined;
+                instanceData.reconnectAttempts = 0; // Reset contador quando conectar com sucesso
                 // 🆕 Limpar QR code no frontend quando conectar
                 io.to(`manager_${managerId}`).emit('qr', null);
                 // CONFIGURAÇÕES INICIAIS DE PRESENÇA PARA MELHOR FUNCIONAMENTO
@@ -657,21 +666,27 @@ async function markMessageAsRead(sock, msg) {
     }
 }
 // Função para simular digitação humana
-async function simulateTyping(sock, remoteJid, message) {
+async function simulateTyping(sock, remoteJid, message, customConfig) {
     try {
-        // Carregar configurações do fluxo
-        const flowData = loadFlowFromJSON();
-        const typingConfig = flowData?.settings?.typing;
+        // Usar configuração personalizada ou carregar do fluxo
+        let typingConfig;
+        if (customConfig) {
+            typingConfig = customConfig;
+        }
+        else {
+            const flowData = loadFlowFromJSON();
+            typingConfig = flowData?.settings?.typing;
+        }
         // Se typing estiver desabilitado, retornar imediatamente
         if (typingConfig && typingConfig.enabled === false) {
             console.log('⌨️ Simulação de digitação desabilitada');
             return;
         }
-        // Usar configurações do JSON ou valores padrão
-        const wordsPerMinute = typingConfig?.wordsPerMinute || 40;
-        const maxDuration = typingConfig?.maxDuration || 5000;
-        const minDuration = typingConfig?.minDuration || 1000;
-        const randomVariationMax = typingConfig?.randomVariation || 1500;
+        // Usar configurações personalizadas ou valores padrão OTIMIZADOS
+        const wordsPerMinute = typingConfig?.wordsPerMinute || 120; // Mais rápido: 120 WPM
+        const maxDuration = typingConfig?.maxDuration || 2000; // Máximo 2 segundos
+        const minDuration = typingConfig?.minDuration || 500; // Mínimo 0.5 segundo
+        const randomVariationMax = typingConfig?.randomVariation || 300; // Menos variação
         const pauseBeforeSend = typingConfig?.pauseBeforeSend || 200;
         console.log(`⌨️ Iniciando simulação de digitação para: ${remoteJid}`);
         try {
@@ -1422,7 +1437,7 @@ app.use('/uploads', (req, res, next) => {
     acceptRanges: true
 }));
 // Usar rotas existentes
-app.use('/api/auth', auth_1.default);
+app.use('/api/auth', auth_2.default);
 app.use('/api/users', users_1.default);
 app.use('/api/whatsapp', whatsapp_1.default);
 app.use('/api/messages', messages_1.default);
@@ -1546,8 +1561,30 @@ io.on('connection', async (socket) => {
             // 👤 INCLUIR NOME DO OPERADOR NA MENSAGEM PARA WHATSAPP
             const operatorName = authenticatedUser.name || 'Operador';
             const messageWithName = `*${operatorName}:* ${data.message}`;
-            // Simular digitação antes de enviar mensagem do operador
-            await simulateTyping(instance.sock, baileyChatId, messageWithName);
+            // 🚀 SIMULAÇÃO DE DIGITAÇÃO OTIMIZADA PARA OPERADORES
+            // Verificar se há configuração para desabilitar simulação de operadores
+            const disableOperatorTyping = process.env.DISABLE_OPERATOR_TYPING === 'true';
+            if (!disableOperatorTyping) {
+                // Configuração otimizada para operadores (muito mais rápida)
+                const operatorTypingConfig = {
+                    enabled: true,
+                    wordsPerMinute: 200, // Super rápido para operadores
+                    maxDuration: 1200, // Máximo 1.2 segundos
+                    minDuration: 200, // Mínimo 0.2 segundo
+                    randomVariation: 100, // Muito pouca variação
+                    pauseBeforeSend: 50
+                };
+                // Para mensagens muito curtas (< 10 chars), usar delay mínimo
+                if (messageWithName.length < 10) {
+                    operatorTypingConfig.maxDuration = 500;
+                    operatorTypingConfig.minDuration = 100;
+                }
+                console.log(`⚡ Simulação rápida para operador: ${operatorTypingConfig.maxDuration}ms max`);
+                await simulateTyping(instance.sock, baileyChatId, messageWithName, operatorTypingConfig);
+            }
+            else {
+                console.log('⚡ Simulação de digitação desabilitada para operadores - Envio instantâneo');
+            }
             // Enviar mensagem via Baileys e capturar o ID da mensagem
             const sentMessage = await instance.sock.sendMessage(baileyChatId, { text: messageWithName });
             console.log(`✅ Mensagem do operador ${operatorName} enviada com sucesso via Baileys`);
@@ -1702,6 +1739,57 @@ io.on('connection', async (socket) => {
     socket.on('disconnect', () => {
         console.log(`🔌 Socket desconectado: ${socket.id}`);
     });
+});
+// ===== ROTAS ADICIONAIS PARA RESOLUÇÃO DE PROBLEMAS =====
+// Rota para limpar sessões corrompidas (NOVA - para resolver o problema de produção)
+app.post('/api/whatsapp/cleanup-sessions/:managerId', auth_1.authenticate, async (req, res) => {
+    try {
+        const managerId = parseInt(req.params.managerId);
+        if (!req.user) {
+            return res.status(401).json({ error: 'Usuário não autenticado' });
+        }
+        // Verificar se o usuário tem permissão para gerenciar esta instância
+        if (req.user.role !== 'admin' && req.user.id !== managerId && req.user.manager_id !== managerId) {
+            return res.status(403).json({ error: 'Sem permissão para gerenciar esta instância' });
+        }
+        // Buscar instância no banco
+        const instances = await WhatsAppInstance_1.WhatsAppInstanceModel.findByManagerId(managerId);
+        if (!instances.length) {
+            return res.status(404).json({ error: 'Instância não encontrada' });
+        }
+        const instance = instances[0];
+        // Desconectar instância atual se existir
+        const currentInstance = whatsappInstances.get(managerId);
+        if (currentInstance) {
+            try {
+                await currentInstance.sock.logout();
+                whatsappInstances.delete(managerId);
+                console.log(`🔌 Instância desconectada para limpeza - Gestor ${managerId}`);
+            }
+            catch (error) {
+                console.log(`⚠️ Erro ao desconectar instância (continuando limpeza): ${error}`);
+            }
+        }
+        // Limpar sessões corrompidas
+        await cleanupAuthSessions(managerId, instance.id);
+        // Atualizar status no banco
+        await WhatsAppInstance_1.WhatsAppInstanceModel.updateStatus(instance.id, 'disconnected', {
+            qr_code: undefined
+        });
+        res.json({
+            success: true,
+            message: 'Sessões limpas com sucesso. Você pode tentar conectar novamente.',
+            managerId,
+            instanceId: instance.id
+        });
+    }
+    catch (error) {
+        console.error('❌ Erro ao limpar sessões:', error);
+        res.status(500).json({
+            error: 'Erro interno do servidor',
+            details: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    }
 });
 // ===== INICIALIZAÇÃO DO SERVIDOR =====
 const PORT = process.env.PORT || 3001;
