@@ -276,13 +276,14 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
           color: '#e9edef',
           border: 'none',
           borderRadius: '6px',
-          width: '28px',
+          width: 'auto',
           height: '28px',
+          padding: '0 8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           textDecoration: 'none',
-          fontSize: '16px',
+          fontSize: '10px',
           fontWeight: 'bold'
         }}
       >
@@ -311,7 +312,7 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
             fontWeight: 'bold'
           }}
         >
-          X
+          DEL
         </button>
       )}
     </div>
@@ -453,7 +454,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             fontWeight: 'bold'
           }}
         >
-          👁
+          VER
         </button>
         <a 
           href={getAbsoluteUrl(fileUrl)} 
@@ -475,7 +476,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
             fontWeight: 'bold'
           }}
         >
-          ↓
+          BAIXAR
         </a>
         {messageId && onSaveDocument && (
           <button 
@@ -496,7 +497,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
               fontWeight: 'bold'
             }}
           >
-            💾
+            SALVAR
           </button>
         )}
         {messageId && onDeleteMessage && (
@@ -522,7 +523,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
               fontWeight: 'bold'
             }}
           >
-            X
+            DEL
           </button>
         )}
       </div>
@@ -689,17 +690,18 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
               color: 'white',
               border: 'none',
               borderRadius: '6px',
-              width: '32px',
-              height: '32px',
+                          width: 'auto',
+            height: '32px',
+            padding: '0 10px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              fontSize: '18px',
+              fontSize: '10px',
               fontWeight: 'bold'
             }}
           >
-            ↓
+            BAIXAR
           </button>
           <button 
             onClick={() => window.open(absoluteUrl, '_blank')}
@@ -709,17 +711,18 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
               color: 'white',
               border: 'none',
               borderRadius: '6px',
-              width: '32px',
-              height: '32px',
+                          width: 'auto',
+            height: '32px',
+            padding: '0 10px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              fontSize: '18px',
+              fontSize: '10px',
               fontWeight: 'bold'
             }}
           >
-            🔗
+            ABRIR
           </button>
           {messageId && onSaveDocument && (
             <button 
@@ -730,8 +733,9 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                 color: '#fbbf24',
                 border: '1px solid rgba(251, 191, 36, 0.3)',
                 borderRadius: '6px',
-                width: '32px',
-                height: '32px',
+                            width: 'auto',
+            height: '32px',
+            padding: '0 10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -740,7 +744,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                 fontWeight: 'bold'
               }}
             >
-              💾
+              SALVAR
             </button>
           )}
           {messageId && onDeleteMessage && (
@@ -756,8 +760,9 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
-                width: '32px',
-                height: '32px',
+                            width: 'auto',
+            height: '32px',
+            padding: '0 10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -766,7 +771,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                 fontWeight: 'bold'
               }}
             >
-              X
+              DEL
             </button>
           )}
         </div>
