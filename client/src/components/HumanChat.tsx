@@ -278,24 +278,26 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
          style={{
            background: '#25d366',
            color: 'white',
-           border: 'none',
+           border: '2px solid white',
            borderRadius: '6px',
            width: 'auto',
-           minWidth: '60px',
+           minWidth: '70px',
            height: '32px',
            padding: '0 8px',
-           display: 'flex',
+           display: 'inline-flex',
            alignItems: 'center',
            justifyContent: 'center',
            textDecoration: 'none',
-           fontSize: '12px',
-           fontWeight: 'bold',
-           lineHeight: '1',
+           fontSize: '11px',
+           fontWeight: '900',
+           lineHeight: 'normal',
            whiteSpace: 'nowrap',
-           fontFamily: 'Arial, sans-serif'
+           fontFamily: 'Arial, Helvetica, sans-serif',
+           textTransform: 'uppercase',
+           letterSpacing: '0.5px'
          }}
        >
-         BAIXAR
+         <span style={{ display: 'inline-block', color: 'white' }}>BAIXAR</span>
        </a>
       {messageId && onDeleteMessage && (
                  <button 
@@ -309,23 +311,26 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
            style={{
              background: '#dc2626',
              color: 'white',
-             border: 'none',
+             border: '2px solid white',
              borderRadius: '6px',
              width: 'auto',
-             minWidth: '60px',
+             minWidth: '70px',
              height: '32px',
              padding: '0 8px',
-             display: 'flex',
+             display: 'inline-flex',
              alignItems: 'center',
              justifyContent: 'center',
-             fontSize: '12px',
-             fontWeight: 'bold',
-             lineHeight: '1',
+             fontSize: '11px',
+             fontWeight: '900',
+             lineHeight: 'normal',
              whiteSpace: 'nowrap',
-             fontFamily: 'Arial, sans-serif'
+             fontFamily: 'Arial, Helvetica, sans-serif',
+             textTransform: 'uppercase',
+             letterSpacing: '0.5px',
+             cursor: 'pointer'
            }}
          >
-           APAGAR
+           <span style={{ display: 'inline-block', color: 'white' }}>APAGAR</span>
          </button>
       )}
     </div>
@@ -456,23 +461,26 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
            style={{
              background: '#128c7e',
              color: 'white',
-             border: 'none',
+             border: '2px solid white',
              borderRadius: '6px',
              width: 'auto',
-             minWidth: '60px',
+             minWidth: '70px',
              height: '32px',
              padding: '0 8px',
-             display: 'flex',
+             display: 'inline-flex',
              alignItems: 'center',
              justifyContent: 'center',
-             fontSize: '12px',
-             fontWeight: 'bold',
-             lineHeight: '1',
+             fontSize: '11px',
+             fontWeight: '900',
+             lineHeight: 'normal',
              whiteSpace: 'nowrap',
-             fontFamily: 'Arial, sans-serif'
+             fontFamily: 'Arial, Helvetica, sans-serif',
+             textTransform: 'uppercase',
+             letterSpacing: '0.5px',
+             cursor: 'pointer'
            }}
          >
-           ABRIR
+           <span style={{ display: 'inline-block', color: 'white' }}>ABRIR</span>
          </button>
                  <a 
            href={getAbsoluteUrl(fileUrl)} 
@@ -482,24 +490,26 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
            style={{
              background: '#25d366',
              color: 'white',
-             border: 'none',
+             border: '2px solid white',
              borderRadius: '6px',
              width: 'auto',
-             minWidth: '60px',
+             minWidth: '70px',
              height: '32px',
              padding: '0 8px',
-             display: 'flex',
+             display: 'inline-flex',
              alignItems: 'center',
              justifyContent: 'center',
              textDecoration: 'none',
-             fontSize: '12px',
-             fontWeight: 'bold',
-             lineHeight: '1',
+             fontSize: '11px',
+             fontWeight: '900',
+             lineHeight: 'normal',
              whiteSpace: 'nowrap',
-             fontFamily: 'Arial, sans-serif'
+             fontFamily: 'Arial, Helvetica, sans-serif',
+             textTransform: 'uppercase',
+             letterSpacing: '0.5px'
            }}
          >
-           BAIXAR
+           <span style={{ display: 'inline-block', color: 'white' }}>BAIXAR</span>
          </a>
         {messageId && onSaveDocument && (
                      <button 
@@ -509,23 +519,26 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              style={{
                background: '#fbbf24',
                color: 'white',
-               border: 'none',
+               border: '2px solid white',
                borderRadius: '6px',
                width: 'auto',
-               minWidth: '60px',
+               minWidth: '70px',
                height: '32px',
                padding: '0 8px',
-               display: 'flex',
+               display: 'inline-flex',
                alignItems: 'center',
                justifyContent: 'center',
-               fontSize: '12px',
-               fontWeight: 'bold',
-               lineHeight: '1',
+               fontSize: '11px',
+               fontWeight: '900',
+               lineHeight: 'normal',
                whiteSpace: 'nowrap',
-               fontFamily: 'Arial, sans-serif'
+               fontFamily: 'Arial, Helvetica, sans-serif',
+               textTransform: 'uppercase',
+               letterSpacing: '0.5px',
+               cursor: 'pointer'
              }}
            >
-             SALVAR
+             <span style={{ display: 'inline-block', color: 'white' }}>SALVAR</span>
            </button>
         )}
         {messageId && onDeleteMessage && (
@@ -540,23 +553,26 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              style={{
                background: '#dc2626',
                color: 'white',
-               border: 'none',
+               border: '2px solid white',
                borderRadius: '6px',
                width: 'auto',
-               minWidth: '60px',
+               minWidth: '70px',
                height: '32px',
                padding: '0 8px',
-               display: 'flex',
+               display: 'inline-flex',
                alignItems: 'center',
                justifyContent: 'center',
-               fontSize: '12px',
-               fontWeight: 'bold',
-               lineHeight: '1',
+               fontSize: '11px',
+               fontWeight: '900',
+               lineHeight: 'normal',
                whiteSpace: 'nowrap',
-               fontFamily: 'Arial, sans-serif'
+               fontFamily: 'Arial, Helvetica, sans-serif',
+               textTransform: 'uppercase',
+               letterSpacing: '0.5px',
+               cursor: 'pointer'
              }}
            >
-             APAGAR
+             <span style={{ display: 'inline-block', color: 'white' }}>APAGAR</span>
            </button>
         )}
       </div>
