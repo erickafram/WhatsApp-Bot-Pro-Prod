@@ -240,25 +240,13 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
            justifyContent: 'center',
            cursor: error || isLoading ? 'not-allowed' : 'pointer',
            opacity: error || isLoading ? 0.7 : 1,
-           fontSize: '16px',
+           fontSize: '18px',
            lineHeight: '1',
            fontFamily: 'Arial, sans-serif',
            fontWeight: 'bold'
          }}
        >
-{error ? (
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-           </svg>
-         ) : isLoading ? '...' : (isPlaying ? (
-           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-           </svg>
-         ) : (
-           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M8 5v14l11-7z"/>
-           </svg>
-         ))}
+{error ? '❌' : isLoading ? '⏳' : (isPlaying ? '⏸️' : '▶️')}
        </button>
       <div className="audio-info">
         <div className="audio-filename">{fileName || 'Áudio'}</div>
@@ -300,9 +288,7 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
            textDecoration: 'none'
          }}
        >
-         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-           <path d="M12 16L7 11h3V3h4v8h3l-5 5zm5.5 6H6.5c-1.1 0-2-.9-2-2s.9-2 2-2h11c1.1 0 2 .9 2 2s-.9 2-2 2z"/>
-         </svg>
+         <span style={{ fontSize: '16px', lineHeight: '1' }}>⬇</span>
        </a>
       {messageId && onDeleteMessage && (
                  <button 
@@ -325,9 +311,7 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
              justifyContent: 'center'
            }}
          >
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-           </svg>
+           <span style={{ fontSize: '16px', lineHeight: '1' }}>🗑</span>
          </button>
       )}
     </div>
@@ -467,9 +451,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
              justifyContent: 'center'
            }}
          >
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-           </svg>
+           <span style={{ fontSize: '16px', lineHeight: '1' }}>👁</span>
          </button>
                  <a 
            href={getAbsoluteUrl(fileUrl)} 
@@ -510,9 +492,7 @@ const DocumentViewer = ({ fileUrl, fileName, fileSize, mimeType, messageId, onSa
                justifyContent: 'center'
              }}
            >
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-               <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
-             </svg>
+             <span style={{ fontSize: '16px', lineHeight: '1' }}>💾</span>
            </button>
         )}
         {messageId && onDeleteMessage && (
@@ -731,9 +711,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                cursor: 'pointer'
              }}
            >
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-               <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-             </svg>
+             <span style={{ fontSize: '16px', lineHeight: '1' }}>🔗</span>
            </button>
           {messageId && onSaveDocument && (
                          <button 
@@ -2942,9 +2920,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M12 16L7 11h3V3h4v8h3l-5 5zm5.5 6H6.5c-1.1 0-2-.9-2-2s.9-2 2-2h11c1.1 0 2 .9 2 2s-.9 2-2 2z"/>
-                                     </svg>
+                                     <span style={{ fontSize: '16px', lineHeight: '1' }}>⬇</span>️
                                    </a>
                                    <button 
                                      onClick={() => {
@@ -2967,9 +2943,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                     </svg>
+                                     <span style={{ fontSize: '16px', lineHeight: '1' }}>🗑</span>️
                                    </button>
                                  </div>
                                </div>
@@ -3007,9 +2981,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
-                                     </svg>
+                                     <span style={{ fontSize: '12px', lineHeight: '1' }}>↩️</span>
                                    </button>
                                  )}
                                  
@@ -3038,9 +3010,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                                        fontSize: '12px'
                                      }}
                                    >
-                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                     </svg>
+                                     <span style={{ fontSize: '16px', lineHeight: '1' }}>🗑</span>️
                                    </button>
                                  )}
                                </div>
@@ -3583,7 +3553,7 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 onClick={confirmSaveDocument}
                 disabled={!documentDescription.trim()}
               >
-                💾 Catalogar Documento
+                <span style={{ fontSize: '16px', lineHeight: '1' }}>💾</span> Catalogar Documento
               </button>
             </div>
           </div>
