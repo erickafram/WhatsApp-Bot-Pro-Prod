@@ -502,8 +502,22 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
                         message: 'Escaneie o QR Code com seu WhatsApp'
                     });
                     
-                    // Evento compatível com frontend existente
+                    // Evento compatível com frontend existente - CORRIGIDO
                     io.to(`manager_${managerId}`).emit('qr', qrDataURL);
+                    
+                    // 🆕 ADICIONAR: Exibir QR code no terminal SSH
+                    try {
+                        console.log('\n📱 QR CODE NO TERMINAL SSH:');
+                        console.log('==========================================');
+                        // Usar qrcode-terminal se estiver disponível
+                        const qrcodeTerminal = require('qrcode-terminal');
+                        qrcodeTerminal.generate(qr, { small: true });
+                        console.log('==========================================');
+                        console.log('📱 Use WhatsApp > Configurações > Aparelhos conectados > Conectar aparelho\n');
+                    } catch (qrTerminalError) {
+                        console.error('❌ Erro ao exibir QR no terminal:', qrTerminalError);
+                        console.log('💡 Para instalar: npm install qrcode-terminal');
+                    }
                     
                     // Status indicando QR disponível
                     io.to(`manager_${managerId}`).emit('status', {
@@ -568,6 +582,9 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
                 
                 instanceData.isReady = true;
                 instanceData.qrCode = undefined;
+                
+                // 🆕 Limpar QR code no frontend quando conectar
+                io.to(`manager_${managerId}`).emit('qr', null);
                 
                 // CONFIGURAÇÕES INICIAIS DE PRESENÇA PARA MELHOR FUNCIONAMENTO
                 try {
