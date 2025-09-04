@@ -694,9 +694,7 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                 display: 'block'
               }}
             />
-          </div>
-        )}
-        <div className="image-actions" style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="image-actions">
                      <button 
              onClick={handleDownloadImage}
              title="Salvar imagem"
@@ -785,7 +783,9 @@ const ImageViewer = ({ imageUrl, fileName, messageId, onDeleteMessage, onSaveDoc
                </svg>
              </button>
           )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
       
       {showFullSize && !imageError && (

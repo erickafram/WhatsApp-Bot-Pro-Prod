@@ -815,15 +815,10 @@
   position: absolute !important;
   top: 0.75rem !important;
   right: 0.75rem !important;
-  opacity: 0 !important;
-  transition: opacity 0.2s ease !important;
-  background: rgba(0, 0, 0, 0.6) !important;
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.7) !important;
   border-radius: 8px !important;
   padding: 0.25rem !important;
-}
-
-.image-viewer:hover .image-actions {
-  opacity: 1 !important;
 }
 
 .video-viewer {
