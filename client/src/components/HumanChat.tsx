@@ -24,7 +24,11 @@ import {
   Eye,
   Save,
   Link,
-  CornerUpLeft
+  CornerUpLeft,
+  Play,
+  Pause,
+  AlertCircle,
+  Loader
 } from 'lucide-react'
 import './HumanChatWhatsApp.css'
 
@@ -252,7 +256,7 @@ const AudioPlayer = ({ audioUrl, fileName, messageId, onDeleteMessage }: {
            fontWeight: 'bold'
          }}
        >
-{error ? '❌' : isLoading ? '⏳' : (isPlaying ? '⏸️' : '▶️')}
+{error ? <AlertCircle size={18} /> : isLoading ? <Loader size={18} className="animate-spin" /> : (isPlaying ? <Pause size={18} /> : <Play size={18} />)}
        </button>
       <div className="audio-info">
         <div className="audio-filename">{fileName || 'Áudio'}</div>
