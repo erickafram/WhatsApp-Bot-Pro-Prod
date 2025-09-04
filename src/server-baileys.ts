@@ -398,20 +398,20 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
             printQRInTerminal: false,
             
             // Configurações essenciais - simplificadas para evitar erros
-            syncFullHistory: false,
-            markOnlineOnConnect: false, // Desabilitar para evitar problemas
-            generateHighQualityLinkPreview: false,
+            
+             // Desabilitar para evitar problemas
+            
             
             // Browser info simples
             browser: ['Ubuntu', 'Chrome', '120.0.0'],
             
             // Timeouts reduzidos para ambiente de produção
-            connectTimeoutMs: 30000,
-            defaultQueryTimeoutMs: 30000,
-            qrTimeout: 60000,
+            
+            
+            
             
             // Configurações mínimas para evitar conflitos
-            shouldIgnoreJid: () => false,
+            
             
             // Importante: habilitar recebimento de confirmações de leitura
             getMessage: async (key) => {
@@ -421,21 +421,20 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
             },
             
             // Logger desabilitado para reduzir ruído
-            logger: undefined,
+            logger: require("pino")({ level: "silent" }),
             
             // Configurações específicas para evitar erro do noise-handler
-            retryRequestDelayMs: 250,
-            maxMsgRetryCount: 5,
+            
             
             // Desabilitar algumas funcionalidades que podem causar problemas
-            emitOwnEvents: false,
-            fireInitQueries: true,
+            
+            
             
             // Configuração de versão para compatibilidade
-            version: [2, 2323, 4],
+            
             
             // Configurações de keep alive
-            keepAliveIntervalMs: 30000
+            
         });
         
         // Salvar instância
