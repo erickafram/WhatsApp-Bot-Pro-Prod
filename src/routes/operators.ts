@@ -51,16 +51,24 @@ const requireOperatorAccess = (req: any, res: any, next: any) => {
   next()
 }
 
-// 📋 Listar todos os operadores do manager
-router.get('/', authenticate, requireManager, async (req: any, res) => {
+// 📋 Listar todos os operadores do manager (acessível para operadores, managers e admins)
+router.get('/', authenticate, requireOperatorAccess, async (req: any, res) => {
   try {
-    const managerId = req.user.role === 'admin' ? req.query.manager_id : req.user.id
+    // Determinar manager_id baseado no role do usuário
+    let managerId;
+    if (req.user.role === 'admin') {
+      managerId = req.query.manager_id;
+    } else if (req.user.role === 'manager') {
+      managerId = req.user.id;
+    } else if (req.user.role === 'operator') {
+      managerId = req.user.manager_id;
+    }
 
     if (!managerId) {
       return res.status(400).json({ error: 'Manager ID é obrigatório' })
     }
 
-    console.log(`🔍 Buscando operadores do manager ${managerId}...`)
+    console.log(`🔍 Buscando operadores do manager ${managerId} (requisição de ${req.user.role}: ${req.user.name})...`)
 
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT 

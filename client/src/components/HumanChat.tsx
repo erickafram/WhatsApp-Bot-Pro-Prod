@@ -1004,28 +1004,112 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   const [pastedImage, setPastedImage] = useState<File | null>(null)
   const [showPastedImagePreview, setShowPastedImagePreview] = useState(false)
   const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null)
+  
+  // Estados para controle de carregamento e erros
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [loadingError, setLoadingError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
-  // Função para carregar operadores disponíveis
+  // Função para carregar operadores disponíveis do mesmo manager
   const loadOperators = async () => {
     try {
       const authToken = localStorage.getItem('authToken')
-      if (!authToken) return
+      if (!authToken) {
+        console.error('❌ Token de autenticação não encontrado')
+        return
+      }
 
-      const response = await fetch('/api/operators', {
+      const userData = localStorage.getItem('user')
+      const currentUser = userData ? JSON.parse(userData) : null
+      
+      if (!currentUser) {
+        console.error('❌ Usuário atual não encontrado')
+        return
+      }
+
+      // Debug completo do usuário atual
+      console.log('🔍 Debug usuário atual:', {
+        id: currentUser.id,
+        name: currentUser.name,
+        email: currentUser.email,
+        role: currentUser.role,
+        manager_id: currentUser.manager_id
+      })
+
+      // Determinar o manager_id correto
+      const managerId = currentUser.role === 'operator' ? currentUser.manager_id : currentUser.id
+      
+      console.log(`🔍 Carregando operadores do manager ${managerId} (usuário: ${currentUser.role})...`)
+
+      const url = `/api/operators?manager_id=${managerId}`
+      console.log(`🌐 URL da requisição: ${url}`)
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         }
       })
 
+      console.log(`📡 Status da resposta: ${response.status} ${response.statusText}`)
+
       if (response.ok) {
         const data = await response.json()
-        const activeOperators = data.operators.filter((op: Operator) => op.is_active)
+        console.log('✅ Dados recebidos da API:', data)
+        
+        if (!data.operators || !Array.isArray(data.operators)) {
+          console.error('❌ Formato de resposta inválido - operators não é array:', data)
+          return
+        }
+
+        console.log(`📋 Total de operadores recebidos: ${data.operators.length}`)
+        
+        // Debug: listar TODOS os operadores recebidos
+        data.operators.forEach((op: Operator, index: number) => {
+          console.log(`👥 Operador ${index + 1}: ${op.name} (${op.email}) - ID: ${op.id}, Ativo: ${op.is_active}`)
+        })
+
+        // Filtrar operadores ativos e excluir o usuário atual
+        const activeOperators = data.operators.filter((op: Operator) => 
+          op.is_active && op.id !== currentUser.id
+        )
+        
+        console.log(`🔍 Operadores após filtrar (ativos + excluir usuário atual):`)
+        console.log(`   - Total antes do filtro: ${data.operators.length}`)
+        console.log(`   - Excluindo usuário atual (ID: ${currentUser.id})`)
+        console.log(`   - Apenas ativos (is_active = true)`)
+        console.log(`   - Total após filtro: ${activeOperators.length}`)
+
         setOperators(activeOperators)
-        console.log(`✅ ${activeOperators.length} operadores ativos carregados`)
+        console.log(`✅ ${activeOperators.length} operadores disponíveis para transferência`)
+        
+        // Debug: listar operadores disponíveis para transferência
+        if (activeOperators.length > 0) {
+          console.log('👤 Operadores disponíveis para transferência:')
+          activeOperators.forEach((op: Operator, index: number) => {
+            console.log(`   ${index + 1}. ${op.name} (${op.email}) - ID: ${op.id}`)
+          })
+        } else {
+          console.warn('⚠️ Nenhum operador disponível para transferência!')
+          console.log('🔍 Possíveis motivos:')
+          console.log('   - Todos os operadores estão inativos')
+          console.log('   - Você é o único operador deste manager')
+          console.log('   - Problema na configuração do manager_id')
+        }
+      } else {
+        const errorText = await response.text()
+        console.error('❌ Erro ao carregar operadores:', response.status, errorText)
+        console.log('🔍 Headers da requisição:', {
+          'Authorization': authToken ? 'Bearer [PRESENTE]' : 'NÃO ENCONTRADO',
+          'Content-Type': 'application/json'
+        })
       }
     } catch (error) {
       console.error('❌ Erro ao carregar operadores:', error)
+      if (error instanceof Error) {
+        console.error('📝 Detalhes do erro:', error.message)
+        console.error('📍 Stack trace:', error.stack)
+      }
     }
   }
 
@@ -1435,110 +1519,165 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
     }
   }
 
-  // Função para carregar mensagens de um chat específico
-  const loadChatMessages = async (chatId: string) => {
+  // Função para carregar mensagens de um chat específico com tratamento de erros robusto
+  const loadChatMessages = async (chatId: string, forceReload = false) => {
+    // Evitar múltiplas requisições simultâneas para o mesmo chat
+    if (isLoadingMessages && !forceReload) {
+      console.log('🔄 Já carregando mensagens, ignorando nova requisição')
+      return
+    }
+
     try {
+      setIsLoadingMessages(true)
+      setLoadingError(null)
+      
       const authToken = localStorage.getItem('authToken')
       if (!authToken) {
         console.error('❌ Token de autenticação não encontrado')
+        setLoadingError('Token de autenticação não encontrado')
         return
       }
 
-      console.log(`🔍 Carregando mensagens do chat ${chatId}...`)
-      console.log(`🔍 URL da requisição: /api/messages/human-chats/${chatId}/messages`)
+      console.log(`🔍 Carregando mensagens do chat ${chatId}... (tentativa ${retryCount + 1})`)
       
       // Encontrar o chat para obter o contactId
       const currentChat = humanChats.find(chat => chat.id === chatId)
       if (!currentChat) {
         console.error('❌ Chat não encontrado localmente:', chatId)
+        setLoadingError('Chat não encontrado')
         return
       }
 
+      // Limpar mensagens antes de carregar novas (evita tela em branco)
+      if (forceReload) {
+        setHumanChats(chats => 
+          chats.map(chat => 
+            chat.id === chatId 
+              ? { ...chat, messages: [] }
+              : chat
+          )
+        )
+      }
+
       // Usar API correta de mensagens por chat humano - carregar TODAS as mensagens
-      const response = await fetch(`/api/messages/human-chats/${chatId}/messages?include_all=true&limit=1000`, {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // Timeout de 10s
+
+      const response = await fetch(`/api/messages/human-chats/${chatId}/messages?include_all=true&limit=1000&t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       })
 
+      clearTimeout(timeoutId)
       console.log(`🔍 Status da resposta: ${response.status}`)
 
       if (response.ok) {
         const data = await response.json()
         console.log('✅ Dados recebidos da API:', data)
-        console.log('✅ Mensagens carregadas do chat:', data.messages)
-        console.log('✅ Número de mensagens:', data.messages?.length || 0)
         
         if (!data.messages || !Array.isArray(data.messages)) {
           console.error('❌ Formato de resposta inválido - messages não é array')
+          setLoadingError('Formato de resposta inválido')
           return
         }
         
-                 // Converter mensagens para formato do frontend
-         const convertedMessages = data.messages.map((msg: any) => {
-           console.log('🔄 Convertendo mensagem do banco:', msg)
-           // Garantir que a data seja válida
-           const messageDate = msg.created_at ? new Date(msg.created_at) : new Date()
-           const validDate = isNaN(messageDate.getTime()) ? new Date() : messageDate
-           
-           const baseMessage = {
-             id: msg.id.toString(),
-             from: msg.sender_type === 'contact' ? `${currentChat.contactNumber}@c.us` : msg.sender_type,
-             to: msg.sender_type === 'contact' ? 'operator' : `${currentChat.contactNumber}@c.us`,
-             body: msg.content || '',
-             timestamp: validDate,
-             isFromBot: msg.sender_type === 'bot',
-             isFromHuman: msg.sender_type === 'operator',
-             // Dados de mídia se existirem - MAPEAMENTO COMPLETO DOS CAMPOS
-             message_type: msg.message_type, // Campo original do banco
-             messageType: msg.message_type, // Para compatibilidade
-             media_url: msg.media_url, // URL da mídia
-             fileUrl: msg.media_url, // Para compatibilidade
-             media_name: msg.media_name, // Nome original do arquivo
-             fileName: msg.media_name || msg.fileName, // Para compatibilidade
-             media_size: msg.media_size, // Tamanho do arquivo
-             fileSize: msg.media_size || msg.fileSize, // Para compatibilidade
-             media_type: msg.media_type, // MIME type
-             mimeType: msg.media_type || msg.mimeType, // Para compatibilidade
-             hasMedia: !!msg.media_url && msg.message_type !== 'text'
-           }
-           
-           console.log('🔄 Mensagem base criada:', {
-             id: baseMessage.id,
-             messageType: baseMessage.message_type,
-             fileUrl: baseMessage.media_url,
-             fileName: baseMessage.media_name,
-             mimeType: baseMessage.media_type
-           })
-           
-           return detectMessageType(baseMessage)
-         })
+        // Converter mensagens para formato do frontend
+        const convertedMessages = data.messages.map((msg: any) => {
+          // Garantir que a data seja válida
+          const messageDate = msg.created_at ? new Date(msg.created_at) : new Date()
+          const validDate = isNaN(messageDate.getTime()) ? new Date() : messageDate
+          
+          const baseMessage = {
+            id: msg.id.toString(),
+            from: msg.sender_type === 'contact' ? `${currentChat.contactNumber}@c.us` : msg.sender_type,
+            to: msg.sender_type === 'contact' ? 'operator' : `${currentChat.contactNumber}@c.us`,
+            body: msg.content || '',
+            timestamp: validDate,
+            isFromBot: msg.sender_type === 'bot',
+            isFromHuman: msg.sender_type === 'operator',
+            // Dados de mídia se existirem - MAPEAMENTO COMPLETO DOS CAMPOS
+            message_type: msg.message_type,
+            messageType: msg.message_type,
+            media_url: msg.media_url,
+            fileUrl: msg.media_url,
+            media_name: msg.media_name,
+            fileName: msg.media_name || msg.fileName,
+            media_size: msg.media_size,
+            fileSize: msg.media_size || msg.fileSize,
+            media_type: msg.media_type,
+            mimeType: msg.media_type || msg.mimeType,
+            hasMedia: !!msg.media_url && msg.message_type !== 'text'
+          }
+          
+          return detectMessageType(baseMessage)
+        })
         
-        console.log('✅ Mensagens convertidas:', convertedMessages)
+        console.log('✅ Mensagens convertidas:', convertedMessages.length)
         
-        // Atualizar o chat com as mensagens - SEMPRE sobrescrever com histórico completo
+        // Atualizar o chat com as mensagens de forma atômica
         setHumanChats(chats => {
           const updatedChats = chats.map(chat => 
             chat.id === chatId 
               ? { 
                   ...chat, 
-                  messages: convertedMessages, // Sobrescrever completamente as mensagens
-                  hasNewMessage: false, // Marcar como lida ao carregar
-                  unreadCount: 0 // Reset contador
+                  messages: convertedMessages,
+                  hasNewMessage: false,
+                  unreadCount: 0
                 }
               : chat
           )
-          console.log('✅ Estado atualizado com histórico completo - chat encontrado:', updatedChats.find(c => c.id === chatId))
+          
+          // Verificar se a atualização foi bem-sucedida
+          const updatedChat = updatedChats.find(c => c.id === chatId)
+          if (updatedChat) {
+            console.log(`✅ Chat ${chatId} atualizado com ${updatedChat.messages.length} mensagens`)
+          }
+          
           return updatedChats
         })
         
+        setRetryCount(0) // Reset contador de tentativas
         console.log(`✅ ${convertedMessages.length} mensagens carregadas para chat ${chatId}`)
       } else {
-        console.error('❌ Erro ao carregar mensagens do chat:', response.statusText)
+        const errorText = await response.text()
+        console.error('❌ Erro ao carregar mensagens do chat:', response.status, errorText)
+        setLoadingError(`Erro ${response.status}: ${errorText}`)
+        
+        // Retry automático em caso de erro (até 3 tentativas)
+        if (retryCount < 2) {
+          console.log(`🔄 Tentativa ${retryCount + 1} falhou, tentando novamente em 2s...`)
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1)
+            loadChatMessages(chatId, true)
+          }, 2000)
+        }
       }
     } catch (error) {
       console.error('❌ Erro ao carregar mensagens do chat:', error)
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          setLoadingError('Timeout ao carregar mensagens')
+        } else {
+          setLoadingError(`Erro: ${error.message}`)
+        }
+      } else {
+        setLoadingError('Erro desconhecido ao carregar mensagens')
+      }
+      
+      // Retry automático em caso de erro de rede
+      if (retryCount < 2) {
+        console.log(`🔄 Erro na tentativa ${retryCount + 1}, tentando novamente em 3s...`)
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1)
+          loadChatMessages(chatId, true)
+        }, 3000)
+      }
+    } finally {
+      setIsLoadingMessages(false)
     }
   }
 
@@ -1682,6 +1821,10 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
   // Carregar mensagens quando um chat é selecionado
   useEffect(() => {
     if (selectedChat) {
+      // Reset estados de erro e loading
+      setLoadingError(null)
+      setRetryCount(0)
+      
       const currentChat = humanChats.find(chat => chat.id === selectedChat)
       console.log(`🔍 Debug useEffect - selectedChat: ${selectedChat}`)
       console.log(`🔍 Debug useEffect - currentChat:`, currentChat)
@@ -1689,17 +1832,28 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
       
       if (currentChat) {
         console.log(`🔍 Carregando histórico para chat ${selectedChat}...`)
-        loadChatMessages(selectedChat)
+        
+        // Forçar carregamento das mensagens sempre que selecionar um chat
+        loadChatMessages(selectedChat, true)
         
         // Mostrar modal de assumir se a conversa estiver pendente e não atribuída
         if (currentChat.status === 'pending' && !currentChat.assignedOperator && !dismissedTakeModals.has(selectedChat)) {
           setTimeout(() => {
             setShowTakeChatModal(selectedChat)
-          }, 500) // Pequeno delay para melhor UX
+          }, 500)
         }
+      } else {
+        console.warn(`⚠️ Chat ${selectedChat} não encontrado na lista local`)
+        // Se o chat não foi encontrado, tentar recarregar a lista de chats
+        loadChatsFromDatabase()
       }
+    } else {
+      // Limpar estados quando nenhum chat está selecionado
+      setLoadingError(null)
+      setRetryCount(0)
+      setIsLoadingMessages(false)
     }
-  }, [selectedChat])
+  }, [selectedChat, humanChats.length]) // Adicionar humanChats.length como dependência
 
   // Auto-focus no campo de mensagem quando uma conversa é selecionada
   useEffect(() => {
@@ -2824,7 +2978,77 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
 
                 <div className="chat-messages">
                   <div className="messages-content">
-                                         {currentChat.messages.map(message => {
+                    {/* Loading indicator */}
+                    {isLoadingMessages && (
+                      <div className="loading-messages" style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: '2rem',
+                        color: '#6b7280',
+                        fontSize: '0.875rem'
+                      }}>
+                        <Loader className="animate-spin" size={20} style={{ marginRight: '0.5rem' }} />
+                        Carregando mensagens...
+                      </div>
+                    )}
+                    
+                    {/* Error message */}
+                    {loadingError && !isLoadingMessages && (
+                      <div className="error-messages" style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: '2rem',
+                        color: '#dc2626',
+                        fontSize: '0.875rem',
+                        textAlign: 'center'
+                      }}>
+                        <AlertCircle size={24} style={{ marginBottom: '0.5rem' }} />
+                        <div style={{ marginBottom: '1rem' }}>
+                          Erro ao carregar mensagens: {loadingError}
+                        </div>
+                        <button 
+                          onClick={() => selectedChat && loadChatMessages(selectedChat, true)}
+                          style={{
+                            background: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '0.5rem 1rem',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          🔄 Tentar Novamente
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Messages */}
+                    {!isLoadingMessages && !loadingError && currentChat.messages.length === 0 && (
+                      <div className="no-messages" style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: '3rem 2rem',
+                        color: '#9ca3af',
+                        fontSize: '0.875rem',
+                        textAlign: 'center'
+                      }}>
+                        <MessageCircle size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                          Nenhuma mensagem ainda
+                        </div>
+                        <div>
+                          Esta conversa ainda não tem mensagens. Comece digitando uma mensagem abaixo.
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!isLoadingMessages && !loadingError && currentChat.messages.map(message => {
                        // Debug da renderização de mensagens
                        console.log('🎨 Renderizando mensagem:', {
                          id: message.id,
@@ -3172,58 +3396,142 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
             </div>
             
             <div className="modal-body">
-              <div className="form-group">
-                <label>Operador de Destino:</label>
-                {operators.length > 0 ? (
-                  <select
-                    value={transferOperator}
-                    onChange={(e) => setTransferOperator(e.target.value)}
-                    style={{
-                      padding: '0.75rem',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      fontSize: '0.875rem',
-                      color: '#2d3748',
-                      background: 'white',
-                      width: '100%'
-                    }}
-                  >
-                    <option value="">Selecione um operador...</option>
-                    {operators.map(operator => (
-                      <option key={operator.id} value={operator.name}>
-                        {operator.name} ({operator.email})
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div style={{
-                    padding: '0.75rem',
-                    border: '1px solid #fed7d7',
-                    borderRadius: '8px',
-                    backgroundColor: '#fef5e7',
-                    color: '#c53030',
-                    fontSize: '0.875rem',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{ marginBottom: '0.5rem' }}>
-                      ⚠️ Nenhum operador cadastrado disponível para transferência
+              {(() => {
+                const currentChat = humanChats.find(chat => chat.id === showTransferModal)
+                return (
+                  <>
+                    {/* Informações do chat atual */}
+                    {currentChat && (
+                      <div className="transfer-chat-info" style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        padding: '1rem',
+                        marginBottom: '1.5rem'
+                      }}>
+                        <h4 style={{ margin: '0 0 0.5rem 0', color: '#2d3748' }}>
+                          📞 {currentChat.contactName}
+                        </h4>
+                        <p style={{ margin: '0', color: '#718096', fontSize: '0.875rem' }}>
+                          {currentChat.contactNumber} • Status: {getStatusText(currentChat.status)}
+                        </p>
+                        {currentChat.messages.length > 0 && (
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#a0aec0' }}>
+                            Última mensagem: {currentChat.messages[currentChat.messages.length - 1]?.body.substring(0, 80)}...
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label style={{ 
+                        display: 'block', 
+                        marginBottom: '0.5rem', 
+                        fontWeight: 'bold', 
+                        color: '#2d3748' 
+                      }}>
+                        👤 Transferir para:
+                      </label>
+                      {operators.length > 0 ? (
+                        <select
+                          value={transferOperator}
+                          onChange={(e) => setTransferOperator(e.target.value)}
+                          style={{
+                            padding: '0.75rem',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            color: '#2d3748',
+                            background: 'white',
+                            width: '100%',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="">🔽 Selecione um operador...</option>
+                          {operators.map(operator => (
+                            <option key={operator.id} value={operator.id}>
+                              👤 {operator.name} ({operator.email})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div style={{
+                          padding: '1rem',
+                          border: '1px solid #fed7d7',
+                          borderRadius: '8px',
+                          backgroundColor: '#fef5e7',
+                          color: '#c53030',
+                          fontSize: '0.875rem',
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ marginBottom: '0.5rem', fontSize: '1rem' }}>
+                            ⚠️ Nenhum operador disponível
+                          </div>
+                          <div style={{ color: '#975a16', fontSize: '0.8rem' }}>
+                            Não há outros operadores cadastrados neste gerenciador para transferência.
+                          </div>
+                          <small style={{ color: '#975a16', display: 'block', marginTop: '0.5rem' }}>
+                            Entre em contato com o administrador para cadastrar mais operadores.
+                          </small>
+                        </div>
+                      )}
                     </div>
-                    <small style={{ color: '#975a16' }}>
-                      Entre em contato com o administrador para cadastrar operadores
-                    </small>
-                  </div>
-                )}
-              </div>
-              
-              <div className="form-group">
-                <label>Motivo da Transferência:</label>
-                <textarea
-                  value={transferReason}
-                  onChange={(e) => setTransferReason(e.target.value)}
-                  placeholder="Descreva o motivo da transferência..."
-                  rows={3}
-                />
-              </div>
+                    
+                    <div className="form-group">
+                      <label style={{ 
+                        display: 'block', 
+                        marginBottom: '0.5rem', 
+                        fontWeight: 'bold', 
+                        color: '#2d3748' 
+                      }}>
+                        📝 Motivo da Transferência:
+                      </label>
+                      <textarea
+                        value={transferReason}
+                        onChange={(e) => setTransferReason(e.target.value)}
+                        placeholder="Ex: Cliente precisa de atendimento especializado, caso complexo, necessita aprovação de supervisor..."
+                        rows={3}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          fontSize: '0.875rem',
+                          resize: 'vertical',
+                          fontFamily: 'inherit'
+                        }}
+                      />
+                      <div style={{ 
+                        fontSize: '0.75rem', 
+                        color: '#a0aec0', 
+                        marginTop: '0.25rem' 
+                      }}>
+                        {transferReason.length}/500 caracteres
+                      </div>
+                    </div>
+
+                    {/* Preview da transferência */}
+                    {transferOperator && operators.length > 0 && (
+                      <div style={{
+                        background: '#edf2f7',
+                        border: '1px solid #cbd5e0',
+                        borderRadius: '8px',
+                        padding: '0.75rem',
+                        marginTop: '1rem'
+                      }}>
+                        <div style={{ fontSize: '0.875rem', color: '#4a5568' }}>
+                          <strong>📋 Resumo da Transferência:</strong>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#718096', marginTop: '0.5rem' }}>
+                          <div>📞 <strong>Cliente:</strong> {currentChat?.contactName}</div>
+                          <div>👤 <strong>Para:</strong> {operators.find(op => op.id.toString() === transferOperator)?.name}</div>
+                          <div>📝 <strong>Motivo:</strong> {transferReason || 'Não informado'}</div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
             
             <div className="modal-footer">
@@ -3241,15 +3549,18 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                 className="btn-confirm"
                 onClick={async () => {
                   if (transferOperator.trim() && showTransferModal && operators.length > 0) {
-                    // Encontrar o operador selecionado pelo nome
-                    const selectedOperator = operators.find(op => op.name === transferOperator)
+                    // O transferOperator agora contém o ID do operador
+                    const operatorId = parseInt(transferOperator)
+                    const selectedOperator = operators.find(op => op.id === operatorId)
                     
-                    if (selectedOperator) {
-                      // Usar a nova API de transferência
+                    if (selectedOperator && !isNaN(operatorId)) {
+                      console.log(`🔄 Transferindo para operador: ${selectedOperator.name} (ID: ${operatorId})`)
+                      
+                      // Usar a API de transferência
                       const success = await handleTransferChat(
                         showTransferModal, 
-                        selectedOperator.id, 
-                        transferReason
+                        operatorId, 
+                        transferReason || 'Transferência solicitada pelo operador'
                       )
                       
                       if (success) {
@@ -3258,22 +3569,30 @@ function HumanChat({ socket, onUnreadCountChange }: HumanChatProps) {
                         setTransferOperator('')
                         setTransferReason('')
                         setSelectedChat(null)
+                        
+                        // Mostrar confirmação
+                        alert(`✅ Conversa transferida para ${selectedOperator.name} com sucesso!`)
                       }
                     } else {
-                      alert('Operador não encontrado')
+                      console.error('❌ Operador não encontrado:', transferOperator)
+                      alert('Erro: Operador selecionado não encontrado')
                     }
                   } else if (operators.length === 0) {
                     alert('Não há operadores disponíveis para transferência')
+                  } else {
+                    alert('Por favor, selecione um operador para transferir')
                   }
                 }}
                 disabled={!transferOperator.trim() || operators.length === 0}
                 style={{
                   opacity: (!transferOperator.trim() || operators.length === 0) ? 0.5 : 1,
-                  cursor: (!transferOperator.trim() || operators.length === 0) ? 'not-allowed' : 'pointer'
+                  cursor: (!transferOperator.trim() || operators.length === 0) ? 'not-allowed' : 'pointer',
+                  background: (!transferOperator.trim() || operators.length === 0) ? '#9ca3af' : '#10b981',
+                  borderColor: (!transferOperator.trim() || operators.length === 0) ? '#9ca3af' : '#10b981'
                 }}
               >
                 <ArrowRightLeft size={16} />
-                {operators.length === 0 ? 'Sem Operadores' : 'Transferir'}
+                {operators.length === 0 ? 'Sem Operadores' : transferOperator ? 'Confirmar Transferência' : 'Selecione um Operador'}
               </button>
             </div>
           </div>

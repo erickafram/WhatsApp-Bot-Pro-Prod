@@ -567,8 +567,12 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
             }
             
             if (connection === 'close') {
-                const shouldReconnect = (lastDisconnect?.error as any)?.output?.statusCode !== DisconnectReason.loggedOut;
-                console.log(`❌ Conexão fechada para gestor ${managerId} devido a:`, lastDisconnect?.error, ', reconectando:', shouldReconnect);
+                const disconnectReason = (lastDisconnect?.error as any)?.output?.statusCode;
+                const isLoggedOut = disconnectReason === DisconnectReason.loggedOut;
+                const isConflict = disconnectReason === 401; // Stream Errored (conflict)
+                
+                console.log(`❌ Conexão fechada para gestor ${managerId} devido a:`, lastDisconnect?.error);
+                console.log(`🔍 Disconnect reason: ${disconnectReason}, isLoggedOut: ${isLoggedOut}, isConflict: ${isConflict}`);
                 
                 instanceData.isReady = false;
                 
@@ -594,14 +598,41 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
                     console.error('❌ Erro ao atualizar status de desconexão no banco:', dbError);
                 }
                 
-                 if (shouldReconnect) {
-                     // 🚨 CONTROLE DE RECONEXÃO PARA PRODUÇÃO
-                     const maxReconnectAttempts = 3;
+                // MELHORAR LÓGICA DE RECONEXÃO
+                let shouldReconnect = false;
+                
+                if (isLoggedOut) {
+                    console.log(`❌ Usuário foi deslogado - não tentará reconectar automaticamente`);
+                    shouldReconnect = false;
+                } else if (isConflict) {
+                    console.log(`⚠️ Erro de conflito detectado - tentará reconectar (pode ser temporário)`);
+                    shouldReconnect = true;
+                } else {
+                    console.log(`🔄 Erro de conexão genérico - tentará reconectar`);
+                    shouldReconnect = true;
+                }
+                
+                if (shouldReconnect) {
+                     // 🚨 CONTROLE DE RECONEXÃO MELHORADO
+                     const maxReconnectAttempts = isConflict ? 5 : 3; // Mais tentativas para conflitos
                      let reconnectAttempts = instanceData.reconnectAttempts || 0;
                      
                      if (reconnectAttempts >= maxReconnectAttempts) {
                          console.log(`❌ Máximo de tentativas de reconexão atingido (${maxReconnectAttempts}) para gestor ${managerId}`);
-                         console.log(`💡 Para reconectar, limpe as sessões e reinicie manualmente`);
+                         
+                         if (isConflict) {
+                             console.log(`💡 Erro de conflito persistente - limpando sessões e tentando uma última vez`);
+                             // Para conflitos, limpar sessões e tentar uma vez mais
+                             await cleanupAuthSessions(managerId, instanceId);
+                             instanceData.reconnectAttempts = 0; // Reset contador
+                             
+                             setTimeout(() => {
+                                 console.log(`🔄 Última tentativa após limpeza de sessões para gestor ${managerId}`);
+                                 initializeWhatsAppClientBaileys(managerId, instanceId);
+                             }, 15000); // Aguardar 15 segundos
+                             
+                             return;
+                         }
                          
                          // Remover instância para evitar loop infinito
                          whatsappInstances.delete(managerId);
@@ -620,17 +651,25 @@ async function initializeWhatsAppClientBaileys(managerId: number, instanceId: nu
                      // Incrementar contador de tentativas
                      instanceData.reconnectAttempts = reconnectAttempts + 1;
                      
-                     // Aumentar delay progressivamente para evitar rate limiting
-                     const baseDelay = 10000; // 10 segundos base
-                     const reconnectDelay = Math.min(60000, baseDelay * Math.pow(2, reconnectAttempts)); // Exponential backoff até 60s
+                     // Delays diferentes baseados no tipo de erro
+                     let reconnectDelay;
+                     if (isConflict) {
+                         // Para conflitos, delay menor mas progressivo
+                         reconnectDelay = Math.min(30000, 5000 * reconnectAttempts); 
+                     } else {
+                         // Para outros erros, delay exponencial
+                         const baseDelay = 10000;
+                         reconnectDelay = Math.min(60000, baseDelay * Math.pow(2, reconnectAttempts));
+                     }
                      
                      console.log(`🔄 Tentativa ${reconnectAttempts + 1}/${maxReconnectAttempts} - Reconectando em ${Math.round(reconnectDelay/1000)}s...`);
+                     console.log(`🔍 Tipo de erro: ${isConflict ? 'Conflito' : 'Genérico'}`);
                      
                      setTimeout(() => {
                          initializeWhatsAppClientBaileys(managerId, instanceId);
                      }, reconnectDelay);
                  } else {
-                     console.log(`❌ Não reconectando - usuário foi deslogado`);
+                     console.log(`❌ Não reconectando - usuário foi deslogado ou erro permanente`);
                      // Limpar instância quando usuário foi deslogado
                      whatsappInstances.delete(managerId);
                  }
@@ -1222,6 +1261,13 @@ async function processMessageBaileys(msg: WAMessage, managerId: number, instance
             return; // 🚨 NÃO PROCESSAR MENSAGENS AUTOMÁTICAS - BOT DESATIVADO
         }
         
+        // ✅ VERIFICAR SE INSTÂNCIA ESTÁ CONECTADA ANTES DE PROCESSAR
+        if (!instanceData.sock || !instanceData.isReady) {
+            console.log(`❌ Instância WhatsApp não está conectada para gestor ${managerId} - não é possível enviar resposta`);
+            console.log(`📱 Status da instância: ${instanceData.isReady ? 'Ready' : 'Not Ready'}`);
+            return; // Sair se não estiver conectado
+        }
+
         // 🔄 PROCESSAR MENSAGEM VIA FLUXO JSON (NOVA ARQUITETURA GENÉRICA)
         let messageProcessed = false;
         
@@ -1249,7 +1295,7 @@ async function processMessageBaileys(msg: WAMessage, managerId: number, instance
                         let response = flowResult.response.replace(/{name}/g, name);
                         response = response.replace(/{operatorName}/g, 'operador');
                         
-                        if (instanceData.sock && instanceData.isReady && response.trim()) {
+                        if (response.trim()) {
                             // Adicionar pequeno delay inicial para parecer mais natural
                             await delay(500);
                             
@@ -1303,10 +1349,37 @@ async function processMessageBaileys(msg: WAMessage, managerId: number, instance
                 messageProcessed = false; // Continuar para mensagem padrão
         }
         
-        // 🔄 SE NÃO FOI PROCESSADO, USAR APENAS O FALLBACK-AUTO DO JSON
+        // 🔄 SE NÃO FOI PROCESSADO, GARANTIR RESPOSTA DE BOAS-VINDAS PARA NOVOS USUÁRIOS
         if (!messageProcessed) {
-            console.log(`❓ Mensagem não processada - Sistema totalmente dependente do JSON agora`);
-            console.log(`⚠️ Certifique-se de que o fluxo JSON tem um nó 'fallback-auto' configurado!`);
+            console.log(`❓ Mensagem não processada por nenhum nó específico - enviando resposta de emergência`);
+            
+            try {
+                // Resposta de emergência para garantir que sempre responda
+                const name = msg.pushName ? msg.pushName.split(" ")[0] : 'amigo';
+                const emergencyResponse = `Oi ${name}! 😊 Tudo bem? \n\nSou da *Kleiber Passagens Tocantins* e estou aqui pra te ajudar! \n\nO que você precisa hoje?\n\n*1* - 🎫 Quero comprar uma passagem\n*2* - 🕐 Ver os horários dos ônibus\n*3* - 📦 Enviar encomendas ou cargas\n*4* - 🚐 Turismo e locação de veículos\n*5* - 🚌 Atendimento Real Expresso\n*6* - 👨‍💼 Falar diretamente com um operador\n\nÉ só digitar o número da opção que te interessa! 👍`;
+                
+                // Marcar como lido
+                await markMessageAsRead(instanceData.sock, msg);
+                
+                // Simular digitação
+                await simulateTyping(instanceData.sock, sender, emergencyResponse);
+                
+                // Enviar resposta de emergência
+                await instanceData.sock.sendMessage(sender, { text: emergencyResponse });
+                console.log(`✅ Resposta de EMERGÊNCIA enviada para garantir que ${sender} receba resposta`);
+                
+                // Salvar resposta no banco
+                await saveBotMessage(emergencyResponse, managerId, dbContact, activeChat);
+                
+                messageProcessed = true;
+                
+            } catch (emergencyError) {
+                console.error('❌ Erro ao enviar resposta de emergência:', emergencyError);
+            }
+        }
+        
+        if (!messageProcessed) {
+            console.log(`⚠️ CRÍTICO: Nenhuma resposta foi enviada para ${sender} - Verificar configuração do fluxo JSON`);
         }
         
     } catch (error) {
@@ -2161,6 +2234,54 @@ app.post('/api/whatsapp/cleanup-sessions/:managerId', authenticate, async (req, 
     }
 });
 
+// ===== SISTEMA DE MONITORAMENTO DE INSTÂNCIAS =====
+
+// Função para verificar se as instâncias estão funcionando e reconectá-las se necessário
+function monitorInstances() {
+    console.log('🔍 Verificando status das instâncias WhatsApp...');
+    
+    whatsappInstances.forEach(async (instance, managerId) => {
+        if (!instance.isReady && instance.sock) {
+            const timeSinceStart = Date.now() - instance.startTime.getTime();
+            const fiveMinutes = 5 * 60 * 1000;
+            
+            // Se a instância não está pronta há mais de 5 minutos, tentar reconectar
+            if (timeSinceStart > fiveMinutes) {
+                console.log(`⚠️ Instância do gestor ${managerId} não está pronta há ${Math.round(timeSinceStart/1000)}s - forçando reconexão`);
+                
+                try {
+                    // Buscar instância no banco
+                    const instances = await WhatsAppInstanceModel.findByManagerId(managerId);
+                    if (instances.length > 0) {
+                        const instanceId = instances[0].id;
+                        
+                        // Desconectar atual
+                        try {
+                            await instance.sock.logout();
+                        } catch (e) {
+                            // Ignorar erros de logout
+                        }
+                        
+                        // Remover da lista
+                        whatsappInstances.delete(managerId);
+                        
+                        // Reconectar
+                        setTimeout(() => {
+                            console.log(`🔄 Reiniciando instância para gestor ${managerId}...`);
+                            initializeWhatsAppClientBaileys(managerId, instanceId);
+                        }, 2000);
+                    }
+                } catch (error) {
+                    console.error(`❌ Erro ao forçar reconexão para gestor ${managerId}:`, error);
+                }
+            }
+        }
+    });
+}
+
+// Executar monitoramento a cada 10 minutos
+setInterval(monitorInstances, 10 * 60 * 1000);
+
 // ===== INICIALIZAÇÃO DO SERVIDOR =====
 
 const PORT = process.env.PORT || 3001;
@@ -2174,7 +2295,11 @@ async function startServer() {
         console.log(`📡 Servidor rodando na porta ${PORT}`);
         console.log(`🌐 Acesse: http://localhost:${PORT}`);
         console.log('📱 WhatsApp Bot com Baileys pronto!');
+        console.log('🔍 Sistema de monitoramento ativo');
         console.log('='.repeat(50) + '\n');
+        
+        // Executar primeira verificação após 2 minutos
+        setTimeout(monitorInstances, 2 * 60 * 1000);
     });
 }
 

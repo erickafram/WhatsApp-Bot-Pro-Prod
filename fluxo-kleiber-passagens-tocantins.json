@@ -107,7 +107,7 @@
         "title": "Opção 0 - Menu Principal",
         "priority": 3,
         "triggers": ["0"],
-        "response": "🚌 Olá! {name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊",
+        "response": "🚌 Olá! {name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n*6* - 👨‍💼 Falar diretamente com um operador\n\nDigite o número da opção desejada! 😊",
         "active": 1,
         "stop_processing": true
       },
@@ -174,7 +174,7 @@
         "priority": 10,
         "triggers": ["2"],
         "post_closure_only": true,
-        "response": "🚌 Olá! {name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\nDigite o número da opção desejada! 😊",
+        "response": "🚌 Olá! {name} Bem-vindo à *Kleiber Passagens/ Tocantins*! \n\nComo posso ajudá-lo hoje?\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n*6* - 👨‍💼 Falar diretamente com um operador\n\nDigite o número da opção desejada! 😊",
         "active": 1,
         "action": "reset_chat_status",
         "stop_processing": true
@@ -227,6 +227,7 @@
       },
       "data": {
         "title": "Boas-vindas",
+        "priority": 5,
         "triggers": [
           "oi",
           "olá",
@@ -256,9 +257,16 @@
           "imagem",
           "video",
           "documento",
-          "mídia"
+          "mídia",
+          "alo",
+          "alô",
+          "hey",
+          "oii",
+          "oie",
+          "hello",
+          "hi"
         ],
-        "response": "Oi {name}! 😊 Tudo bem? \n\nSou da *Kleiber Passagens Tocantins* e estou aqui pra te ajudar! \n\nO que você precisa hoje?\n\n*1* - 🎫 Quero comprar uma passagem\n*2* - 🕐 Ver os horários dos ônibus\n*3* - 📦 Enviar encomendas ou cargas\n*4* - 🚐 Turismo e locação de veículos\n*5* - 🚌 Atendimento Real Expresso\n\nÉ só digitar o número da opção que te interessa! 👍",
+        "response": "Oi {name}! 😊 Tudo bem? \n\nSou da *Kleiber Passagens Tocantins* e estou aqui pra te ajudar! \n\nO que você precisa hoje?\n\n*1* - 🎫 Quero comprar uma passagem\n*2* - 🕐 Ver os horários dos ônibus\n*3* - 📦 Enviar encomendas ou cargas\n*4* - 🚐 Turismo e locação de veículos\n*5* - 🚌 Atendimento Real Expresso\n*6* - 👨‍💼 Falar diretamente com um operador\n\nÉ só digitar o número da opção que te interessa! 👍",
         "active": 1
       },
       "connections": [
@@ -267,6 +275,7 @@
         "option-3-packages",
         "option-4-tourism",
         "option-5-real-expresso",
+        "option-6-direct-operator",
         "fallback-auto"
       ]
     },
@@ -324,7 +333,7 @@
           "hora",
           "saida"
         ],
-        "response": "🕐 *HORÁRIOS DE SAÍDA - KLEIBER PASSAGENS*\n\n📋 *Principais Rotas e Horários:*\n\n🌅 *MANHÃ*\n• 06:45 - PALMAS X ALVORADA\n• 07:00 - PALMAS X PAU D'ARCO\n• 09:00 - PALMAS X ITACAJÁ\n• 11:00 - PALMAS X PALMEIRÓPOLIS\n\n🌞 *TARDE*\n• 18:00 - PALMAS X BURITI\n\n🌙 *NOITE*\n• 19:00 - PALMAS X GOIÂNIA\n• 19:15 - PALMAS X GOIÂNIA\n• 19:30 - PALMAS X GOIÂNIA\n• 19:00 - PALMAS X CANABRAVA\n• 19:00 - PALMAS X BRASÍLIA\n• 20:30 - PALMAS X IMPERATRIZ\n\n*Horários sujeitos a alterações*\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n\n*0* - 🏠 Menu Principal",
+        "response": "🕐 *HORÁRIOS DE SAÍDA - KLEIBER PASSAGENS*\n\n📋 *Principais Rotas e Horários:*\n\n🌅 *MANHÃ*\n• 06:45 - PALMAS X ALVORADA\n• 07:00 - PALMAS X PAU D'ARCO\n• 09:00 - PALMAS X ITACAJÁ\n• 11:00 - PALMAS X PALMEIRÓPOLIS\n\n🌞 *TARDE*\n• 18:00 - PALMAS X BURITI\n\n🌙 *NOITE*\n• 19:00 - PALMAS X GOIÂNIA\n• 19:15 - PALMAS X GOIÂNIA\n• 19:30 - PALMAS X GOIÂNIA\n• 19:00 - PALMAS X CANABRAVA\n• 19:00 - PALMAS X BRASÍLIA\n• 20:30 - PALMAS X IMPERATRIZ\n\n*Horários sujeitos a alterações*\n\n*1* - 🎫 Comprar Passagem\n*2* - 🕐 Ver Horários\n*3* - 📦 Encomendas e Cargas\n*4* - 🚐 Turismo/Locação\n*5* - 🚌 Atendimento Real Expresso\n*6* - 👨‍💼 Falar diretamente com um operador\n\n*0* - 🏠 Menu Principal",
         "active": 1
       },
       "connections": [
@@ -349,7 +358,7 @@
           "envio",
           "remessa"
         ],
-        "response": "📦 *ENCOMENDAS E CARGAS*\n\nPara envio de encomendas e cargas, entre em contato diretamente:\n\n📱 *WhatsApp Especializado:*\n*(63) 99120-5348*\n\nNossos especialistas em logística irão ajudá-lo com:\n• Tarifas de envio\n• Prazos de entrega\n• Documentação necessária\n• Rastreamento de encomendas\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta-feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\n\nAos sábados:\nDas 08:00 às 12:00\n\nDomingo: Fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 📦🚌",
+        "response": "📦 *ENCOMENDAS E CARGAS*\n\nPara envio de encomendas e cargas, entre em contato diretamente:\n\n📱 *WhatsApp Especializado:*\n*(63) 99120-5348*\n\nNossos especialistas em logística irão ajudá-lo com:\n• Tarifas de envio\n• Prazos de entrega\n• Documentação necessária\n• Rastreamento de encomendas\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta-feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\n\nAos sábados:\nDas 08:00 às 12:00\n\nDomingo: Fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n*6* - 👨‍💼 Falar com um operador\n\nObrigado pela preferência! 📦🚌",
         "active": 1
       },
       "connections": [
@@ -374,7 +383,7 @@
           "excursao",
           "excursão"
         ],
-        "response": "🚐 *TURISMO E LOCAÇÃO*\n\nPara serviços de turismo e locação de veículos, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63) 98466-6184*\n\nNossos consultores oferecerão:\n• Pacotes turísticos\n• Locação de ônibus e vans\n• Fretamento para eventos\n• Excursões personalizadas\n• Transporte executivo\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta-feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\n\nAos sábados:\nDas 08:00 às 12:00\n\nDomingo: Fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n\nVenha viajar conosco! 🚐✨",
+        "response": "🚐 *TURISMO E LOCAÇÃO*\n\nPara serviços de turismo e locação de veículos, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63) 98466-6184*\n\nNossos consultores oferecerão:\n• Pacotes turísticos\n• Locação de ônibus e vans\n• Fretamento para eventos\n• Excursões personalizadas\n• Transporte executivo\n\n🕐 *Horário de Atendimento:*\nDe segunda a sexta-feira:\nDas 08:00 às 12:00\nDas 14:00 às 18:00\n\nAos sábados:\nDas 08:00 às 12:00\n\nDomingo: Fechado\n\n*0* - 🏠 Voltar ao Menu Principal\n*6* - 👨‍💼 Falar com um operador\n\nVenha viajar conosco! 🚐✨",
         "active": 1
       },
       "connections": [
@@ -396,12 +405,54 @@
           "real",
           "expresso"
         ],
-        "response": "🚌 *ATENDIMENTO REAL EXPRESSO*\n\nPara atendimento específico da Real Expresso, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63) 99240-5166*\n\nServiços Real Expresso:\n• Passagens interestaduais\n• Rotas específicas\n• Informações de horários\n• Reservas e cancelamentos\n\n🕐 *Horário de Atendimento:*\nSegunda a sexta: Das 08:00 às 19:00\n\nSábado e domingo:\nDas 08:00 às 12:00\nDas 14:00 às 19:00\n\n*0* - 🏠 Voltar ao Menu Principal\n\nObrigado pela preferência! 🚌",
+        "response": "🚌 *ATENDIMENTO REAL EXPRESSO*\n\nPara atendimento específico da Real Expresso, entre em contato:\n\n📱 *WhatsApp Especializado:*\n*(63) 99240-5166*\n\nServiços Real Expresso:\n• Passagens interestaduais\n• Rotas específicas\n• Informações de horários\n• Reservas e cancelamentos\n\n🕐 *Horário de Atendimento:*\nSegunda a sexta: Das 08:00 às 19:00\n\nSábado e domingo:\nDas 08:00 às 12:00\nDas 14:00 às 19:00\n\n*0* - 🏠 Voltar ao Menu Principal\n*6* - 👨‍💼 Falar com um operador\n\nObrigado pela preferência! 🚌",
         "active": 1
       },
       "connections": [
         "fallback-auto"
       ]
+    },
+    {
+      "id": "invalid-menu-option",
+      "type": "message",
+      "position": {
+        "x": 700,
+        "y": 500
+      },
+      "data": {
+        "title": "Opção Inválida do Menu",
+        "priority": 50,
+        "triggers": [
+          "7", "8", "9", "10",
+          "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+          "sim", "não", "nao", "ok", "certo", "beleza", "entendi", "legal", "show"
+        ],
+        "response": "❌ *Opção inválida!*\n\nPor favor, digite apenas o *número* da opção desejada:\n\n*1* - 🎫 Comprar uma passagem\n*2* - 🕐 Ver os horários dos ônibus\n*3* - 📦 Enviar encomendas ou cargas\n*4* - 🚐 Turismo e locação de veículos\n*5* - 🚌 Atendimento Real Expresso\n*6* - 👨‍💼 Falar diretamente com um operador\n\n*Digite apenas o número (1, 2, 3, 4, 5 ou 6)* 🔢",
+        "active": 1,
+        "stop_processing": true
+      },
+      "connections": []
+    },
+    {
+      "id": "option-6-direct-operator",
+      "type": "human",
+      "position": {
+        "x": 500,
+        "y": 300
+      },
+      "data": {
+        "title": "Opção 6 - Operador Direto",
+        "triggers": [
+          "6",
+          "operador direto",
+          "falar operador",
+          "atendimento direto"
+        ],
+        "response": "👨‍💼 *CONECTANDO COM OPERADOR*\n\nPerfeito! Vou te conectar diretamente com um dos nossos operadores!\n\nEm alguns instantes alguém da nossa equipe entrará em contato para te ajudar com o que você precisar.\n\nObrigado por escolher a Kleiber Passagens! 🚌✨",
+        "active": 1,
+        "stop_processing": true
+      },
+      "connections": []
     },
     {
       "id": "fallback-auto",
@@ -414,8 +465,9 @@
         "title": "Fallback Automático",
         "description": "Transfere automaticamente para operador quando não há correspondência",
         "triggers": ["*"],
-        "response": "Opa! Não consegui entender direito o que você precisa... 😅\n\nMas não se preocupa! Vou te conectar com um dos nossos atendentes que vai conseguir te ajudar melhor!\n\nSó um minutinho que alguém já vai falar com você! 👍",
-        "priority": 999
+        "response": "🤔 Hmm, não consegui entender sua opção...\n\nPor favor, escolha uma das opções do menu digitando o número:\n\n*1* - 🎫 Comprar uma passagem\n*2* - 🕐 Ver os horários dos ônibus\n*3* - 📦 Enviar encomendas ou cargas\n*4* - 🚐 Turismo e locação de veículos\n*5* - 🚌 Atendimento Real Expresso\n*6* - 👨‍💼 Falar diretamente com um operador\n\nOu se preferir, digite *6* para falar diretamente com um de nossos operadores! 😊",
+        "priority": 999,
+        "active": 1
       },
       "connections": []
     },
@@ -493,6 +545,11 @@
       "id": "option-5-real-expresso-fallback-auto",
       "source": "option-5-real-expresso",
       "target": "fallback-auto"
+    },
+    {
+      "id": "welcome-message-option-6-direct-operator",
+      "source": "welcome-message",
+      "target": "option-6-direct-operator"
     }
   ]
 }
